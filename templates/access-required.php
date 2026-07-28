@@ -1,2 +1,15 @@
-<?php defined( 'ABSPATH' ) || exit; $pages = (array) get_option( 'sa_page_map', array() ); $google_ready = SA_Google_OAuth::configured(); $redirect_to = wp_get_referer() ? wp_get_referer() : home_url( '/' ); ?>
-<main class="sa-auth-shell"><section class="sa-auth-card sa-access-card" aria-labelledby="sa-access-title"><div class="sa-brand-mark">SH</div><h1 id="sa-access-title">Join the Sabri Social Homeopathy Platform</h1><p>Public content is open to everyone. Please sign in to comment, save, follow, message or publish.</p><?php include SA_DIR . 'templates/partials/google-button.php'; ?><a class="sa-primary-button" href="<?php echo ! empty( $pages['login'] ) ? esc_url( add_query_arg( 'redirect_to', $redirect_to, get_permalink( absint( $pages['login'] ) ) ) ) : esc_url( wp_login_url( $redirect_to ) ); ?>">Log In</a><a class="sa-secondary-button" href="<?php echo ! empty( $pages['signup'] ) ? esc_url( get_permalink( absint( $pages['signup'] ) ) ) : esc_url( wp_registration_url() ); ?>">Create Account</a><a class="sa-text-link" href="<?php echo esc_url( $redirect_to ); ?>">Not Now</a></section></main>
+<?php
+defined( 'ABSPATH' ) || exit;
+$redirect_to = wp_get_referer() ? wp_get_referer() : home_url( '/' );
+$login_url   = SA_Membership_Adapter::login_url( $redirect_to );
+$signup_url  = SA_Membership_Adapter::register_url();
+?>
+<main class="sa-auth-shell"><section class="sa-auth-card sa-access-card" aria-labelledby="sa-access-title">
+	<div class="sa-brand-mark">SH</div>
+	<h1 id="sa-access-title">Verified Account Required</h1>
+	<p>Public content remains open. Membership Core sign-in is required for comments, saving, following, messaging, publishing, and personal services.</p>
+	<?php include SA_DIR . 'templates/partials/notice.php'; ?>
+	<a class="sa-primary-button" href="<?php echo esc_url( $login_url ); ?>">Secure Log In</a>
+	<a class="sa-secondary-button" href="<?php echo esc_url( $signup_url ); ?>">Create Verified Account</a>
+	<a class="sa-text-link" href="<?php echo esc_url( $redirect_to ); ?>">Not Now</a>
+</section></main>

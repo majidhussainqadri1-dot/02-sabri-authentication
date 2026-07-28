@@ -2,35 +2,39 @@
 
 ## Current state
 
-**Exact File 02 source baseline imported — independent audit pending**
+**File 02 v0.2.0 corrective source prepared — automated QA and independent review required**
 
-## Complete
+## Corrected
 
-- Original archive identified and hashed.
-- ZIP integrity test passed locally.
-- Exact 21-file source inventory generated.
-- Exact per-file sizes and SHA-256 hashes recorded.
-- Extracted source imported without the ZIP archive.
-- Local PHP syntax lint passed for all 18 PHP files.
-- Automated baseline integrity and PHP lint workflow added.
-- Draft Pull Request created for controlled review.
+- File 00 is mandatory and exclusive membership/role/profile/verification authority.
+- File 01 runtime dependency removed.
+- Direct File 02 registration, user creation, password login, and role mutation removed.
+- Legacy login, registration, and profile routes delegate to File 00.
+- Google accounts require nonce-protected, explicit same-email linking to an approved Membership Core account.
+- Google link and login require Membership Core TOTP or recovery code.
+- Legacy Google associations cannot authenticate until explicitly re-linked.
+- Google link metadata is consistent; linking is concurrency-locked; unlink is protected by 2FA and revokes other sessions.
+- Atomic database-backed fixed-window rate limiting, fixed-window fallback, and per-user 2FA limits added.
+- File 02 privacy export and erasure cover Google data, legacy `_sa_*` data, and the legacy WordPress biography.
+- All File 02 and private File 00 account pages use noindex/noarchive/no-store/private, no-referrer, frame, content-type, and permissions controls.
+- Idempotent page ownership validation and fail-closed dependency behavior added, including privacy headers when the dependency is unavailable.
+- Corrective source inventory, checksums, lock, architecture test, no-network security unit tests, full-repository secret scanning, and pinned CI prepared.
 
-## Not complete
+## Still required
 
-- Security and OAuth threat-model review.
-- Authentication and account-recovery review.
-- Authorization, role, and capability review.
-- Privacy and personal-data review.
-- Google OAuth configuration and redirect validation.
-- WordPress runtime testing.
-- Compatibility review with File 00, File 01, File 03, and File 20.
-- Staging installation and regression testing.
+- GitHub corrective workflow success.
+- Independent code review.
+- WordPress staging activation and database-upgrade test.
+- File 00/File 20 integration test.
+- Google Cloud OAuth consent and callback test.
+- Browser tests for link, login, 2FA, recovery code, unlink, logout, password reset, headers, and privacy tools.
+- Security and privacy acceptance.
 - Production approval.
 
 ## Authorization
 
-- Baseline custody candidate: **Yes**
-- Development candidate: **No**
+- Corrective development candidate: **Pending CI**
 - Staging candidate: **No**
 - Production release: **No**
 - Live installation authorized: **No**
+- Merge authorized: **No**
