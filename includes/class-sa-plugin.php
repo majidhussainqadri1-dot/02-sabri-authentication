@@ -145,7 +145,7 @@ final class SA_Plugin {
 
 	private function signed_in_card() {
 		$user = wp_get_current_user();
-		return '<div class="sa-auth-shell"><div class="sa-auth-card sa-signed-in"><h2>' . esc_html__( 'You are signed in', 'sabri-authentication' ) . '</h2><p>' . esc_html( $user->display_name ) . '</p><a class="sa-primary-button" href="' . esc_url( SA_Membership_Adapter::profile_url() ) . '">Membership Profile</a><a class="sa-secondary-button" href="' . esc_url( SA_Security::page_url( 'google_account' ) ) . '">Google Account Security</a><a class="sa-text-link" href="' . esc_url( wp_logout_url( home_url( '/' ) ) . '">Log Out</a></div></div>';
+		return '<div class="sa-auth-shell"><div class="sa-auth-card sa-signed-in"><h2>' . esc_html__( 'You are signed in', 'sabri-authentication' ) . '</h2><p>' . esc_html( $user->display_name ) . '</p><a class="sa-primary-button" href="' . esc_url( SA_Membership_Adapter::profile_url() ) . '">Membership Profile</a><a class="sa-secondary-button" href="' . esc_url( SA_Security::page_url( 'google_account' ) ) . '">Google Account Security</a><a class="sa-text-link" href="' . esc_url( wp_logout_url( home_url( '/' ) ) ) . '">Log Out</a></div></div>';
 	}
 
 	private function template( $name, array $vars ) {
