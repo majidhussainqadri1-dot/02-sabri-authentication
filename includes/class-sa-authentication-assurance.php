@@ -87,22 +87,22 @@ final class SA_Authentication_Assurance {
 		}
 
 		$receipt = array(
-			'contract'              => self::CONTRACT_NAME,
-			'contract_version'      => self::CONTRACT_VERSION,
-			'provider_contract'     => (string) $provider['contract'],
-			'provider_version'      => (string) $provider['contract_version'],
-			'producer_version'      => defined( 'SA_VERSION' ) ? SA_VERSION : '',
-			'subject_uuid'          => (string) $provider['subject_uuid'],
-			'purpose'               => $purpose,
-			'scope_hash'            => $scope_hash,
-			'provider_scope_hash'   => (string) $provider['scope_hash'],
-			'method'                => sanitize_key( $provider['method'] ),
-			'assurance_level'       => 'aal2',
-			'verified_at'           => (string) $provider['verified_at'],
-			'expires_at'            => gmdate( 'c', time() + self::ttl_for_purpose( $purpose ) ),
-			'trace_id'              => $trace,
-			'fingerprint'           => SA_Security::client_fingerprint(),
-			'session_binding'       => '',
+			'contract'            => self::CONTRACT_NAME,
+			'contract_version'    => self::CONTRACT_VERSION,
+			'provider_contract'   => (string) $provider['contract'],
+			'provider_version'    => (string) $provider['contract_version'],
+			'producer_version'    => defined( 'SA_VERSION' ) ? SA_VERSION : '',
+			'subject_uuid'        => (string) $provider['subject_uuid'],
+			'purpose'             => $purpose,
+			'scope_hash'          => $scope_hash,
+			'provider_scope_hash' => (string) $provider['scope_hash'],
+			'method'              => sanitize_key( $provider['method'] ),
+			'assurance_level'     => 'aal2',
+			'verified_at'         => (string) $provider['verified_at'],
+			'expires_at'          => gmdate( 'c', time() + self::ttl_for_purpose( $purpose ) ),
+			'trace_id'            => $trace,
+			'fingerprint'         => SA_Security::client_fingerprint(),
+			'session_binding'     => '',
 		);
 
 		$token = self::current_subject_session_token( $user_id );
@@ -182,7 +182,10 @@ final class SA_Authentication_Assurance {
 		$keys = is_array( $keys ) ? array_values( array_unique( array_filter( array_map( 'sanitize_key', $keys ) ) ) ) : array();
 		foreach ( $keys as $key ) {
 			$receipt = get_transient( $key );
-			if ( ! is_array( $receipt ) || ! hash_equals( (string) ( $receipt['fingerprint'] ?? '' ), SA_Security::client_fingerprint() ) || self::expired( $receipt['expires_at'] ?? '' ) ) {
+			if ( ! is_array( $receipt )
+				|| ! hash_equals( (string) ( $receipt['fingerprint'] ?? '' ), SA_Security::client_fingerprint() )
+				|| self::expired( $receipt['expires_at'] ?? '' )
+				|| ! self::subject_matches( $user_id, $receipt['subject_uuid'] ?? '', $receipt['purpose'] ?? '' ) ) {
 				delete_transient( $key );
 				continue;
 			}
@@ -214,12 +217,17 @@ final class SA_Authentication_Assurance {
 			&& class_exists( 'SMC_CF01_Contract' )
 			&& defined( 'SMC_CF01_CONTRACT_VERSION' )
 			&& version_compare( (string) SMC_CF01_CONTRACT_VERSION, self::PROVIDER_VERSION, '>=' )
-			&& is_callable( array( 'SMC_CF01_Contract', 'verify_step_up' ) );
+			&& is_callable( array( 'SMC_CF01_Contract', 'verify_step_up' ) )
+			&& is_callable( array( 'SMC_CF01_Contract', 'membership_assertion' ) );
 	}
 
 	private static function store_pending_receipt( $user_id, $receipt ) {
+		$ttl = min( self::PENDING_TTL, self::seconds_until( $receipt['expires_at'] ) );
+		if ( $ttl < 1 ) {
+			return false;
+		}
 		$key = self::pending_receipt_key( $user_id, $receipt['purpose'], $receipt['scope_hash'] );
-		if ( ! set_transient( $key, $receipt, min( self::PENDING_TTL, self::seconds_until( $receipt['expires_at'] ) ) ) ) {
+		if ( ! self::write_transient_verified( $key, $receipt, $ttl ) ) {
 			return false;
 		}
 		$index_key = self::pending_index_key( $user_id );
@@ -227,7 +235,11 @@ final class SA_Authentication_Assurance {
 		$keys = is_array( $keys ) ? $keys : array();
 		$keys[] = $key;
 		$keys = array_slice( array_values( array_unique( $keys ) ), -5 );
-		return (bool) set_transient( $index_key, $keys, self::PENDING_TTL );
+		if ( ! self::write_transient_verified( $index_key, $keys, self::PENDING_TTL ) ) {
+			delete_transient( $key );
+			return false;
+		}
+		return true;
 	}
 
 	private static function store_session_receipt( $user_id, $token, $receipt ) {
@@ -235,7 +247,7 @@ final class SA_Authentication_Assurance {
 		$receipt['session_binding'] = $binding;
 		$key = self::session_receipt_key( $user_id, $token, $receipt['purpose'], $receipt['scope_hash'] );
 		$ttl = self::seconds_until( $receipt['expires_at'] );
-		if ( $ttl < 1 || ! set_transient( $key, $receipt, $ttl ) ) {
+		if ( $ttl < 1 || ! self::write_transient_verified( $key, $receipt, $ttl ) ) {
 			return false;
 		}
 		$index_key = 'sa_cf01_session_index_' . substr( $binding, 0, 40 );
@@ -243,7 +255,17 @@ final class SA_Authentication_Assurance {
 		$keys = is_array( $keys ) ? $keys : array();
 		$keys[] = $key;
 		$keys = array_slice( array_values( array_unique( $keys ) ), -20 );
-		return (bool) set_transient( $index_key, $keys, max( $ttl, 60 ) );
+		if ( ! self::write_transient_verified( $index_key, $keys, max( $ttl, 60 ) ) ) {
+			delete_transient( $key );
+			return false;
+		}
+		return true;
+	}
+
+	private static function write_transient_verified( $key, $value, $ttl ) {
+		set_transient( $key, $value, max( 1, absint( $ttl ) ) );
+		$stored = get_transient( $key );
+		return false !== $stored && $stored === $value;
 	}
 
 	private static function valid_provider_result( $provider ) {
@@ -256,29 +278,50 @@ final class SA_Authentication_Assurance {
 				return false;
 			}
 		}
-		return 'smc.cf01.membership-assurance.step-up' === $provider['contract']
-			&& version_compare( (string) $provider['contract_version'], self::PROVIDER_VERSION, '>=' )
-			&& in_array( $provider['result'], array( 'allow', 'deny', 'unknown' ), true );
+		if ( 'smc.cf01.membership-assurance.step-up' !== $provider['contract']
+			|| ! version_compare( (string) $provider['contract_version'], self::PROVIDER_VERSION, '>=' )
+			|| ! in_array( $provider['result'], array( 'allow', 'deny', 'unknown' ), true ) ) {
+			return false;
+		}
+		if ( 'allow' !== $provider['result'] ) {
+			return true;
+		}
+		$verified = strtotime( (string) $provider['verified_at'] );
+		return self::valid_uuid( $provider['subject_uuid'] )
+			&& 1 === preg_match( '/^[a-f0-9]{64}$/i', (string) $provider['scope_hash'] )
+			&& in_array( $provider['method'], array( 'totp', 'recovery_code' ), true )
+			&& false !== $verified
+			&& $verified >= time() - 300
+			&& $verified <= time() + 60;
 	}
 
 	private static function valid_receipt( $receipt, $user_id, $token, $purpose, $scope_hash ) {
 		if ( ! is_array( $receipt ) || self::expired( $receipt['expires_at'] ?? '' ) ) {
 			return false;
 		}
-		if ( self::CONTRACT_NAME !== ( $receipt['contract'] ?? '' ) || self::CONTRACT_VERSION !== ( $receipt['contract_version'] ?? '' ) ) {
+		if ( self::CONTRACT_NAME !== ( $receipt['contract'] ?? '' )
+			|| self::CONTRACT_VERSION !== ( $receipt['contract_version'] ?? '' )
+			|| ! version_compare( (string) ( $receipt['provider_version'] ?? '' ), self::PROVIDER_VERSION, '>=' ) ) {
 			return false;
 		}
-		if ( ! hash_equals( (string) ( $receipt['purpose'] ?? '' ), (string) $purpose ) || ! hash_equals( (string) ( $receipt['scope_hash'] ?? '' ), (string) $scope_hash ) ) {
+		if ( ! hash_equals( (string) ( $receipt['purpose'] ?? '' ), (string) $purpose )
+			|| ! hash_equals( (string) ( $receipt['scope_hash'] ?? '' ), (string) $scope_hash )
+			|| ! hash_equals( (string) ( $receipt['fingerprint'] ?? '' ), SA_Security::client_fingerprint() ) ) {
 			return false;
 		}
 		if ( ! hash_equals( (string) ( $receipt['session_binding'] ?? '' ), self::session_binding( $token ) ) ) {
 			return false;
 		}
-		$membership = SMC_CF01_Contract::membership_assertion( $user_id, array( 'action' => 'clinical_identity_link', 'purpose' => $purpose ) );
+		return self::subject_matches( $user_id, $receipt['subject_uuid'] ?? '', $purpose );
+	}
+
+	private static function subject_matches( $user_id, $subject_uuid, $purpose ) {
+		$membership = SMC_CF01_Contract::membership_assertion( $user_id, array( 'action' => 'clinical_identity_link', 'purpose' => sanitize_key( $purpose ) ) );
 		return is_array( $membership )
 			&& in_array( $membership['result'] ?? '', array( 'allow', 'deny' ), true )
 			&& isset( $membership['subject']['platform_uuid'] )
-			&& hash_equals( (string) $receipt['subject_uuid'], (string) $membership['subject']['platform_uuid'] );
+			&& self::valid_uuid( $subject_uuid )
+			&& hash_equals( (string) $subject_uuid, (string) $membership['subject']['platform_uuid'] );
 	}
 
 	private static function current_subject_session_token( $user_id ) {
@@ -330,15 +373,15 @@ final class SA_Authentication_Assurance {
 
 	private static function ttl_for_purpose( $purpose ) {
 		$map = array(
-			'clinical_sign_in'       => 900,
-			'authentication_link'    => 300,
-			'authentication_unlink'  => 300,
-			'prescription_sign'      => 300,
-			'clinical_export'        => 300,
-			'clinical_transfer'      => 300,
-			'break_glass'            => 120,
-			'guardian_sensitive'     => 300,
-			'key_recovery'           => 120,
+			'clinical_sign_in'      => 900,
+			'authentication_link'   => 300,
+			'authentication_unlink' => 300,
+			'prescription_sign'     => 300,
+			'clinical_export'       => 300,
+			'clinical_transfer'     => 300,
+			'break_glass'           => 120,
+			'guardian_sensitive'    => 300,
+			'key_recovery'          => 120,
 		);
 		return isset( $map[ $purpose ] ) ? (int) $map[ $purpose ] : 120;
 	}
@@ -376,9 +419,13 @@ final class SA_Authentication_Assurance {
 
 	private static function trace_id( $value ) {
 		$value = strtolower( trim( (string) $value ) );
-		if ( 1 === preg_match( '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $value ) ) {
+		if ( self::valid_uuid( $value ) ) {
 			return $value;
 		}
 		return strtolower( wp_generate_uuid4() );
+	}
+
+	private static function valid_uuid( $value ) {
+		return is_string( $value ) && 1 === preg_match( '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $value );
 	}
 }
