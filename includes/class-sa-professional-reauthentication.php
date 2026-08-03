@@ -14,6 +14,10 @@ final class SA_Professional_Reauthentication {
 	const CONTRACT_VERSION = '1.0.0';
 	const AUTH_PURPOSE     = 'clinical_sign_in';
 
+	public static function init() {
+		add_action( 'clear_auth_cookie', array( __CLASS__, 'clear_current_session' ), 4 );
+	}
+
 	/**
 	 * Verify current password and record session-bound AAL2 evidence.
 	 *
@@ -61,11 +65,21 @@ final class SA_Professional_Reauthentication {
 				'trace_id' => $trace,
 			)
 		);
-		return self::from_authentication_assurance( $assurance, $scope, $trace, true );
+		$result = self::from_authentication_assurance( $assurance, $scope, $trace, true );
+		if ( 'valid' !== $result['result'] ) {
+			return $result;
+		}
+		if ( ! self::store_receipt( $user_id, $scope, $result ) ) {
+			$result['result'] = 'invalid';
+			$result['reason_code'] = 'professional_receipt_store_failed';
+			return $result;
+		}
+		do_action( 'sa_professional_reauthentication_verified', $result );
+		return $result;
 	}
 
 	/**
-	 * Return existing session-bound reauthentication evidence.
+	 * Return existing session-bound password plus AAL2 evidence.
 	 *
 	 * @param int    $user_id Current WordPress user ID.
 	 * @param string $scope Opaque review/action scope.
@@ -81,12 +95,91 @@ final class SA_Professional_Reauthentication {
 			$result['reason_code'] = 'authentication_assurance_unavailable';
 			return $result;
 		}
-		if ( ! $user_id || '' === $scope ) {
-			$result['reason_code'] = 'subject_or_scope_unavailable';
+		if ( ! $user_id || ! is_user_logged_in() || get_current_user_id() !== $user_id || '' === $scope ) {
+			$result['result'] = 'invalid';
+			$result['reason_code'] = 'current_authenticated_session_required';
 			return $result;
 		}
+		$token = (string) wp_get_session_token();
+		$key   = self::receipt_key( $user_id, $token, $scope );
+		$stored = get_transient( $key );
+		if ( ! self::valid_stored_receipt( $stored, $user_id, $token, $scope ) ) {
+			delete_transient( $key );
+			$result['result'] = 'invalid';
+			$result['reason_code'] = 'professional_receipt_missing_expired_or_mismatched';
+			return $result;
+		}
+
 		$assurance = SA_Authentication_Assurance::assertion( $user_id, self::AUTH_PURPOSE, $scope );
-		return self::from_authentication_assurance( $assurance, $scope, $trace, false );
+		$live = self::from_authentication_assurance( $assurance, $scope, $trace, false );
+		if ( 'valid' !== $live['result']
+			|| ! hash_equals( (string) $stored['subject_uuid'], (string) $live['subject_uuid'] )
+			|| ! hash_equals( (string) $stored['scope_hash'], (string) $live['scope_hash'] ) ) {
+			delete_transient( $key );
+			$result['result'] = 'invalid';
+			$result['reason_code'] = 'underlying_authentication_assurance_invalid';
+			return $result;
+		}
+		return self::public_receipt( $stored );
+	}
+
+	public static function clear_current_session() {
+		$token = (string) wp_get_session_token();
+		if ( '' === $token ) {
+			return;
+		}
+		$index_key = self::index_key( $token );
+		$keys = get_transient( $index_key );
+		if ( is_array( $keys ) ) {
+			foreach ( $keys as $key ) {
+				delete_transient( sanitize_key( $key ) );
+			}
+		}
+		delete_transient( $index_key );
+	}
+
+	private static function store_receipt( $user_id, $scope, $receipt ) {
+		$token = (string) wp_get_session_token();
+		$ttl   = self::seconds_until( isset( $receipt['expires_at'] ) ? $receipt['expires_at'] : '' );
+		if ( '' === $token || $ttl < 1 ) {
+			return false;
+		}
+		$receipt['session_binding'] = self::session_binding( $token );
+		$receipt['fingerprint'] = SA_Security::client_fingerprint();
+		$receipt['password_verified'] = true;
+		$key = self::receipt_key( $user_id, $token, $scope );
+		if ( ! self::write_transient_verified( $key, $receipt, $ttl ) ) {
+			return false;
+		}
+		$index_key = self::index_key( $token );
+		$keys = get_transient( $index_key );
+		$keys = is_array( $keys ) ? $keys : array();
+		$keys[] = $key;
+		$keys = array_slice( array_values( array_unique( $keys ) ), -20 );
+		if ( ! self::write_transient_verified( $index_key, $keys, max( $ttl, 60 ) ) ) {
+			delete_transient( $key );
+			return false;
+		}
+		return true;
+	}
+
+	private static function valid_stored_receipt( $receipt, $user_id, $token, $scope ) {
+		if ( ! is_array( $receipt )
+			|| self::CONTRACT_NAME !== ( isset( $receipt['contract'] ) ? $receipt['contract'] : '' )
+			|| self::CONTRACT_VERSION !== ( isset( $receipt['contract_version'] ) ? $receipt['contract_version'] : '' )
+			|| empty( $receipt['password_verified'] )
+			|| self::seconds_until( isset( $receipt['expires_at'] ) ? $receipt['expires_at'] : '' ) < 1 ) {
+			return false;
+		}
+		if ( ! hash_equals( (string) ( isset( $receipt['session_binding'] ) ? $receipt['session_binding'] : '' ), self::session_binding( $token ) )
+			|| ! hash_equals( (string) ( isset( $receipt['fingerprint'] ) ? $receipt['fingerprint'] : '' ), SA_Security::client_fingerprint() )
+			|| ! hash_equals( self::scope_hash( $scope ), (string) ( isset( $receipt['scope_hash'] ) ? $receipt['scope_hash'] : '' ) ) ) {
+			return false;
+		}
+		return self::valid_uuid( isset( $receipt['subject_uuid'] ) ? $receipt['subject_uuid'] : '' )
+			&& 'valid' === ( isset( $receipt['result'] ) ? $receipt['result'] : '' )
+			&& 'professional_verification_review' === ( isset( $receipt['purpose'] ) ? $receipt['purpose'] : '' )
+			&& 'aal2' === ( isset( $receipt['assurance_level'] ) ? $receipt['assurance_level'] : '' );
 	}
 
 	private static function from_authentication_assurance( $assurance, $scope, $trace, $password_verified ) {
@@ -97,7 +190,6 @@ final class SA_Professional_Reauthentication {
 			$result['reason_code'] = 'authentication_contract_invalid';
 			return $result;
 		}
-
 		$auth_result = isset( $assurance['result'] ) ? sanitize_key( $assurance['result'] ) : 'unknown';
 		if ( ! in_array( $auth_result, array( 'valid', 'invalid', 'unknown' ), true ) ) {
 			$result['reason_code'] = 'authentication_result_invalid';
@@ -115,13 +207,11 @@ final class SA_Professional_Reauthentication {
 		$result['expires_at']         = (string) ( isset( $assurance['expires_at'] ) ? $assurance['expires_at'] : '' );
 		$result['trace_id']           = (string) ( isset( $assurance['trace_id'] ) ? $assurance['trace_id'] : $trace );
 		$result['password_verified']  = (bool) $password_verified;
-		$result['authentication_purpose'] = self::AUTH_PURPOSE;
-
 		if ( 'valid' === $auth_result ) {
 			$verified = strtotime( $result['verified_at'] );
 			$expires  = strtotime( $result['expires_at'] );
 			if ( ! self::valid_uuid( $result['subject_uuid'] )
-				|| 1 !== preg_match( '/^[a-f0-9]{64}$/i', $result['scope_hash'] )
+				|| ! hash_equals( self::scope_hash( $scope ), $result['scope_hash'] )
 				|| ! in_array( $result['method'], array( 'totp', 'recovery_code' ), true )
 				|| 'aal2' !== $result['assurance_level']
 				|| false === $verified
@@ -132,11 +222,40 @@ final class SA_Professional_Reauthentication {
 				$result['reason_code'] = 'authentication_evidence_invalid';
 			}
 		}
-
-		if ( 'valid' === $result['result'] ) {
-			do_action( 'sa_professional_reauthentication_verified', $result );
-		}
 		return $result;
+	}
+
+	private static function public_receipt( $receipt ) {
+		unset( $receipt['session_binding'], $receipt['fingerprint'] );
+		return $receipt;
+	}
+
+	private static function write_transient_verified( $key, $value, $ttl ) {
+		set_transient( $key, $value, max( 1, absint( $ttl ) ) );
+		$stored = get_transient( $key );
+		return false !== $stored && $stored === $value;
+	}
+
+	private static function receipt_key( $user_id, $token, $scope ) {
+		return 'sa_prof_reauth_' . substr( hash_hmac( 'sha256', absint( $user_id ) . '|' . self::session_binding( $token ) . '|' . self::scope_hash( $scope ), wp_salt( 'nonce' ) ), 0, 40 );
+	}
+
+	private static function index_key( $token ) {
+		return 'sa_prof_reauth_index_' . substr( self::session_binding( $token ), 0, 40 );
+	}
+
+	private static function session_binding( $token ) {
+		return hash_hmac( 'sha256', (string) $token, wp_salt( 'auth' ) );
+	}
+
+	private static function scope_hash( $scope ) {
+		$scope = trim( (string) $scope );
+		return '' === $scope ? '' : hash_hmac( 'sha256', $scope, wp_salt( 'nonce' ) );
+	}
+
+	private static function seconds_until( $value ) {
+		$timestamp = strtotime( (string) $value );
+		return false === $timestamp ? 0 : max( 0, $timestamp - time() );
 	}
 
 	private static function empty_assertion( $scope, $trace ) {
@@ -147,7 +266,7 @@ final class SA_Professional_Reauthentication {
 			'purpose'                => 'professional_verification_review',
 			'authentication_purpose' => self::AUTH_PURPOSE,
 			'subject_uuid'           => '',
-			'scope_hash'             => '',
+			'scope_hash'             => self::scope_hash( $scope ),
 			'method'                 => '',
 			'assurance_level'        => '',
 			'password_verified'      => false,
