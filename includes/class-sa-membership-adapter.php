@@ -136,7 +136,10 @@ final class SA_Membership_Adapter {
 		if ( 'sa_google_verify' === $action ) {
 			$token = isset( $_REQUEST['challenge'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['challenge'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			$data  = $token && class_exists( 'SA_Google_OAuth' ) ? SA_Google_OAuth::challenge( $token ) : array();
-			$operation = isset( $data['operation'] ) && 'link' === $data['operation'] ? 'link' : 'login';
+			if ( ! $token || ! is_array( $data ) || empty( $data['user_id'] ) || absint( $data['user_id'] ) !== absint( $user_id ) || empty( $data['operation'] ) || ! in_array( $data['operation'], array( 'login', 'link' ), true ) ) {
+				return array( 'purpose' => '', 'scope' => '' );
+			}
+			$operation = (string) $data['operation'];
 			return array(
 				'purpose' => 'link' === $operation ? 'authentication_link' : 'clinical_sign_in',
 				'scope'   => 'google-' . $operation . '|' . hash( 'sha256', $token ),
@@ -144,6 +147,9 @@ final class SA_Membership_Adapter {
 		}
 		if ( 'sa_google_unlink' === $action ) {
 			$sub = (string) get_user_meta( $user_id, '_sa_google_sub', true );
+			if ( '' === $sub ) {
+				return array( 'purpose' => '', 'scope' => '' );
+			}
 			return array(
 				'purpose' => 'authentication_unlink',
 				'scope'   => 'google-unlink|' . hash( 'sha256', $sub . '|' . $user_id ),
