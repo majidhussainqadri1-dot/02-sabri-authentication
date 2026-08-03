@@ -35,6 +35,7 @@ register_activation_hook( SA_FILE, array( 'SA_Activator', 'activate' ) );
 register_deactivation_hook( SA_FILE, array( 'SA_Activator', 'deactivate' ) );
 
 function sa_start_plugin() {
+	SA_Authentication_Assurance::init();
 	$plugin = new SA_Plugin();
 	$plugin->run();
 }
