@@ -55,20 +55,21 @@ require_once SAUTH_DIR . 'includes/class-sa-access-control.php';
 require_once SAUTH_DIR . 'includes/class-sa-privacy.php';
 require_once SAUTH_DIR . 'includes/class-sauth-operations.php';
 require_once SAUTH_DIR . 'includes/class-sauth-provider-http-guard.php';
+require_once SAUTH_DIR . 'includes/class-sauth-canonical-routes.php';
 require_once SAUTH_DIR . 'includes/class-sa-plugin.php';
 
 /* Canonical class names with legacy implementation aliases. */
 foreach ( array(
-	'SA_Security'                    => 'SAUTH_Security',
-	'SA_Membership_Adapter'          => 'SAUTH_Membership_Adapter',
-	'SA_Activator'                   => 'SAUTH_Activator',
-	'SA_Registration'                => 'SAUTH_Registration',
-	'SA_Profile'                     => 'SAUTH_Profile',
-	'SA_Google_OAuth'                => 'SAUTH_Google_OAuth',
-	'SA_Access_Control'              => 'SAUTH_Access_Control',
-	'SA_Privacy'                     => 'SAUTH_Privacy',
-	'SA_Plugin'                      => 'SAUTH_Plugin',
-	'SA_Authentication_Assurance'    => 'SAUTH_Authentication_Assurance',
+	'SA_Security'                     => 'SAUTH_Security',
+	'SA_Membership_Adapter'           => 'SAUTH_Membership_Adapter',
+	'SA_Activator'                    => 'SAUTH_Activator',
+	'SA_Registration'                 => 'SAUTH_Registration',
+	'SA_Profile'                      => 'SAUTH_Profile',
+	'SA_Google_OAuth'                 => 'SAUTH_Google_OAuth',
+	'SA_Access_Control'               => 'SAUTH_Access_Control',
+	'SA_Privacy'                      => 'SAUTH_Privacy',
+	'SA_Plugin'                       => 'SAUTH_Plugin',
+	'SA_Authentication_Assurance'     => 'SAUTH_Authentication_Assurance',
 	'SA_Professional_Reauthentication'=> 'SAUTH_Professional_Reauthentication',
 ) as $legacy => $canonical ) {
 	if ( class_exists( $legacy, false ) && ! class_exists( $canonical, false ) ) {
@@ -89,6 +90,7 @@ function sauth_start_plugin() {
 	SAUTH_Session_Manager::init();
 	SAUTH_Professional_Reauthentication::init();
 	SAUTH_Google_Registration::init();
+	SAUTH_Canonical_Routes::init();
 	SAUTH_Operations::init();
 	$plugin = new SAUTH_Plugin();
 	$plugin->run();
