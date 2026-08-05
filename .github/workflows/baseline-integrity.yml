@@ -14,9 +14,9 @@ permissions:
 
 jobs:
   contract-integrity:
-    name: 0.4.0 source, architecture and public-safety integrity
+    name: 1.0.0 source, architecture and public-safety integrity
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
       - name: Checkout exact immutable head
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -25,7 +25,7 @@ jobs:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
-      - name: Verify ancestry, historical evidence and current source policy
+      - name: Verify ancestry, historical evidence and source policy
         env:
           BASELINE_COMMIT: 8ce0653b6f1de3beb6899642c4446653c40f0501
           BASELINE_LOCK_SHA256: 05f5573a59180619d1601b43f811234a9c727631628ca940960a983784892974
@@ -64,10 +64,7 @@ jobs:
               print(f'ERROR: {message}', file=sys.stderr)
               raise SystemExit(1)
 
-          all_files = sorted(
-              p for p in root.rglob('*')
-              if p.is_file() and '.git' not in p.parts
-          )
+          all_files = sorted(p for p in root.rglob('*') if p.is_file() and '.git' not in p.parts)
           forbidden_suffixes = ('.zip', '.tar', '.tgz', '.gz', '.7z', '.rar', '.env', '.pem', '.p12', '.pfx', '.key')
           forbidden = [p.as_posix() for p in all_files if p.name.lower().startswith('.env') or p.as_posix().lower().endswith(forbidden_suffixes)]
           if forbidden:
@@ -90,30 +87,33 @@ jobs:
 
           main = (root / 'sabri-authentication.php').read_text(encoding='utf-8')
           readme = (root / 'readme.txt').read_text(encoding='utf-8')
-          if 'Version: 0.4.0' not in main or "define( 'SA_VERSION', '0.4.0' );" not in main:
-              fail('plugin header or SA_VERSION is not 0.4.0')
-          if "define( 'SA_DB_VERSION', '0.4.0' );" not in main:
-              fail('SA_DB_VERSION is not 0.4.0')
-          if 'Stable tag: 0.4.0' not in readme:
-              fail('readme stable tag is not 0.4.0')
-          if "define( 'SA_ACCOUNT_CONTRACT_VERSION', '1.0.0' );" not in main:
-              fail('account orchestration contract version is missing')
-          if "define( 'SA_AUTH_EVENT_SCHEMA_VERSION', '1.0.0' );" not in main:
-              fail('authentication event schema version is missing')
-          if "define( 'SA_PROFESSIONAL_REAUTH_VERSION', '1.0.0' );" not in main:
-              fail('professional reauthentication contract version is missing')
+          if 'Version: 1.0.0' not in main or "define( 'SA_VERSION', '1.0.0' );" not in main:
+              fail('plugin header or SA_VERSION is not 1.0.0')
+          if "define( 'SA_DB_VERSION', '1.0.0' );" not in main:
+              fail('SA_DB_VERSION is not 1.0.0')
+          if 'Stable tag: 1.0.0' not in readme:
+              fail('readme stable tag is not 1.0.0')
 
           required = {
               'PLAN-TRACEABILITY.md',
+              'readme.txt',
+              'uninstall.php',
+              'tools/build-package.sh',
               'includes/class-sauth-account-contract.php',
+              'includes/class-sauth-completion-resolver.php',
               'includes/class-sauth-event-outbox.php',
               'includes/class-sauth-email-verification.php',
+              'includes/class-sauth-login-risk.php',
+              'includes/class-sauth-provider-health.php',
+              'includes/class-sauth-provider-http-guard.php',
               'includes/class-sauth-session-manager.php',
+              'includes/class-sauth-operations.php',
               'includes/class-sa-authentication-assurance.php',
               'includes/class-sa-professional-reauthentication.php',
               'templates/login.php',
               'templates/signup.php',
               'templates/reset-password.php',
+              'tests/complete-plan-unit.php',
               'tests/registration-authentication-unit.php',
               'tests/plan-harmonization-unit.php',
               'tests/cf01-assurance-unit.php',
@@ -124,7 +124,7 @@ jobs:
           present = {p.as_posix() for p in all_files}
           missing = sorted(required - present)
           if missing:
-              fail('missing 0.4.0 evidence: ' + ', '.join(missing))
+              fail('missing 1.0.0 evidence: ' + ', '.join(missing))
 
           trace = (root / 'PLAN-TRACEABILITY.md').read_text(encoding='utf-8')
           for requirement in [f'F02-FR-{n:03d}' for n in range(1, 13)]:
@@ -144,17 +144,16 @@ jobs:
               data = path.read_bytes()
               canonical.append(f"{hashlib.sha256(data).hexdigest()}  {len(data)}  {path.as_posix()}")
           tree_text = '\n'.join(canonical) + '\n'
-          print('File 02 0.4.0 dynamic source-tree SHA-256:', hashlib.sha256(tree_text.encode()).hexdigest())
+          print('File 02 1.0.0 dynamic source-tree SHA-256:', hashlib.sha256(tree_text.encode()).hexdigest())
           print('Source files:', len(source_paths))
           print('Source bytes:', sum(p.stat().st_size for p in source_paths))
-
           subprocess.run([sys.executable, 'tests/architecture-check.py'], check=True)
           PY
 
   php-lint-and-runtime:
     name: PHP ${{ matrix.php }} lint and runtime suites
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     strategy:
       fail-fast: false
       matrix:
@@ -179,7 +178,7 @@ jobs:
         run: |
           set -euo pipefail
           mapfile -t php_files < <(find . -type f -name '*.php' -not -path './.git/*' -print | sort)
-          test "${#php_files[@]}" -ge 31
+          test "${#php_files[@]}" -ge 36
           for file in "${php_files[@]}"; do
             php -l "$file"
           done
@@ -188,3 +187,44 @@ jobs:
           php tests/professional-reauthentication-unit.php
           php tests/plan-harmonization-unit.php
           php tests/registration-authentication-unit.php
+          php tests/complete-plan-unit.php
+
+  deterministic-package:
+    name: Deterministic package and clean-extract parity
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout exact immutable head
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Set up PHP from immutable action
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: none
+
+      - name: Build twice, compare and lint clean extraction
+        run: |
+          set -euo pipefail
+          export SOURCE_DATE_EPOCH=1767225600
+          bash tools/build-package.sh "$RUNNER_TEMP/build-a"
+          bash tools/build-package.sh "$RUNNER_TEMP/build-b"
+
+          archive_a="$RUNNER_TEMP/build-a/02-sabri-authentication-1.0.0-SOURCE-CANDIDATE.zip"
+          archive_b="$RUNNER_TEMP/build-b/02-sabri-authentication-1.0.0-SOURCE-CANDIDATE.zip"
+          test -f "$archive_a" && test -f "$archive_b"
+          test "$(sha256sum "$archive_a" | awk '{print $1}')" = "$(sha256sum "$archive_b" | awk '{print $1}')"
+          test "$(sha256sum "$RUNNER_TEMP/build-a/02-sabri-authentication-1.0.0-MANIFEST.json" | awk '{print $1}')" = "$(sha256sum "$RUNNER_TEMP/build-b/02-sabri-authentication-1.0.0-MANIFEST.json" | awk '{print $1}')"
+
+          unzip -q "$archive_a" -d "$RUNNER_TEMP/extract"
+          test -f "$RUNNER_TEMP/extract/02-sabri-authentication/sabri-authentication.php"
+          test -f "$RUNNER_TEMP/extract/02-sabri-authentication/PACKAGE-MANIFEST.json"
+          test "$(find "$RUNNER_TEMP/extract" -mindepth 1 -maxdepth 1 -type d | wc -l)" -eq 1
+          while IFS= read -r file; do php -l "$file"; done < <(find "$RUNNER_TEMP/extract" -type f -name '*.php' | sort)
+          ! find "$RUNNER_TEMP/extract" -type f \( -name '*.zip' -o -name '*.pem' -o -name '*.key' -o -name '.env*' \) | grep -q .
+          unzip -Z1 "$archive_a" | awk '/^\// || /(^|\/)\.\.($|\/)/ || /\\/ { bad=1 } END { exit bad ? 0 : 1 }' && { echo 'Unsafe archive path found.' >&2; exit 1; } || true
+          cat "$RUNNER_TEMP/build-a/CHECKSUMS.sha256"
