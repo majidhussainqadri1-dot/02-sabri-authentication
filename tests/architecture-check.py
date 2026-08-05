@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail-fast architecture guard for File 02 authentication assurance release."""
+"""Fail-fast architecture guard for File 02 plan-harmonization candidate."""
 from __future__ import annotations
 
 import pathlib
@@ -20,21 +20,31 @@ def fail(message: str) -> None:
 required_files = {
     "includes/class-sa-membership-adapter.php",
     "includes/class-sa-authentication-assurance.php",
+    "includes/class-sauth-account-contract.php",
+    "includes/class-sauth-event-outbox.php",
+    "includes/class-sauth-session-manager.php",
     "templates/google-account.php",
     "templates/google-verify.php",
+    "templates/reset-password.php",
 }
 missing = sorted(required_files - set(PHP))
 if missing:
-    fail("missing corrective files: " + ", ".join(missing))
+    fail("missing harmonization files: " + ", ".join(missing))
 
 main = PHP["sabri-authentication.php"]
-if "Version: 0.3.0" not in main or "define( 'SA_VERSION', '0.3.0' );" not in main:
-    fail("plugin version is not consistently 0.3.0")
+if "Version: 0.4.0" not in main or "define( 'SA_VERSION', '0.4.0' );" not in main:
+    fail("plugin version is not consistently 0.4.0")
 for marker in (
     "class-sa-security.php",
+    "class-sauth-account-contract.php",
+    "class-sauth-event-outbox.php",
+    "class-sauth-session-manager.php",
     "class-sa-authentication-assurance.php",
     "class-sa-membership-adapter.php",
-    "SA_CF01_ASSURANCE_VERSION",
+    "SA_ACCOUNT_CONTRACT_VERSION",
+    "SA_AUTH_EVENT_SCHEMA_VERSION",
+    "SAUTH_Event_Outbox::init()",
+    "SAUTH_Session_Manager::init()",
     "SA_Authentication_Assurance::init()",
 ):
     if marker not in main:
@@ -69,6 +79,51 @@ for marker in (
     if marker not in adapter:
         fail(f"Membership Core adapter is missing {marker}")
 
+account = PHP["includes/class-sauth-account-contract.php"]
+for marker in (
+    "sauth.account-orchestration",
+    "smc.authentication-account",
+    "SMC_AUTHENTICATION_CONTRACT_VERSION",
+    "register_account",
+    "mark_email_verified",
+    "get_completion_state",
+    "provider_unavailable",
+    "provider_contract_invalid",
+):
+    if marker not in account:
+        fail(f"account orchestration boundary is missing {marker}")
+for forbidden_marker in ("wp_insert_user", "wp_create_user", "add_role", "set_role"):
+    if forbidden_marker in account:
+        fail(f"account orchestration boundary contains parallel owner mutation: {forbidden_marker}")
+
+outbox = PHP["includes/class-sauth-event-outbox.php"]
+for marker in (
+    "AccountAuthenticationSucceeded.v1",
+    "AccountAuthenticationFailed.v1",
+    "EmailVerified.v1",
+    "PasswordResetCompleted.v1",
+    "AuthSessionRevoked.v1",
+    "dead_letter",
+    "trace_id",
+    "sanitize_payload",
+    "sa_auth_outbox",
+):
+    if marker not in outbox:
+        fail(f"authentication event outbox is missing {marker}")
+
+sessions = PHP["includes/class-sauth-session-manager.php"]
+for marker in (
+    "destroy_others",
+    "destroy_all",
+    "generalize_user_agent",
+    "generalize_ip",
+    "AuthSessionRevoked.v1",
+):
+    if marker not in sessions:
+        fail(f"session manager is missing {marker}")
+if "session_token' =>" in sessions or '$_COOKIE' in sessions:
+    fail("session manager may expose raw session material")
+
 assurance = PHP["includes/class-sa-authentication-assurance.php"]
 for marker in (
     "sa.cf01.authentication-assurance",
@@ -90,15 +145,23 @@ for forbidden_marker in ("wp_get_session_token() );", "'session_token' =>", "'co
         fail(f"authentication assurance may expose sensitive material: {forbidden_marker}")
 
 registration = PHP["includes/class-sa-registration.php"]
-if "SA_Membership_Adapter::register_url" not in registration or "SA_Membership_Adapter::login_url" not in registration:
-    fail("legacy login/registration routes do not delegate to Membership Core")
+for marker in (
+    "SA_Membership_Adapter::register_url",
+    "SA_Membership_Adapter::login_url",
+    "check_password_reset_key",
+    "reset_password",
+    "destroy_all",
+    "PasswordResetCompleted.v1",
+):
+    if marker not in registration:
+        fail(f"registration/recovery surface is missing {marker}")
 
 profile = PHP["includes/class-sa-profile.php"]
 if "SA_Membership_Adapter::profile_url" not in profile:
     fail("legacy profile route does not delegate to Membership Core")
 
 access = PHP["includes/class-sa-access-control.php"]
-for marker in ("privacy_hooks", "noindex", "noarchive", "nocache_headers", "no-store", "X-Robots-Tag", "Referrer-Policy: no-referrer", "X-Frame-Options"):
+for marker in ("privacy_hooks", "noindex", "noarchive", "nocache_headers", "no-store", "X-Robots-Tag", "Referrer-Policy: no-referrer", "X-Frame-Options", "sabri_auth_reset_password", "sabri_auth_sessions"):
     if marker not in access:
         fail(f"private-page response protection is missing {marker}")
 
@@ -133,9 +196,9 @@ for marker in ("sa_rate_limits", "ON DUPLICATE KEY UPDATE", "clear_rate_limit", 
         fail(f"security implementation is missing {marker}")
 
 activator = PHP["includes/class-sa-activator.php"]
-for marker in ("sa_page_map", "_sa_managed_page", "exact_shortcode_page", "known_id"):
+for marker in ("sa_page_map", "_sa_managed_page", "exact_shortcode_page", "known_id", "sa_auth_outbox", "reset-password", "account-sessions"):
     if marker not in activator:
-        fail(f"managed-page idempotency is missing {marker}")
+        fail(f"activation/schema implementation is missing {marker}")
 
 print("File 02 architecture guard passed.")
 print(f"PHP files checked: {len(PHP)}")
