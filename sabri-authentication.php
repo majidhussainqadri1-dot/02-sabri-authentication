@@ -78,6 +78,22 @@ foreach ( array(
 	}
 }
 
+/**
+ * Validate every hard dependency before File 02 creates tables, pages or
+ * options. This activation gate deliberately runs before SAUTH_Activator.
+ */
+function sauth_validate_activation_dependencies() {
+	if ( SAUTH_Membership_Adapter::plugin_active() && SAUTH_Account_Contract::provider_available() ) {
+		return;
+	}
+	deactivate_plugins( plugin_basename( SAUTH_FILE ) );
+	wp_die(
+		esc_html__( 'Sabri Authentication requires File 00 — Sabri Membership Core with smc.authentication-account 1.1.0 and the approved assurance contract. Activation stopped before File 02 changed tables, pages or options.', 'sabri-authentication' ),
+		esc_html__( 'Required File 00 contract unavailable', 'sabri-authentication' ),
+		array( 'back_link' => true )
+	);
+}
+register_activation_hook( SAUTH_FILE, 'sauth_validate_activation_dependencies' );
 register_activation_hook( SAUTH_FILE, array( 'SAUTH_Activator', 'activate' ) );
 register_deactivation_hook( SAUTH_FILE, array( 'SAUTH_Activator', 'deactivate' ) );
 
