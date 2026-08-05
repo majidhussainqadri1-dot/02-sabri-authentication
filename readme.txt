@@ -1,83 +1,84 @@
 === Sabri Authentication and Accounts ===
 Contributors: sabrihomeopathy
-Tags: authentication, google login, accounts, recovery, sessions, security
+Tags: authentication, google login, registration, accounts, recovery, sessions, security
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.1.0
 License: GPLv2 or later
 
-Authentication and account-entry orchestration for the Sabri Social Homeopathy Platform. File 00 — Sabri Membership Core remains the exclusive identity, membership, guardian, role, verification and MFA-policy authority.
+Complete authentication and account-entry orchestration for the Sabri Social Homeopathy Platform. File 00 — Sabri Membership Core remains the exclusive identity, membership, account-class, guardian, role, verification and MFA-policy authority.
 
 == Truthful release status ==
 
-Version 1.0.0 is the complete File 02 source candidate for SSH-F02-PLAN-2026-v1.0. Source completion is not the same as Hostinger staging acceptance, live deployment or operational acceptance. Those external evidence gates remain closed until the exact package, real providers, real roles, browsers/devices, backup/restore, rollback and Founder acceptance pass.
+Version 1.1.0 is the three-plan-complete source candidate for SSH-F02-PLAN-2026-v1.0, the Definitive Master Plan v3.0 and the Consolidated All-Chats Directives v2.1. Source completion and automated QA do not by themselves prove Hostinger staging acceptance, live deployment or operational acceptance.
+
+== Canonical constitution ==
+
+* Canonical repository name: `02-sabri-authentication-and-accounts`.
+* Current historical GitHub transport repository: `02-sabri-authentication`; repository rename is an owner-level GitHub administration action and does not change the package slug.
+* Package folder and WordPress slug: `02-sabri-authentication` / `sabri-authentication`.
+* Canonical PHP prefix: `SAUTH_`; pre-1.1 `SA_` classes/constants remain compatibility aliases only.
+* Canonical session route: `/account/sessions/`; the old `/account-sessions/` page redirects permanently.
 
 == Required dependency ==
 
-File 00 — Sabri Membership Core 1.2.7 or later with:
+File 00 — Sabri Membership Core 1.3.0 or later with:
 
 * `smc.cf01.membership-assurance` 1.0.0 or later; and
-* `smc.authentication-account` 1.0.0 or later.
+* `smc.authentication-account` 1.1.0 or later.
 
-If a required contract is missing, malformed or circuit-open, protected File 02 mutations fail closed without creating a parallel identity, role, guardian or verification authority. Public reading remains available.
+If a required contract is missing, malformed or circuit-open, protected mutations fail closed. Public reading remains available.
 
 == Implemented source capabilities ==
 
-* Complete registration surface with name, email, phone, password, sex/date-of-birth, address/country, identity reference, guardian reference and Terms/Privacy handoff to File 00.
-* Platform age baselines, under-18 guardian requirement, duplicate-safe idempotent registration and per-IP/per-account abuse controls.
-* Signed one-time email verification with expiry, HMAC-only token storage, canonical-email binding, resend throttle, explicit confirmation, replay/concurrency protection, cleanup and audit/event evidence.
-* Email/username and password authentication using WordPress password APIs, unknown-account dummy hashing, generic errors, rate controls and File 00 eligibility/completion rechecks.
-* New-device, new-network and recent-failure risk scoring with File 00-owned second-factor step-up, one-time challenges and fail-safe denial.
-* Loop-safe account-completion resolution with same-origin owner routes, repeated-route detection and safe fallback.
-* Hardened Google OAuth with state, nonce, PKCE, exact issuer/audience/authorized-party/time validation, minimal scopes, explicit same-email linking and no provider-based account auto-creation.
-* Opaque per-session registry with current marker, generalized device/network presentation, risk projection, individual revocation, revoke-others and sign-out-everywhere.
-* Password reset with one-time WordPress key validation and all-session revocation.
-* Session-bound authentication assurance contracts for approved clinical and professional workflows without granting native object authorization.
-* Privacy-minimized versioned authentication-event outbox with trace IDs, bounded retry, dead-letter state and secret stripping.
-* Provider circuit breakers, bounded HTTP timeouts, TLS/unsafe-URL enforcement and redacted provider-health projections.
-* Redacted System Check, Safe Mode, guarded File 02-only repair, cron/schema/route diagnostics and File 01/File 20 manifests.
-* Privacy export/erasure for Google links, email challenges, session/device projections and risk challenges; bounded security-attempt anonymization.
-* Noindex/noarchive/no-store account pages, same-origin safe redirects, encrypted Google Client Secret and atomic fixed-window rate limits.
-* Green primary identity, responsive logical CSS, keyboard focus, reduced motion and RTL-ready structure.
+* Complete email/password and Google-first registration. Google proves email ownership only; all mandatory completion fields remain required.
+* Required name, email, mobile/phone, country, city, full address, date of birth, sex, declared account type, National ID/Passport reference, guardian reference, profile-photograph completion acknowledgement, Terms, Privacy and separate Ethical Conduct consent.
+* Male 15/female 12 platform baselines, every legal minor guardian requirement and adult-only professional/institutional declarations.
+* File 00-owned account-class truth and verification; declared doctor/teacher/staff status never grants privilege.
+* Signed one-time email verification with expiry, HMAC-only token storage, canonical-email binding, resend throttle, replay/concurrency protection and audit/event evidence.
+* Password authentication using WordPress APIs, dummy hashing for unknown accounts, generic errors, rate controls and File 00 eligibility/completion rechecks.
+* Google OAuth state, nonce, PKCE, issuer/audience/authorized-party/time validation, explicit same-email linking and collision protection.
+* New-device/network/recent-failure risk scoring with File 00-owned step-up.
+* Loop-safe account-completion resolution including profile photograph, city, account type, ethical consent, phone, identity, guardian and MFA steps.
+* Opaque per-session registry, current marker, generalized device/network presentation, individual revoke, revoke others and sign out everywhere.
+* Password recovery/reset and all-session revocation.
+* Versioned privacy-minimized event outbox, provider circuit breakers, bounded HTTP controls, Safe Mode, System Check and guarded repair.
+* File 01 module manifest and File 20 route/layout manifest with the canonical nested session route.
+* Privacy export/erasure/anonymization, additive migration, non-destructive uninstall, deterministic package, manifest, checksums and SBOM.
+* Green primary identity, logical responsive CSS, keyboard focus, reduced motion and RTL-ready structure.
 
 == External acceptance gates ==
 
-* Exact compatible File 00 provider implementation and cross-repository contract tests.
-* Deterministic package, manifest, SHA-256, SBOM and clean-extract parity evidence.
-* Hostinger staging fresh install and supported upgrade with real MySQL/dbDelta behavior.
-* Real SMTP/email and Google OAuth provider testing, timeout/circuit-breaker drills and File 19 delivery integration where installed.
-* File 01 route registry, File 20 placement, active theme, LiteSpeed and File 24 assurance acceptance.
-* Real Founder/member/minor/guardian/suspended/reviewer/security-operator journeys.
-* Authorization/IDOR, privacy/retention, browser/device, RTL, keyboard/screen-reader/zoom, performance/load and provider-outage acceptance.
-* Verified database/files/keys backup restore and rollback rehearsal.
-* Two fresh final review/fix rounds on the immutable package head, Founder approval, production deployment and monitored rollback window.
+* Owner-level GitHub repository rename to the canonical repository name.
+* Compatible File 00 v1.1 account-contract branch acceptance/merge.
+* Hostinger staging fresh install, upgrades, real MySQL/dbDelta, SMTP and Google OAuth.
+* File 01/File 20/File 03/File 24/theme/LiteSpeed integration.
+* Real Founder/member/minor/guardian/suspended/security-operator journeys.
+* IDOR/CSRF/replay/race/privacy, browser/mobile/RTL/WCAG, performance/load, backup/restore and rollback acceptance.
+* Founder approval, controlled production deployment and monitored rollback window.
 
 == Security ==
 
-Passwords, reset keys, verification tokens, OAuth tokens, TOTP/recovery codes, raw session tokens, full IP addresses and provider secrets are never included in File 02 events or public diagnostics. Authentication success is not authorization: every protected action remains subject to its canonical owner's current object, field, purpose, relationship, consent, guardian, suspension and entitlement checks.
+Passwords, reset keys, verification tokens, OAuth tokens, TOTP/recovery codes, raw session tokens, full IP addresses and provider secrets are excluded from events and public diagnostics. Authentication success is never authorization.
 
 == Changelog ==
 
+= 1.1.0 =
+* Added all missing Definitive Master Plan registration fields: city, declared account type, profile-photo completion and separate Ethical Conduct consent.
+* Added secure Google-first registration with state, nonce, PKCE, exact claims validation, one-time context and duplicate-safe link finalization.
+* Added File 00 `smc.authentication-account` 1.1.0 consumer boundary.
+* Added canonical `/account/sessions/` route and legacy redirect.
+* Added canonical `SAUTH_` constants/classes with bounded backward compatibility.
+* Reconciled repository/package/route/version/status documentation and release evidence.
+* Added three-plan source guard and package artifact retention.
+
 = 1.0.0 =
 * Completed F02-FR-001 through F02-FR-012 source implementation.
-* Added complete registration, signed email verification and native password authentication.
-* Added new-device/network risk challenges and File 00 step-up orchestration.
-* Added loop-safe account completion and same-origin destination enforcement.
-* Added opaque per-session registry and individual/all session revocation.
-* Added provider circuit breakers, bounded HTTP controls and degraded UX.
-* Added redacted System Check, Safe Mode, guarded repair and File 01/File 20 manifests.
-* Completed privacy lifecycle, event outbox, migration schemas and operational controls.
-* Promoted the source/schema candidate from 0.4.0 to 1.0.0.
+* Added password registration/authentication, signed email verification, risk challenges, completion resolver, session registry, provider health and operational controls.
 
 = 0.3.0 =
-* Removed direct reads of File 00 private two-factor metadata and secrets.
-* Added session/purpose/scope-bound authentication assurance contracts.
-* Added professional reauthentication bridge and adversarial contract tests.
+* Added session/purpose/scope-bound authentication assurance and professional reauthentication bridge.
 
 = 0.2.0 =
 * Made File 00 mandatory and removed parallel role/profile ownership.
-* Hardened Google linking, privacy, rate limiting and account-page headers.
-
-= 0.1.0 =
-* Initial authentication and account foundation.
