@@ -20,24 +20,45 @@ rm -rf "$OUTPUT_DIR"
 mkdir -p "$PLUGIN_DIR"
 
 cd "$ROOT"
-mapfile -t FILES < <(
-  find . -type f \
-    -not -path './.git/*' \
-    -not -path './.github/*' \
-    -not -path './tests/*' \
-    -not -path './tools/*' \
-    -not -path './dist/*' \
-    -not -name 'BASELINE-LOCK.json' \
-    -not -name 'RELEASE-LOCK.json' \
-    -not -name 'STATUS.md' \
-    -not -name 'PLAN-TRACEABILITY.md' \
-    -print | LC_ALL=C sort
+RUNTIME_PATHS=(
+  sabri-authentication.php
+  uninstall.php
+  readme.txt
+  admin
+  assets
+  includes
+  templates
+)
+DOCUMENT_PATHS=(
+  ARCHITECTURE.md
+  CONTRACTS.md
+  DATA-DICTIONARY.md
+  MIGRATION.md
+  ROLLBACK.md
+  BACKUP-RESTORE.md
+  INCIDENT.md
+  STAGING-ACCEPTANCE.md
+  THREAT-MODEL.md
+  PRIVACY-RETENTION.md
+  CHANGELOG.md
+  SBOM.spdx.json
 )
 
-for source in "${FILES[@]}"; do
-  relative="${source#./}"
-  mkdir -p "$PLUGIN_DIR/$(dirname "$relative")"
-  cp -p "$source" "$PLUGIN_DIR/$relative"
+for path in "${RUNTIME_PATHS[@]}" "${DOCUMENT_PATHS[@]}"; do
+  if [[ ! -e "$ROOT/$path" ]]; then
+    echo "Required package path is missing: $path" >&2
+    exit 1
+  fi
+  if [[ -d "$ROOT/$path" ]]; then
+    while IFS= read -r source; do
+      relative="${source#./}"
+      mkdir -p "$PLUGIN_DIR/$(dirname "$relative")"
+      cp -p "$ROOT/$relative" "$PLUGIN_DIR/$relative"
+    done < <(find "./$path" -type f -print | LC_ALL=C sort)
+  else
+    mkdir -p "$PLUGIN_DIR/$(dirname "$path")"
+    cp -p "$ROOT/$path" "$PLUGIN_DIR/$path"
+  fi
 done
 
 python3 - "$PLUGIN_DIR" "$VERSION" "$MANIFEST" <<'PY'
@@ -66,8 +87,9 @@ manifest = {
     'file_count': len(entries),
     'files': entries,
 }
-manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n', encoding='utf-8')
-(plugin / 'PACKAGE-MANIFEST.json').write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+manifest_text = json.dumps(manifest, indent=2, sort_keys=True) + '\n'
+manifest_path.write_text(manifest_text, encoding='utf-8')
+(plugin / 'PACKAGE-MANIFEST.json').write_text(manifest_text, encoding='utf-8')
 PY
 
 find "$PACKAGE_ROOT" -exec touch -h -d "@$SOURCE_DATE_EPOCH" {} +
