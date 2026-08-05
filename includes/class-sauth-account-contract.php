@@ -57,7 +57,7 @@ final class SAUTH_Account_Contract {
 	}
 
 	/**
-	 * Notify File 00 that File 02 has completed a signed email challenge.
+	 * Notify File 00 that File 02 completed a signed email challenge.
 	 */
 	public static function mark_email_verified( $user_id, $email, array $context = array() ) {
 		if ( ! self::provider_available() ) {
@@ -77,14 +77,7 @@ final class SAUTH_Account_Contract {
 	 */
 	public static function completion_state( $user_id, array $context = array() ) {
 		if ( ! self::provider_available() ) {
-			return array(
-				'contract'         => self::CONTRACT_NAME,
-				'contract_version' => self::CONTRACT_VERSION,
-				'result'           => 'unknown',
-				'reason_code'      => 'provider_unavailable',
-				'missing_steps'    => array(),
-				'next_route'       => '',
-			);
+			return self::completion_unknown( 'provider_unavailable' );
 		}
 
 		$result = SMC_Authentication_Contract::get_completion_state(
@@ -95,50 +88,49 @@ final class SAUTH_Account_Contract {
 			|| ! self::valid_provider_header( $result )
 			|| ! isset( $result['missing_steps'], $result['next_route'] )
 			|| ! is_array( $result['missing_steps'] ) ) {
-			return array(
-				'contract'         => self::CONTRACT_NAME,
-				'contract_version' => self::CONTRACT_VERSION,
-				'result'           => 'unknown',
-				'reason_code'      => 'provider_contract_invalid',
-				'missing_steps'    => array(),
-				'next_route'       => '',
-			);
+			return self::completion_unknown( 'provider_contract_invalid' );
+		}
+
+		$missing = array_values( array_unique( array_filter( array_map( 'sanitize_key', $result['missing_steps'] ) ) ) );
+		$route   = wp_validate_redirect( (string) $result['next_route'], '' );
+		if ( ! empty( $missing ) && '' === $route ) {
+			return self::completion_unknown( 'provider_route_invalid' );
 		}
 
 		return array(
-			'contract'         => self::CONTRACT_NAME,
-			'contract_version' => self::CONTRACT_VERSION,
-			'provider_contract'=> (string) $result['contract'],
-			'provider_version' => (string) $result['contract_version'],
-			'result'           => (string) $result['result'],
-			'reason_code'      => sanitize_key( (string) $result['reason_code'] ),
-			'missing_steps'    => array_values( array_unique( array_filter( array_map( 'sanitize_key', $result['missing_steps'] ) ) ) ),
-			'next_route'       => SA_Security::safe_redirect( (string) $result['next_route'], '' ),
+			'contract'          => self::CONTRACT_NAME,
+			'contract_version'  => self::CONTRACT_VERSION,
+			'provider_contract' => (string) $result['contract'],
+			'provider_version'  => (string) $result['contract_version'],
+			'result'            => (string) $result['result'],
+			'reason_code'       => sanitize_key( (string) $result['reason_code'] ),
+			'missing_steps'     => $missing,
+			'next_route'        => (string) $route,
 		);
 	}
 
 	private static function registration_payload( array $payload ) {
 		return array(
-			'name'       => sanitize_text_field( (string) ( $payload['name'] ?? '' ) ),
-			'email'      => sanitize_email( (string) ( $payload['email'] ?? '' ) ),
-			'phone'      => sanitize_text_field( (string) ( $payload['phone'] ?? '' ) ),
-			'password'   => (string) ( $payload['password'] ?? '' ),
-			'sex'        => sanitize_key( (string) ( $payload['sex'] ?? '' ) ),
-			'date_of_birth' => sanitize_text_field( (string) ( $payload['date_of_birth'] ?? '' ) ),
-			'address'    => sanitize_textarea_field( (string) ( $payload['address'] ?? '' ) ),
-			'country'    => sanitize_text_field( (string) ( $payload['country'] ?? '' ) ),
+			'name'               => sanitize_text_field( (string) ( $payload['name'] ?? '' ) ),
+			'email'              => sanitize_email( (string) ( $payload['email'] ?? '' ) ),
+			'phone'              => sanitize_text_field( (string) ( $payload['phone'] ?? '' ) ),
+			'password'           => (string) ( $payload['password'] ?? '' ),
+			'sex'                => sanitize_key( (string) ( $payload['sex'] ?? '' ) ),
+			'date_of_birth'      => sanitize_text_field( (string) ( $payload['date_of_birth'] ?? '' ) ),
+			'address'            => sanitize_textarea_field( (string) ( $payload['address'] ?? '' ) ),
+			'country'            => sanitize_text_field( (string) ( $payload['country'] ?? '' ) ),
 			'identity_reference' => sanitize_text_field( (string) ( $payload['identity_reference'] ?? '' ) ),
 			'guardian_reference' => sanitize_text_field( (string) ( $payload['guardian_reference'] ?? '' ) ),
-			'terms_version'       => sanitize_text_field( (string) ( $payload['terms_version'] ?? '' ) ),
-			'privacy_version'     => sanitize_text_field( (string) ( $payload['privacy_version'] ?? '' ) ),
+			'terms_version'      => sanitize_text_field( (string) ( $payload['terms_version'] ?? '' ) ),
+			'privacy_version'    => sanitize_text_field( (string) ( $payload['privacy_version'] ?? '' ) ),
 		);
 	}
 
 	private static function context( array $context ) {
 		return array(
-			'purpose'     => sanitize_key( (string) ( $context['purpose'] ?? 'authentication' ) ),
-			'trace_id'    => self::trace_id( $context['trace_id'] ?? '' ),
-			'idempotency_key' => sanitize_text_field( (string) ( $context['idempotency_key'] ?? '' ) ),
+			'purpose'            => sanitize_key( (string) ( $context['purpose'] ?? 'authentication' ) ),
+			'trace_id'           => self::trace_id( $context['trace_id'] ?? '' ),
+			'idempotency_key'    => sanitize_text_field( (string) ( $context['idempotency_key'] ?? '' ) ),
 			'client_fingerprint' => SA_Security::client_fingerprint(),
 		);
 	}
@@ -148,20 +140,31 @@ final class SAUTH_Account_Contract {
 			return self::unknown( 'provider_contract_invalid' );
 		}
 
+		$operation = sanitize_key( (string) $operation );
+		if ( 'allow' === (string) $result['result'] ) {
+			$user_id = absint( $result['user_id'] ?? 0 );
+			if ( $user_id < 1 ) {
+				return self::unknown( 'provider_subject_invalid' );
+			}
+			if ( 'registration' === $operation && ! self::valid_uuid( $result['subject_uuid'] ?? '' ) ) {
+				return self::unknown( 'provider_subject_invalid' );
+			}
+		}
+
 		$output = array(
 			'contract'          => self::CONTRACT_NAME,
 			'contract_version'  => self::CONTRACT_VERSION,
 			'provider_contract' => (string) $result['contract'],
 			'provider_version'  => (string) $result['contract_version'],
-			'operation'         => sanitize_key( (string) $operation ),
+			'operation'         => $operation,
 			'result'            => (string) $result['result'],
 			'reason_code'       => sanitize_key( (string) $result['reason_code'] ),
 		);
 		if ( isset( $result['user_id'] ) ) {
 			$output['user_id'] = absint( $result['user_id'] );
 		}
-		if ( isset( $result['subject_uuid'] ) ) {
-			$output['subject_uuid'] = sanitize_text_field( (string) $result['subject_uuid'] );
+		if ( isset( $result['subject_uuid'] ) && self::valid_uuid( $result['subject_uuid'] ) ) {
+			$output['subject_uuid'] = strtolower( (string) $result['subject_uuid'] );
 		}
 		return $output;
 	}
@@ -171,6 +174,20 @@ final class SAUTH_Account_Contract {
 			&& self::PROVIDER_NAME === (string) $result['contract']
 			&& version_compare( (string) $result['contract_version'], self::PROVIDER_MIN_VERSION, '>=' )
 			&& in_array( (string) $result['result'], array( 'allow', 'deny', 'unknown' ), true );
+	}
+
+	private static function valid_uuid( $value ) {
+		return 1 === preg_match( '/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', (string) $value );
+	}
+
+	private static function completion_unknown( $reason ) {
+		return array_merge(
+			self::unknown( $reason ),
+			array(
+				'missing_steps' => array(),
+				'next_route'    => '',
+			)
+		);
 	}
 
 	private static function unknown( $reason ) {
@@ -187,6 +204,13 @@ final class SAUTH_Account_Contract {
 		if ( strlen( $candidate ) >= 16 && strlen( $candidate ) <= 64 ) {
 			return $candidate;
 		}
-		return function_exists( 'wp_generate_uuid4' ) ? wp_generate_uuid4() : bin2hex( random_bytes( 16 ) );
+		if ( function_exists( 'wp_generate_uuid4' ) ) {
+			return wp_generate_uuid4();
+		}
+		try {
+			return bin2hex( random_bytes( 16 ) );
+		} catch ( Exception $error ) {
+			return substr( hash( 'sha256', uniqid( 'sauth-trace-', true ) . '|' . microtime( true ) ), 0, 32 );
+		}
 	}
 }
