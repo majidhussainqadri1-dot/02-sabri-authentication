@@ -111,6 +111,8 @@ final class SA_Access_Control {
 			'sabri_auth_signup',
 			'sabri_auth_complete_profile',
 			'sabri_auth_forgot_password',
+			'sabri_auth_reset_password',
+			'sabri_auth_sessions',
 			'sabri_auth_access_required',
 			'sabri_auth_google_account',
 			'sabri_auth_google_verify',
