@@ -67,6 +67,7 @@ final class SA_Access_Control {
 			header( 'X-Content-Type-Options: nosniff', true );
 			header( 'X-Frame-Options: SAMEORIGIN', true );
 			header( 'Permissions-Policy: camera=(), microphone=(), geolocation=()', true );
+			header( 'Cross-Origin-Opener-Policy: same-origin', true );
 		}
 	}
 
@@ -113,6 +114,7 @@ final class SA_Access_Control {
 			'sabri_auth_login',
 			'sabri_auth_signup',
 			'sabri_auth_verify_email',
+			'sabri_auth_risk_challenge',
 			'sabri_auth_complete_profile',
 			'sabri_auth_forgot_password',
 			'sabri_auth_reset_password',
