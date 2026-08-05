@@ -37,11 +37,15 @@ final class SAUTH_Email_Verification {
 	public static function issue( $user_id, $email, $force = false ) {
 		global $wpdb;
 
-		$user_id = absint( $user_id );
-		$email   = sanitize_email( (string) $email );
-		if ( ! $user_id || ! is_email( $email ) || ! get_userdata( $user_id ) ) {
+		$user_id       = absint( $user_id );
+		$email         = sanitize_email( (string) $email );
+		$canonical_user = $user_id ? get_userdata( $user_id ) : false;
+		if ( ! $canonical_user instanceof WP_User
+			|| ! is_email( $email )
+			|| ! hash_equals( strtolower( (string) $canonical_user->user_email ), strtolower( $email ) ) ) {
 			return new WP_Error( 'sauth_email_subject_invalid', 'Email verification could not be prepared.' );
 		}
+		$email = sanitize_email( (string) $canonical_user->user_email );
 		if ( ! SAUTH_Account_Contract::provider_available() ) {
 			return new WP_Error( 'sauth_email_provider_unavailable', 'Account verification is temporarily unavailable.' );
 		}
@@ -90,7 +94,7 @@ final class SAUTH_Email_Verification {
 		$link = add_query_arg(
 			array(
 				'uid'   => $user_id,
-				'token' => rawurlencode( $token ),
+				'token' => $token,
 			),
 			SA_Security::page_url( 'email_verify', home_url( '/' ) )
 		);
@@ -172,14 +176,14 @@ final class SAUTH_Email_Verification {
 
 	public static function handle_resend() {
 		check_admin_referer( 'sauth_resend_email_verification', 'sauth_nonce' );
-		$email = isset( $_POST['email'] ) ? sanitize_email( wp_unslash( $_POST['email'] ) ) : '';
-		$key   = self::email_hash( $email );
+		$email   = isset( $_POST['email'] ) ? sanitize_email( wp_unslash( $_POST['email'] ) ) : '';
+		$key     = self::email_hash( $email );
 		$blocked = SA_Security::rate_limited( 'email_verification_resend_ip', 8, HOUR_IN_SECONDS )
 			|| SA_Security::rate_limited( 'email_verification_resend_account', 3, HOUR_IN_SECONDS, $key );
 		if ( ! $blocked && is_email( $email ) ) {
 			$user = get_user_by( 'email', $email );
 			if ( $user instanceof WP_User ) {
-				self::issue( $user->ID, $email, false );
+				self::issue( $user->ID, (string) $user->user_email, false );
 			}
 		}
 		wp_safe_redirect( SA_Security::message_url( 'email_verify', 'success', 'If an eligible account exists, a verification email will be sent. Please also check spam or junk folders.' ) );
@@ -243,7 +247,11 @@ final class SAUTH_Email_Verification {
 			array( '%s', '%s', '%s', '%s' ),
 			array( '%d', '%s' )
 		);
-		if ( false === $updated ) {
+		if ( 1 !== (int) $updated ) {
+			$current_status = (string) $wpdb->get_var( $wpdb->prepare( "SELECT status FROM {$table} WHERE user_id = %d", $user_id ) );
+			if ( 'verified' === $current_status ) {
+				return array( 'result' => 'verified', 'reason_code' => 'already_verified' );
+			}
 			return new WP_Error( 'sauth_email_completion_store_failed', 'Email verification was accepted but local completion evidence could not be stored. Contact support with the time of this attempt.' );
 		}
 
