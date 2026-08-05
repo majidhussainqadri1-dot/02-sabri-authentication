@@ -6,7 +6,7 @@
 		<p class="sa-intro">File 02 validates and orchestrates registration. File 00 remains the sole owner of identity, age and guardian eligibility, roles, verification, membership status and evidence review.</p>
 		<?php include SA_DIR . 'templates/partials/notice.php'; ?>
 		<?php if ( $account_contract_ready ) : ?>
-			<form class="sa-form sa-form-grid" method="post" action="<?php echo esc_url( $form_action ); ?>" novalidate>
+			<form class="sa-form sa-form-grid" method="post" action="<?php echo esc_url( $form_action ); ?>">
 				<input type="hidden" name="action" value="sa_register">
 				<?php wp_nonce_field( 'sa_register', 'sa_nonce' ); ?>
 				<div class="sa-honeypot" aria-hidden="true"><label>Website<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
