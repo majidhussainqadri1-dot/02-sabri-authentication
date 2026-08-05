@@ -1,0 +1,127 @@
+<?php
+/**
+ * Source-level three-plan completion guard for File 02 v1.1.0.
+ */
+
+$root = dirname( __DIR__ );
+
+function sauth_three_plan_read( $root, $path ) {
+	$file = $root . '/' . $path;
+	if ( ! is_file( $file ) ) {
+		fwrite( STDERR, "FAIL: missing {$path}\n" );
+		exit( 1 );
+	}
+	return file_get_contents( $file );
+}
+
+function sauth_three_plan_require( $text, array $markers, $label ) {
+	foreach ( $markers as $marker ) {
+		if ( false === strpos( $text, $marker ) ) {
+			fwrite( STDERR, "FAIL: {$label} missing {$marker}\n" );
+			exit( 1 );
+		}
+	}
+}
+
+$main = sauth_three_plan_read( $root, 'sabri-authentication.php' );
+sauth_three_plan_require(
+	$main,
+	array(
+		'Version: 1.1.0',
+		"define( 'SAUTH_VERSION', '1.1.0' );",
+		"define( 'SAUTH_DB_VERSION', '1.1.0' );",
+		"define( 'SAUTH_ACCOUNT_CONTRACT_VERSION', '1.1.0' );",
+		'class-sauth-google-registration.php',
+		'class-sauth-canonical-routes.php',
+		'SAUTH_Google_Registration::init()',
+		'SAUTH_Canonical_Routes::init()',
+	),
+	'bootstrap'
+);
+
+$signup = sauth_three_plan_read( $root, 'templates/signup.php' );
+sauth_three_plan_require(
+	$signup,
+	array(
+		'name="city"',
+		'name="account_type"',
+		'name="profile_photo_required"',
+		'name="accept_ethics"',
+		'name="google_registration_token"',
+		'Continue with Google',
+		'National ID',
+		'Passport',
+	),
+	'registration surface'
+);
+
+$registration = sauth_three_plan_read( $root, 'includes/class-sa-registration.php' );
+sauth_three_plan_require(
+	$registration,
+	array(
+		"'city'",
+		"'account_type'",
+		"'ethical_conduct_version'",
+		"'profile_photo_required'",
+		"'authentication_method'",
+		"'google' ===",
+		'SAUTH_Google_Registration::finalize_link',
+		'professional and institutional account declarations require an adult account',
+	),
+	'registration orchestration'
+);
+
+$consumer = sauth_three_plan_read( $root, 'includes/class-sauth-account-contract.php' );
+sauth_three_plan_require(
+	$consumer,
+	array(
+		"const CONTRACT_VERSION     = '1.1.0';",
+		"const PROVIDER_MIN_VERSION = '1.1.0';",
+		'SMC_Authentication_Contract_V11',
+		"'city'",
+		"'account_type'",
+		"'ethical_conduct_version'",
+	),
+	'File 00 consumer contract'
+);
+
+$google = sauth_three_plan_read( $root, 'includes/class-sauth-google-registration.php' );
+sauth_three_plan_require(
+	$google,
+	array(
+		'code_challenge_method',
+		"'S256'",
+		"'nonce'",
+		'hash_equals',
+		'email_verified',
+		'finalize_link',
+		'get_users',
+		'SAUTH_Provider_Health',
+	),
+	'Google-first registration'
+);
+
+$routes = sauth_three_plan_read( $root, 'includes/class-sauth-canonical-routes.php' );
+sauth_three_plan_require(
+	$routes,
+	array(
+		"'^account/sessions/?$'",
+		"'/account/sessions/'",
+		"'canonical_repository'",
+		"'02-sabri-authentication-and-accounts'",
+		"'php_prefix'",
+		"'SAUTH_'",
+	),
+	'canonical routes and naming'
+);
+
+$readme = sauth_three_plan_read( $root, 'readme.txt' );
+sauth_three_plan_require( $readme, array( 'Stable tag: 1.1.0', '/account/sessions/', 'Google-first registration', 'city', 'ethical' ), 'readme' );
+
+$status = sauth_three_plan_read( $root, 'STATUS.md' );
+sauth_three_plan_require( $status, array( 'Version 1.1.0', 'Source coding', 'Automated-QA', 'Staging-Accepted', 'Operational' ), 'status truth' );
+
+$workflow = sauth_three_plan_read( $root, '.github/workflows/baseline-integrity.yml' );
+sauth_three_plan_require( $workflow, array( 'three-plan-completion-unit.php', 'upload-artifact', '1.1.0' ), 'release workflow' );
+
+echo "File 02 three-plan completion source guard passed.\n";
