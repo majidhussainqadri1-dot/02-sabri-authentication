@@ -41,16 +41,24 @@
 				</div>
 				<div class="sa-field-full">
 					<label for="sa-address">Full address</label>
-					<textarea id="sa-address" name="address" autocomplete="street-address" required></textarea>
+					<textarea id="sa-address" name="address" autocomplete="street-address" maxlength="500" required></textarea>
 				</div>
 				<div>
-					<label for="sa-identity-reference">National ID or Passport reference</label>
-					<input id="sa-identity-reference" type="text" name="identity_reference" autocomplete="off" spellcheck="false" required>
+					<label for="sa-identity-type">Identity document type</label>
+					<select id="sa-identity-type" name="identity_type" required>
+						<option value="">Select</option>
+						<option value="national_id">National ID</option>
+						<option value="passport">Passport</option>
+					</select>
+				</div>
+				<div>
+					<label for="sa-identity-reference">Document reference</label>
+					<input id="sa-identity-reference" type="text" name="identity_reference" autocomplete="off" spellcheck="false" minlength="5" maxlength="64" required>
 					<small>Passed directly to Membership Core; File 02 does not retain it in its own profile data.</small>
 				</div>
-				<div>
+				<div class="sa-field-full">
 					<label for="sa-guardian-reference">Guardian reference, when under 18</label>
-					<input id="sa-guardian-reference" type="text" name="guardian_reference" autocomplete="off">
+					<input id="sa-guardian-reference" type="text" name="guardian_reference" autocomplete="off" maxlength="190">
 					<small>Required for every minor account; final guardian verification belongs to File 00.</small>
 				</div>
 				<div>
