@@ -8,8 +8,6 @@ defined( 'ABSPATH' ) || exit;
  * File 02 historically used `sa_*` table identifiers. Version 1.1.0 creates
  * and owns only canonical `sauth_*` tables, copies legacy rows idempotently,
  * and rewrites any retained compatibility query before it reaches MySQL.
- * This permits bounded rollback compatibility without allowing legacy tables
- * to remain an active source of truth.
  */
 final class SAUTH_Storage_Router {
 	private static $initialized = false;
@@ -29,19 +27,26 @@ final class SAUTH_Storage_Router {
 			return $query;
 		}
 		$map = array(
-			$wpdb->prefix . 'sa_rate_limits'         => SAUTH_Activator::table( 'rate_limits' ),
-			$wpdb->prefix . 'sa_auth_outbox'         => SAUTH_Activator::table( 'auth_outbox' ),
-			$wpdb->prefix . 'sa_email_verifications' => SAUTH_Activator::table( 'email_verifications' ),
-			$wpdb->prefix . 'sa_auth_sessions'       => SAUTH_Activator::table( 'auth_sessions' ),
-			$wpdb->prefix . 'sa_auth_devices'        => SAUTH_Activator::table( 'auth_devices' ),
-			$wpdb->prefix . 'sa_auth_risk_challenges'=> SAUTH_Activator::table( 'risk_challenges' ),
-			$wpdb->prefix . 'sa_auth_attempts'       => SAUTH_Activator::table( 'auth_attempts' ),
+			$wpdb->prefix . 'sa_rate_limits'          => SAUTH_Activator::table( 'rate_limits' ),
+			$wpdb->prefix . 'sa_auth_outbox'          => SAUTH_Activator::table( 'auth_outbox' ),
+			$wpdb->prefix . 'sa_email_verifications'  => SAUTH_Activator::table( 'email_verifications' ),
+			$wpdb->prefix . 'sa_auth_sessions'        => SAUTH_Activator::table( 'auth_sessions' ),
+			$wpdb->prefix . 'sa_auth_devices'         => SAUTH_Activator::table( 'auth_devices' ),
+			$wpdb->prefix . 'sa_auth_risk_challenges' => SAUTH_Activator::table( 'risk_challenges' ),
+			$wpdb->prefix . 'sa_auth_attempts'        => SAUTH_Activator::table( 'auth_attempts' ),
 		);
 		foreach ( $map as $legacy => $canonical ) {
-			if ( '' !== $canonical && $legacy !== $canonical ) {
-				$query = str_replace( '`' . $legacy . '`', '`' . $canonical . '`', $query );
-				$query = str_replace( $legacy, $canonical, $query );
+			if ( '' === $canonical || $legacy === $canonical ) {
+				continue;
 			}
+		/* Do not rewrite the source side of the explicit one-way migration. */
+			$migration = false !== strpos( $query, 'INSERT IGNORE INTO ' . $canonical )
+				&& false !== strpos( $query, ' FROM ' . $legacy );
+			if ( $migration ) {
+				continue;
+			}
+			$query = str_replace( '`' . $legacy . '`', '`' . $canonical . '`', $query );
+			$query = str_replace( $legacy, $canonical, $query );
 		}
 		return $query;
 	}
