@@ -115,6 +115,7 @@ require_markers(
         "new_network",
         "recent_failures",
         "SA_Authentication_Assurance::verify_and_record",
+        "SAUTH_Completion_Resolver::resolve",
         "step_up_verified",
         "sa_auth_risk_challenges",
         "sa_auth_devices",
@@ -181,7 +182,6 @@ require_markers(
     "includes/class-sa-registration.php",
     (
         "SAUTH_Login_Risk::complete_password_login",
-        "SAUTH_Completion_Resolver",
         "SAUTH_Provider_Health",
         "SAUTH_Account_Contract::register_account",
         "SAUTH_Email_Verification::issue",
