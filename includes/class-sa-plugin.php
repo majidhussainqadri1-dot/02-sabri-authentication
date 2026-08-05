@@ -73,12 +73,12 @@ final class SA_Plugin {
 		return $this->template(
 			'login',
 			array(
-				'google_ready'  => SA_Google_OAuth::configured(),
-				'password_ready'=> SA_Membership_Adapter::available() && SAUTH_Account_Contract::provider_available(),
-				'redirect_to'   => $redirect,
-				'form_action'    => admin_url( 'admin-post.php' ),
-				'forgot_url'     => SA_Security::page_url( 'forgot', wp_lostpassword_url() ),
-				'signup_url'     => SA_Security::page_url( 'signup', wp_registration_url() ),
+				'google_ready'   => SA_Google_OAuth::configured(),
+				'password_ready' => SA_Membership_Adapter::available() && SAUTH_Account_Contract::provider_available(),
+				'redirect_to'    => $redirect,
+				'form_action'     => admin_url( 'admin-post.php' ),
+				'forgot_url'      => SA_Security::page_url( 'forgot', wp_lostpassword_url() ),
+				'signup_url'      => SA_Security::page_url( 'signup', wp_registration_url() ),
 			)
 		);
 	}
@@ -166,8 +166,9 @@ final class SA_Plugin {
 	}
 
 	private function signed_in_card() {
-		$user = wp_get_current_user();
-		return '<div class="sa-auth-shell"><div class="sa-auth-card sa-signed-in"><h2>' . esc_html__( 'You are signed in', 'sabri-authentication' ) . '</h2><p>' . esc_html( $user->display_name ) . '</p><a class="sa-primary-button" href="' . esc_url( SA_Membership_Adapter::profile_url() ) . '">Membership Profile</a><a class="sa-secondary-button" href="' . esc_url( SA_Security::page_url( 'sessions' ) ) . '">Active Sessions</a><a class="sa-secondary-button" href="' . esc_url( SA_Security::page_url( 'google_account', SA_Membership_Adapter::profile_url() ) ) . '">Google Account Security</a><a class="sa-text-link" href="' . esc_url( wp_logout_url( home_url( '/' ) ) . '">Log Out</a></div></div>';
+		$user       = wp_get_current_user();
+		$logout_url = wp_logout_url( home_url( '/' ) );
+		return '<div class="sa-auth-shell"><div class="sa-auth-card sa-signed-in"><h2>' . esc_html__( 'You are signed in', 'sabri-authentication' ) . '</h2><p>' . esc_html( $user->display_name ) . '</p><a class="sa-primary-button" href="' . esc_url( SA_Membership_Adapter::profile_url() ) . '">Membership Profile</a><a class="sa-secondary-button" href="' . esc_url( SA_Security::page_url( 'sessions' ) ) . '">Active Sessions</a><a class="sa-secondary-button" href="' . esc_url( SA_Security::page_url( 'google_account', SA_Membership_Adapter::profile_url() ) ) . '">Google Account Security</a><a class="sa-text-link" href="' . esc_url( $logout_url ) . '">Log Out</a></div></div>';
 	}
 
 	private function template( $name, array $vars ) {
@@ -223,7 +224,7 @@ final class SA_Plugin {
 		}
 
 		$enable = ! empty( $_POST['google_enabled'] );
-		if ( $enable && ( ! SA_Membership_Adapter::available() || ! is_ssl() || '' === $client_id || '' === SA_Security::decrypt( (string) get_option( 'sa_google_client_secret', '' ) ) ) {
+		if ( $enable && ( ! SA_Membership_Adapter::available() || ! is_ssl() || '' === $client_id || '' === SA_Security::decrypt( (string) get_option( 'sa_google_client_secret', '' ) ) ) ) {
 			update_option( 'sa_google_enabled', '0', false );
 			wp_safe_redirect( add_query_arg( 'error', 'not_ready', self::settings_url() ) );
 			exit;
@@ -246,7 +247,6 @@ final class SA_Plugin {
 		if ( current_user_can( 'activate_plugins' ) ) {
 			echo '<div class="notice notice-error"><p><strong>Sabri Authentication is in safe degraded mode:</strong> File 00 — Sabri Membership Core 1.2.7 or later with the approved assurance and account-orchestration contracts is required. Public reading remains available; registration and protected sign-in actions fail closed.</p></div>';
 		}
-	}
 
 	private static function settings_url() {
 		$base = defined( 'SABRI_SHELL_VERSION' ) ? admin_url( 'admin.php' ) : admin_url( 'options-general.php' );
