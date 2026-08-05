@@ -104,14 +104,19 @@ $event = SAUTH_Event_Outbox::build_envelope(
 	array(
 		'method' => 'password',
 		'password' => 'must-not-appear',
-		'nested' => array( 'token' => 'must-not-appear', 'result' => 'success' ),
+		'password_digest' => 'must-not-appear',
+		'reset_token_hash' => 'must-not-appear',
+		'nested' => array( 'token' => 'must-not-appear', 'session_verifier_hash' => 'must-not-appear', 'result' => 'success' ),
 	),
 	'security',
 	'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee'
 );
 sauth_test_assert( ! is_wp_error( $event ), 'valid event was rejected' );
 sauth_test_assert( ! isset( $event['payload']['password'] ), 'password leaked into event payload' );
+sauth_test_assert( ! isset( $event['payload']['password_digest'] ), 'password derivative leaked into event payload' );
+sauth_test_assert( ! isset( $event['payload']['reset_token_hash'] ), 'reset-token derivative leaked into event payload' );
 sauth_test_assert( ! isset( $event['payload']['nested']['token'] ), 'nested token leaked into event payload' );
+sauth_test_assert( ! isset( $event['payload']['nested']['session_verifier_hash'] ), 'session verifier leaked into event payload' );
 sauth_test_assert( 'success' === $event['payload']['nested']['result'], 'safe nested event payload was removed' );
 sauth_test_assert( '0.4.0' === $event['producer_version'], 'producer version is not bound to event' );
 
