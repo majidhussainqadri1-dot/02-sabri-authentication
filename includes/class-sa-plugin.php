@@ -26,6 +26,7 @@ final class SA_Plugin {
 
 		add_action( 'admin_menu', array( $this, 'admin_menu' ), 30 );
 		add_action( 'admin_post_sa_save_auth_settings', array( $this, 'save_settings' ) );
+		add_action( 'admin_post_sauth_save_auth_settings', array( $this, 'save_settings' ) );
 		add_action( 'admin_notices', array( $this, 'activation_notice' ) );
 
 		add_shortcode( 'sabri_auth_login', array( $this, 'login_shortcode' ) );
@@ -53,9 +54,9 @@ final class SA_Plugin {
 		if ( ! SA_Access_Control::is_file02_page() ) {
 			return;
 		}
-		wp_enqueue_style( 'sa-authentication', SA_URL . 'assets/css/authentication.css', array(), SA_VERSION );
-		wp_enqueue_script( 'sa-authentication', SA_URL . 'assets/js/authentication.js', array(), SA_VERSION, true );
-		wp_localize_script( 'sa-authentication', 'SabriAuth', array( 'loggedIn' => is_user_logged_in(), 'loginUrl' => SA_Security::page_url( 'login', wp_login_url() ) ) );
+		wp_enqueue_style( 'sauth-authentication', SAUTH_URL . 'assets/css/authentication.css', array(), SAUTH_VERSION );
+		wp_enqueue_script( 'sauth-authentication', SAUTH_URL . 'assets/js/authentication.js', array(), SAUTH_VERSION, true );
+		wp_localize_script( 'sauth-authentication', 'SabriAuth', array( 'loggedIn' => is_user_logged_in(), 'loginUrl' => SA_Security::page_url( 'login', wp_login_url() ) ) );
 	}
 
 	public function login_shortcode() {
@@ -80,12 +81,22 @@ final class SA_Plugin {
 		if ( is_user_logged_in() ) {
 			return $this->signed_in_card();
 		}
+		$google_token   = isset( $_GET['google_registration'] ) ? sanitize_text_field( wp_unslash( $_GET['google_registration'] ) ) : '';
+		$google_context = '' !== $google_token ? SAUTH_Google_Registration::context( $google_token ) : array();
+		if ( '' !== $google_token && empty( $google_context ) ) {
+			$google_token = '';
+		}
 		return $this->template(
 			'signup',
 			array(
-				'form_action'            => admin_url( 'admin-post.php' ),
-				'login_url'              => SA_Security::page_url( 'login', wp_login_url() ),
-				'account_contract_ready' => ! SAUTH_Operations::safe_mode() && SA_Membership_Adapter::available() && SAUTH_Account_Contract::provider_available(),
+				'form_action'             => admin_url( 'admin-post.php' ),
+				'login_url'               => SA_Security::page_url( 'login', wp_login_url() ),
+				'account_contract_ready'  => ! SAUTH_Operations::safe_mode() && SA_Membership_Adapter::available() && SAUTH_Account_Contract::provider_available(),
+				'google_ready'            => SAUTH_Google_Registration::available(),
+				'google_registration_url' => SAUTH_Google_Registration::start_url(),
+				'google_token'            => $google_token,
+				'google_context'          => $google_context,
+				'account_types'           => SA_Registration::account_types(),
 			)
 		);
 	}
@@ -146,7 +157,7 @@ final class SA_Plugin {
 	}
 
 	private function template( $name, array $vars ) {
-		$path = SA_DIR . 'templates/' . sanitize_file_name( $name ) . '.php';
+		$path = SAUTH_DIR . 'templates/' . sanitize_file_name( $name ) . '.php';
 		if ( ! file_exists( $path ) ) {
 			return '';
 		}
@@ -169,7 +180,7 @@ final class SA_Plugin {
 		$dependency_ready       = SA_Membership_Adapter::available();
 		$account_contract_ready = SAUTH_Account_Contract::provider_available();
 		$legacy_roles           = SA_Membership_Adapter::legacy_role_count();
-		include SA_DIR . 'admin/account-settings.php';
+		include SAUTH_DIR . 'admin/account-settings.php';
 	}
 
 	public function save_settings() {
@@ -182,9 +193,11 @@ final class SA_Plugin {
 			wp_safe_redirect( add_query_arg( 'error', 'invalid_client_id', self::settings_url() ) );
 			exit;
 		}
+		update_option( 'sauth_google_client_id', $client_id, false );
 		update_option( 'sa_google_client_id', $client_id, false );
 
 		if ( ! empty( $_POST['clear_google_client_secret'] ) ) {
+			delete_option( 'sauth_google_client_secret' );
 			delete_option( 'sa_google_client_secret' );
 		} elseif ( isset( $_POST['google_client_secret'] ) && '' !== trim( (string) wp_unslash( $_POST['google_client_secret'] ) ) ) {
 			$secret    = trim( sanitize_text_field( wp_unslash( $_POST['google_client_secret'] ) ) );
@@ -195,15 +208,18 @@ final class SA_Plugin {
 				wp_safe_redirect( add_query_arg( 'error', 'encryption_failed', self::settings_url() ) );
 				exit;
 			}
+			update_option( 'sauth_google_client_secret', $encrypted, false );
 			update_option( 'sa_google_client_secret', $encrypted, false );
 		}
 
 		$enable = ! empty( $_POST['google_enabled'] );
-		if ( $enable && ( SAUTH_Operations::safe_mode() || ! SA_Membership_Adapter::available() || ! is_ssl() || '' === $client_id || '' === SA_Security::decrypt( (string) get_option( 'sa_google_client_secret', '' ) ) ) ) {
+		if ( $enable && ( SAUTH_Operations::safe_mode() || ! SA_Membership_Adapter::available() || ! is_ssl() || '' === $client_id || '' === SA_Security::decrypt( (string) get_option( 'sauth_google_client_secret', get_option( 'sa_google_client_secret', '' ) ) ) ) ) {
+			update_option( 'sauth_google_enabled', '0', false );
 			update_option( 'sa_google_enabled', '0', false );
 			wp_safe_redirect( add_query_arg( 'error', 'not_ready', self::settings_url() ) );
 			exit;
 		}
+		update_option( 'sauth_google_enabled', $enable ? '1' : '0', false );
 		update_option( 'sa_google_enabled', $enable ? '1' : '0', false );
 		SAUTH_Provider_Health::reset( 'google' );
 		wp_safe_redirect( add_query_arg( 'updated', '1', self::settings_url() ) );
@@ -211,16 +227,16 @@ final class SA_Plugin {
 	}
 
 	public function activation_notice() {
-		if ( ! current_user_can( 'manage_options' ) || ! get_transient( 'sa_activation_notice' ) ) {
+		if ( ! current_user_can( 'manage_options' ) || ! get_transient( 'sauth_activation_notice' ) ) {
 			return;
 		}
-		delete_transient( 'sa_activation_notice' );
-		echo '<div class="notice notice-success is-dismissible"><p><strong>Sabri Authentication 1.0.0 activated.</strong> File 00 remains the exclusive identity, membership, guardian, role, verification and MFA-policy authority. File 02 supplies authentication orchestration, risk challenge, signed email verification, session controls, event outbox and redacted operations.</p></div>';
+		delete_transient( 'sauth_activation_notice' );
+		echo '<div class="notice notice-success is-dismissible"><p><strong>Sabri Authentication and Accounts 1.1.0 activated.</strong> File 00 remains the exclusive identity, membership, account-class, guardian, role, verification and MFA-policy authority. File 02 supplies complete password and Google-first registration, authentication orchestration, risk challenge, signed email verification, session controls, event outbox and redacted operations.</p></div>';
 	}
 
 	public function dependency_notice() {
 		if ( current_user_can( 'activate_plugins' ) ) {
-			echo '<div class="notice notice-error"><p><strong>Sabri Authentication is in safe degraded mode:</strong> File 00 — Sabri Membership Core 1.2.7 or later with the approved assurance and account-orchestration contracts is required. Public reading remains available; registration and protected sign-in actions fail closed.</p></div>';
+			echo '<div class="notice notice-error"><p><strong>Sabri Authentication is in safe degraded mode:</strong> File 00 — Sabri Membership Core with the approved assurance contract and smc.authentication-account 1.1.0 is required. Public reading remains available; registration and protected sign-in actions fail closed.</p></div>';
 		}
 	}
 
