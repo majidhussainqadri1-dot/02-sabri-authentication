@@ -66,7 +66,7 @@ sauth_three_plan_require(
 		"'authentication_method'",
 		"'google' ===",
 		'SAUTH_Google_Registration::finalize_link',
-		'professional and institutional account declarations require an adult account',
+		'Professional and institutional account declarations require an adult account',
 	),
 	'registration orchestration'
 );
