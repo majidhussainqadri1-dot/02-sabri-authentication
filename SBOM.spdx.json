@@ -5,7 +5,7 @@
   "name": "Sabri Authentication and Accounts 1.1.0 SBOM",
   "documentNamespace": "https://sabrihomeopathy.com/spdx/file02-authentication-and-accounts/1.1.0/2026-08-06",
   "creationInfo": {
-    "created": "2026-08-05T22:45:00Z",
+    "created": "2026-08-05T22:58:00Z",
     "creators": [
       "Organization: Sabri Social Homeopathy Platform",
       "Person: Dr. Allama Majid Hussain Sabri",
@@ -22,7 +22,7 @@
       "name": "Sabri Authentication and Accounts",
       "versionInfo": "1.1.0",
       "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": true,
+      "filesAnalyzed": false,
       "licenseConcluded": "GPL-2.0-or-later",
       "licenseDeclared": "GPL-2.0-or-later",
       "copyrightText": "Copyright 2026 Dr. Allama Majid Hussain Sabri",
@@ -33,7 +33,8 @@
           "referenceType": "purl",
           "referenceLocator": "pkg:wordpress/sabri-authentication@1.1.0"
         }
-      ]
+      ],
+      "comment": "The deterministic package manifest supplies the complete per-file SHA-256 inventory for the immutable workflow artifact."
     },
     {
       "SPDXID": "SPDXRef-Package-WordPress",
@@ -69,32 +70,6 @@
       "supplier": "Organization: Google LLC"
     }
   ],
-  "files": [
-    {
-      "SPDXID": "SPDXRef-File-Bootstrap",
-      "fileName": "sabri-authentication.php",
-      "checksums": [],
-      "licenseConcluded": "GPL-2.0-or-later",
-      "licenseInfoInFiles": ["GPL-2.0-or-later"],
-      "copyrightText": "Copyright 2026 Dr. Allama Majid Hussain Sabri"
-    },
-    {
-      "SPDXID": "SPDXRef-File-GoogleRegistration",
-      "fileName": "includes/class-sauth-google-registration.php",
-      "checksums": [],
-      "licenseConcluded": "GPL-2.0-or-later",
-      "licenseInfoInFiles": ["NOASSERTION"],
-      "copyrightText": "Copyright 2026 Dr. Allama Majid Hussain Sabri"
-    },
-    {
-      "SPDXID": "SPDXRef-File-StorageRouter",
-      "fileName": "includes/class-sauth-storage-router.php",
-      "checksums": [],
-      "licenseConcluded": "GPL-2.0-or-later",
-      "licenseInfoInFiles": ["NOASSERTION"],
-      "copyrightText": "Copyright 2026 Dr. Allama Majid Hussain Sabri"
-    }
-  ],
   "relationships": [
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -112,32 +87,9 @@
       "relatedSpdxElement": "SPDXRef-Package-File00"
     },
     {
-      "spdxElementId": "SPDXRef-Package-File02",
+      "spdxElementId": "SPDXRef-Service-GoogleOIDC",
       "relationshipType": "OPTIONAL_DEPENDENCY_OF",
-      "relatedSpdxElement": "SPDXRef-Service-GoogleOIDC"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-File02",
-      "relationshipType": "CONTAINS",
-      "relatedSpdxElement": "SPDXRef-File-Bootstrap"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-File02",
-      "relationshipType": "CONTAINS",
-      "relatedSpdxElement": "SPDXRef-File-GoogleRegistration"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-File02",
-      "relationshipType": "CONTAINS",
-      "relatedSpdxElement": "SPDXRef-File-StorageRouter"
-    }
-  ],
-  "annotations": [
-    {
-      "annotationDate": "2026-08-05T22:45:00Z",
-      "annotationType": "OTHER",
-      "annotator": "Organization: Sabri Social Homeopathy Platform",
-      "comment": "Per-file SHA-256 values and the complete generated file inventory are emitted by the immutable deterministic package manifest. Empty checksum arrays here avoid asserting digests before the final exact-head artifact is built."
+      "relatedSpdxElement": "SPDXRef-Package-File02"
     }
   ]
 }
