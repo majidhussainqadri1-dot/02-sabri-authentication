@@ -247,6 +247,7 @@ final class SA_Plugin {
 		if ( current_user_can( 'activate_plugins' ) ) {
 			echo '<div class="notice notice-error"><p><strong>Sabri Authentication is in safe degraded mode:</strong> File 00 — Sabri Membership Core 1.2.7 or later with the approved assurance and account-orchestration contracts is required. Public reading remains available; registration and protected sign-in actions fail closed.</p></div>';
 		}
+	}
 
 	private static function settings_url() {
 		$base = defined( 'SABRI_SHELL_VERSION' ) ? admin_url( 'admin.php' ) : admin_url( 'options-general.php' );
