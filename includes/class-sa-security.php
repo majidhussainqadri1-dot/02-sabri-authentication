@@ -142,7 +142,7 @@ final class SA_Security {
 
 	public static function random_token( $bytes = 32 ) {
 		try {
-			return bin2hex( random_bytes( max( 16, absint( $bytes ) ) );
+			return bin2hex( random_bytes( max( 16, absint( $bytes ) ) ) );
 		} catch ( Exception $exception ) {
 			return wp_generate_password( 64, false, false );
 		}
