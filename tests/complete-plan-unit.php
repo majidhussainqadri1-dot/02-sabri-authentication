@@ -29,6 +29,7 @@ class WP_User { public $ID = 1; public $user_login = 'test'; }
 function absint( $value ) { return abs( (int) $value ); }
 function sanitize_key( $value ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $value ) ); }
 function sanitize_text_field( $value ) { return trim( strip_tags( (string) $value ) ); }
+function wp_unslash( $value ) { return $value; }
 function wp_salt( $scheme = 'auth' ) { return hash( 'sha256', 'file02-complete-test|' . $scheme ); }
 function home_url( $path = '/' ) { return 'https://example.test' . ( '/' === $path ? '/' : '/' . ltrim( $path, '/' ) ); }
 function wp_parse_url( $url, $component = -1 ) { return parse_url( $url, $component ); }
