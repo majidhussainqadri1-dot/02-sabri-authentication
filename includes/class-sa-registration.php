@@ -95,7 +95,7 @@ final class SA_Registration {
 		}
 
 		$started = microtime( true );
-		$result = SAUTH_Account_Contract::register_account(
+		$result  = SAUTH_Account_Contract::register_account(
 			$payload,
 			array(
 				'purpose'         => 'account_registration',
@@ -110,9 +110,9 @@ final class SA_Registration {
 		}
 		SAUTH_Provider_Health::record_success( 'membership', $latency );
 
-		$user_id = absint( $result['user_id'] );
-		SA_Membership_Adapter::audit( 'account_registration_orchestrated', $user_id, array( 'contract_version' => SA_ACCOUNT_CONTRACT_VERSION ) );
+		$user_id  = absint( $result['user_id'] );
 		$delivery = SAUTH_Email_Verification::issue( $user_id, $payload['email'], true );
+		SA_Membership_Adapter::audit( 'account_registration_orchestrated', $user_id, array( 'contract_version' => SA_ACCOUNT_CONTRACT_VERSION ) );
 		$payload['password'] = '';
 		$payload['password_confirm'] = '';
 		unset( $_POST['password'], $_POST['password_confirm'] );
@@ -133,7 +133,7 @@ final class SA_Registration {
 		$blocked = SA_Security::rate_limited( 'forgot_password_ip', 12, 1800 ) || SA_Security::rate_limited( 'forgot_password_account', 4, 1800, $subject );
 		if ( ! $blocked && '' !== $login ) {
 			$started = microtime( true );
-			$result = retrieve_password( $login );
+			$result  = retrieve_password( $login );
 			$latency = (int) round( ( microtime( true ) - $started ) * 1000 );
 			if ( is_wp_error( $result ) ) {
 				SAUTH_Provider_Health::record_failure( 'email', 'recovery_delivery_failed', $latency );
@@ -169,7 +169,7 @@ final class SA_Registration {
 
 		reset_password( $user, $password );
 		$password = '';
-		$confirm = '';
+		$confirm  = '';
 		unset( $_POST['password'], $_POST['password_confirm'] );
 		SAUTH_Session_Manager::revoke_user_sessions( $user->ID, 'password_reset' );
 		SA_Security::clear_rate_limit( 'reset_password', strtolower( $login ) );
@@ -191,6 +191,10 @@ final class SA_Registration {
 		exit;
 	}
 
+	/**
+	 * @param array<string,mixed> $input Raw request values.
+	 * @return array<string,mixed>
+	 */
 	public static function registration_input( array $input ) {
 		return array(
 			'name'               => isset( $input['name'] ) ? sanitize_text_field( wp_unslash( $input['name'] ) ) : '',
@@ -202,6 +206,7 @@ final class SA_Registration {
 			'date_of_birth'      => isset( $input['date_of_birth'] ) ? sanitize_text_field( wp_unslash( $input['date_of_birth'] ) ) : '',
 			'address'            => isset( $input['address'] ) ? sanitize_textarea_field( wp_unslash( $input['address'] ) ) : '',
 			'country'            => isset( $input['country'] ) ? sanitize_text_field( wp_unslash( $input['country'] ) ) : '',
+			'identity_type'      => isset( $input['identity_type'] ) ? sanitize_key( wp_unslash( $input['identity_type'] ) ) : '',
 			'identity_reference' => isset( $input['identity_reference'] ) ? sanitize_text_field( wp_unslash( $input['identity_reference'] ) ) : '',
 			'guardian_reference' => isset( $input['guardian_reference'] ) ? sanitize_text_field( wp_unslash( $input['guardian_reference'] ) ) : '',
 			'terms_version'      => ! empty( $input['accept_terms'] ) ? '2026-08-05' : '',
@@ -209,6 +214,9 @@ final class SA_Registration {
 		);
 	}
 
+	/**
+	 * @return true|WP_Error
+	 */
 	public static function validate_registration( array $payload ) {
 		if ( strlen( trim( (string) $payload['name'] ) ) < 2 || strlen( (string) $payload['name'] ) > 100 ) {
 			return new WP_Error( 'sauth_registration_name', 'Enter your complete name.' );
@@ -240,8 +248,11 @@ final class SA_Registration {
 		if ( '' === trim( (string) $payload['address'] ) || '' === trim( (string) $payload['country'] ) ) {
 			return new WP_Error( 'sauth_registration_address', 'Enter your address and country.' );
 		}
+		if ( ! in_array( $payload['identity_type'], array( 'national_id', 'passport' ), true ) ) {
+			return new WP_Error( 'sauth_registration_identity_type', 'Select National ID or Passport.' );
+		}
 		if ( '' === trim( (string) $payload['identity_reference'] ) ) {
-			return new WP_Error( 'sauth_registration_identity', 'Enter the National ID or Passport reference required by Membership Core.' );
+			return new WP_Error( 'sauth_registration_identity', 'Enter the selected National ID or Passport reference required by Membership Core.' );
 		}
 		if ( '' === (string) $payload['terms_version'] || '' === (string) $payload['privacy_version'] ) {
 			return new WP_Error( 'sauth_registration_consent', 'Accept the current Terms and Privacy Notice to continue.' );
@@ -250,7 +261,7 @@ final class SA_Registration {
 	}
 
 	private static function age_from_date( $date ) {
-		$birth = DateTimeImmutable::createFromFormat( '!Y-m-d', $date );
+		$birth  = DateTimeImmutable::createFromFormat( '!Y-m-d', $date );
 		$errors = DateTimeImmutable::getLastErrors();
 		if ( ! $birth || ( is_array( $errors ) && ( $errors['warning_count'] > 0 || $errors['error_count'] > 0 ) ) || $birth > new DateTimeImmutable( 'today' ) ) {
 			return null;
