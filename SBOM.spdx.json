@@ -2,70 +2,97 @@
   "SPDXID": "SPDXRef-DOCUMENT",
   "spdxVersion": "SPDX-2.3",
   "dataLicense": "CC0-1.0",
-  "name": "Sabri Authentication and Accounts 1.0.0 SBOM",
-  "documentNamespace": "https://sabrihomeopathy.com/spdx/file02-authentication/1.0.0/source-candidate",
+  "name": "Sabri Authentication and Accounts 1.1.0 SBOM",
+  "documentNamespace": "https://sabrihomeopathy.com/spdx/file02-authentication-and-accounts/1.1.0/2026-08-06",
   "creationInfo": {
-    "created": "2026-08-06T00:00:00Z",
+    "created": "2026-08-05T22:45:00Z",
     "creators": [
       "Organization: Sabri Social Homeopathy Platform",
-      "Tool: deterministic repository inventory"
-    ]
+      "Person: Dr. Allama Majid Hussain Sabri",
+      "Tool: GitHub Actions deterministic package workflow"
+    ],
+    "licenseListVersion": "3.27.0"
   },
+  "documentDescribes": [
+    "SPDXRef-Package-File02"
+  ],
   "packages": [
     {
       "SPDXID": "SPDXRef-Package-File02",
-      "name": "sabri-authentication",
-      "versionInfo": "1.0.0",
+      "name": "Sabri Authentication and Accounts",
+      "versionInfo": "1.1.0",
       "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
+      "filesAnalyzed": true,
       "licenseConcluded": "GPL-2.0-or-later",
       "licenseDeclared": "GPL-2.0-or-later",
-      "copyrightText": "NOASSERTION",
+      "copyrightText": "Copyright 2026 Dr. Allama Majid Hussain Sabri",
       "supplier": "Organization: Sabri Social Homeopathy Platform",
-      "primaryPackagePurpose": "APPLICATION",
       "externalRefs": [
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:wordpress-plugin/sabri-authentication@1.0.0"
+          "referenceLocator": "pkg:wordpress/sabri-authentication@1.1.0"
         }
       ]
     },
     {
       "SPDXID": "SPDXRef-Package-WordPress",
       "name": "WordPress",
-      "versionInfo": ">=6.0",
-      "downloadLocation": "https://wordpress.org/",
+      "versionInfo": "6.0-or-later; tested through 7.0",
+      "downloadLocation": "https://wordpress.org/download/",
       "filesAnalyzed": false,
       "licenseConcluded": "GPL-2.0-or-later",
       "licenseDeclared": "GPL-2.0-or-later",
       "copyrightText": "NOASSERTION",
-      "supplier": "Organization: WordPress.org",
-      "primaryPackagePurpose": "FRAMEWORK"
-    },
-    {
-      "SPDXID": "SPDXRef-Package-PHP",
-      "name": "PHP Runtime",
-      "versionInfo": ">=7.4",
-      "downloadLocation": "https://www.php.net/",
-      "filesAnalyzed": false,
-      "licenseConcluded": "PHP-3.01",
-      "licenseDeclared": "PHP-3.01",
-      "copyrightText": "NOASSERTION",
-      "supplier": "Organization: The PHP Group",
-      "primaryPackagePurpose": "RUNTIME"
+      "supplier": "Organization: WordPress Foundation"
     },
     {
       "SPDXID": "SPDXRef-Package-File00",
       "name": "Sabri Membership Core",
-      "versionInfo": ">=1.2.7 with smc.authentication-account 1.0.0 and smc.cf01.membership-assurance 1.0.0",
+      "versionInfo": "1.2.11 with smc.authentication-account 1.1.0",
       "downloadLocation": "NOASSERTION",
       "filesAnalyzed": false,
       "licenseConcluded": "GPL-2.0-or-later",
       "licenseDeclared": "GPL-2.0-or-later",
+      "copyrightText": "Copyright 2026 Dr. Allama Majid Hussain Sabri",
+      "supplier": "Organization: Sabri Social Homeopathy Platform"
+    },
+    {
+      "SPDXID": "SPDXRef-Service-GoogleOIDC",
+      "name": "Google OpenID Connect and OAuth 2.0 service",
+      "versionInfo": "external managed service",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
       "copyrightText": "NOASSERTION",
-      "supplier": "Organization: Sabri Social Homeopathy Platform",
-      "primaryPackagePurpose": "LIBRARY"
+      "supplier": "Organization: Google LLC"
+    }
+  ],
+  "files": [
+    {
+      "SPDXID": "SPDXRef-File-Bootstrap",
+      "fileName": "sabri-authentication.php",
+      "checksums": [],
+      "licenseConcluded": "GPL-2.0-or-later",
+      "licenseInfoInFiles": ["GPL-2.0-or-later"],
+      "copyrightText": "Copyright 2026 Dr. Allama Majid Hussain Sabri"
+    },
+    {
+      "SPDXID": "SPDXRef-File-GoogleRegistration",
+      "fileName": "includes/class-sauth-google-registration.php",
+      "checksums": [],
+      "licenseConcluded": "GPL-2.0-or-later",
+      "licenseInfoInFiles": ["NOASSERTION"],
+      "copyrightText": "Copyright 2026 Dr. Allama Majid Hussain Sabri"
+    },
+    {
+      "SPDXID": "SPDXRef-File-StorageRouter",
+      "fileName": "includes/class-sauth-storage-router.php",
+      "checksums": [],
+      "licenseConcluded": "GPL-2.0-or-later",
+      "licenseInfoInFiles": ["NOASSERTION"],
+      "copyrightText": "Copyright 2026 Dr. Allama Majid Hussain Sabri"
     }
   ],
   "relationships": [
@@ -82,20 +109,35 @@
     {
       "spdxElementId": "SPDXRef-Package-File02",
       "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-PHP"
+      "relatedSpdxElement": "SPDXRef-Package-File00"
     },
     {
       "spdxElementId": "SPDXRef-Package-File02",
-      "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-File00"
+      "relationshipType": "OPTIONAL_DEPENDENCY_OF",
+      "relatedSpdxElement": "SPDXRef-Service-GoogleOIDC"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-File02",
+      "relationshipType": "CONTAINS",
+      "relatedSpdxElement": "SPDXRef-File-Bootstrap"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-File02",
+      "relationshipType": "CONTAINS",
+      "relatedSpdxElement": "SPDXRef-File-GoogleRegistration"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-File02",
+      "relationshipType": "CONTAINS",
+      "relatedSpdxElement": "SPDXRef-File-StorageRouter"
     }
   ],
   "annotations": [
     {
-      "annotationDate": "2026-08-06T00:00:00Z",
+      "annotationDate": "2026-08-05T22:45:00Z",
       "annotationType": "OTHER",
       "annotator": "Organization: Sabri Social Homeopathy Platform",
-      "comment": "No third-party PHP or JavaScript library is bundled by File 02. Google OAuth and email systems are external runtime providers and are recorded in operational provider registers rather than as bundled software packages."
+      "comment": "Per-file SHA-256 values and the complete generated file inventory are emitted by the immutable deterministic package manifest. Empty checksum arrays here avoid asserting digests before the final exact-head artifact is built."
     }
   ]
 }
