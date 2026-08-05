@@ -49,28 +49,21 @@ final class SAUTH_Event_Outbox {
 		return self::$allowed_events;
 	}
 
-	/**
-	 * Build a public-safe event envelope before persistence.
-	 *
-	 * @return array<string,mixed>|WP_Error
-	 */
 	public static function build_envelope( $event_name, $actor_user_id, $subject_user_id, array $payload = array(), $privacy_class = 'restricted', $trace_id = '' ) {
 		$event_name = (string) $event_name;
 		if ( ! in_array( $event_name, self::$allowed_events, true ) ) {
 			return new WP_Error( 'sauth_event_name_invalid', 'Unsupported authentication event.' );
 		}
-
 		$privacy_class = sanitize_key( (string) $privacy_class );
 		if ( ! in_array( $privacy_class, array( 'public', 'internal', 'restricted', 'security' ), true ) ) {
 			$privacy_class = 'restricted';
 		}
-
 		return array(
 			'event_id'         => self::uuid(),
 			'event_name'       => $event_name,
 			'schema_version'   => self::SCHEMA_VERSION,
 			'producer'         => 'file-02-authentication',
-			'producer_version' => defined( 'SA_VERSION' ) ? SA_VERSION : '',
+			'producer_version' => defined( 'SAUTH_VERSION' ) ? SAUTH_VERSION : '',
 			'actor_user_id'    => absint( $actor_user_id ),
 			'subject_user_id'  => absint( $subject_user_id ),
 			'privacy_class'    => $privacy_class,
@@ -80,24 +73,17 @@ final class SAUTH_Event_Outbox {
 		);
 	}
 
-	/**
-	 * Persist an event in the outbox before dispatch.
-	 *
-	 * @return string|WP_Error Event ID or error.
-	 */
 	public static function emit( $event_name, $actor_user_id, $subject_user_id, array $payload = array(), $privacy_class = 'restricted', $trace_id = '' ) {
 		global $wpdb;
 		$event = self::build_envelope( $event_name, $actor_user_id, $subject_user_id, $payload, $privacy_class, $trace_id );
 		if ( is_wp_error( $event ) ) {
 			return $event;
 		}
-
 		$payload_json = wp_json_encode( $event['payload'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
 		if ( false === $payload_json ) {
 			return new WP_Error( 'sauth_event_encoding_failed', 'Authentication event could not be encoded.' );
 		}
-
-		$table = $wpdb->prefix . 'sa_auth_outbox';
+		$table = SAUTH_Activator::table( 'auth_outbox' );
 		$stored = $wpdb->insert(
 			$table,
 			array(
@@ -120,17 +106,13 @@ final class SAUTH_Event_Outbox {
 		if ( false === $stored ) {
 			return new WP_Error( 'sauth_event_persist_failed', 'Authentication event could not be persisted.' );
 		}
-
 		do_action( 'sauth_event_recorded', $event );
 		return (string) $event['event_id'];
 	}
 
-	/**
-	 * At-least-once publisher. Consumers must be idempotent by event_id.
-	 */
 	public static function dispatch_due() {
 		global $wpdb;
-		$table = $wpdb->prefix . 'sa_auth_outbox';
+		$table = SAUTH_Activator::table( 'auth_outbox' );
 		$now   = current_time( 'mysql', true );
 		$rows  = $wpdb->get_results(
 			$wpdb->prepare(
@@ -144,7 +126,6 @@ final class SAUTH_Event_Outbox {
 		if ( ! is_array( $rows ) ) {
 			return;
 		}
-
 		foreach ( $rows as $row ) {
 			self::dispatch_row( $row );
 		}
@@ -152,12 +133,11 @@ final class SAUTH_Event_Outbox {
 
 	private static function dispatch_row( array $row ) {
 		global $wpdb;
-		$table = $wpdb->prefix . 'sa_auth_outbox';
+		$table = SAUTH_Activator::table( 'auth_outbox' );
 		$id    = absint( $row['id'] ?? 0 );
 		if ( ! $id ) {
 			return;
 		}
-
 		$claimed = $wpdb->query(
 			$wpdb->prepare(
 				"UPDATE {$table} SET status='dispatching', attempts=attempts+1, updated_at=%s WHERE id=%d AND status IN ('pending','retry')",
@@ -168,21 +148,19 @@ final class SAUTH_Event_Outbox {
 		if ( 1 !== (int) $claimed ) {
 			return;
 		}
-
 		$decoded = json_decode( (string) $row['payload_json'], true );
 		$event   = array(
 			'event_id'         => (string) $row['event_id'],
 			'event_name'       => (string) $row['event_name'],
 			'schema_version'   => (string) $row['schema_version'],
 			'producer'         => 'file-02-authentication',
-			'producer_version' => defined( 'SA_VERSION' ) ? SA_VERSION : '',
+			'producer_version' => defined( 'SAUTH_VERSION' ) ? SAUTH_VERSION : '',
 			'actor_user_id'    => absint( $row['actor_user_id'] ),
 			'subject_user_id'  => absint( $row['subject_user_id'] ),
 			'privacy_class'    => sanitize_key( (string) $row['privacy_class'] ),
 			'trace_id'         => sanitize_text_field( (string) $row['trace_id'] ),
 			'payload'          => is_array( $decoded ) ? $decoded : array(),
 		);
-
 		try {
 			do_action( 'sauth_event', $event );
 			do_action( 'sauth_event_' . sanitize_key( str_replace( '.', '_', $event['event_name'] ) ), $event );
