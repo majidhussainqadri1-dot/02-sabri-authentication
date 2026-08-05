@@ -47,6 +47,7 @@ require_once SAUTH_DIR . 'includes/class-sauth-session-manager.php';
 require_once SAUTH_DIR . 'includes/class-sa-professional-reauthentication.php';
 require_once SAUTH_DIR . 'includes/class-sa-membership-adapter.php';
 require_once SAUTH_DIR . 'includes/class-sa-activator.php';
+require_once SAUTH_DIR . 'includes/class-sauth-storage-router.php';
 require_once SAUTH_DIR . 'includes/class-sa-registration.php';
 require_once SAUTH_DIR . 'includes/class-sa-profile.php';
 require_once SAUTH_DIR . 'includes/class-sa-google-oauth.php';
@@ -81,6 +82,7 @@ register_activation_hook( SAUTH_FILE, array( 'SAUTH_Activator', 'activate' ) );
 register_deactivation_hook( SAUTH_FILE, array( 'SAUTH_Activator', 'deactivate' ) );
 
 function sauth_start_plugin() {
+	SAUTH_Storage_Router::init();
 	SAUTH_Provider_Health::init();
 	SAUTH_Provider_HTTP_Guard::init();
 	SAUTH_Event_Outbox::init();
