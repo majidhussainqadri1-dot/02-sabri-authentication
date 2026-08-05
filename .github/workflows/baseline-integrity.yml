@@ -226,5 +226,26 @@ jobs:
           test "$(find "$RUNNER_TEMP/extract" -mindepth 1 -maxdepth 1 -type d | wc -l)" -eq 1
           while IFS= read -r file; do php -l "$file"; done < <(find "$RUNNER_TEMP/extract" -type f -name '*.php' | sort)
           ! find "$RUNNER_TEMP/extract" -type f \( -name '*.zip' -o -name '*.pem' -o -name '*.key' -o -name '.env*' \) | grep -q .
-          unzip -Z1 "$archive_a" | awk '/^\// || /(^|\/)\.\.($|\/)/ || /\\/ { bad=1 } END { exit bad ? 0 : 1 }' && { echo 'Unsafe archive path found.' >&2; exit 1; } || true
+
+          python3 - "$archive_a" <<'PY'
+          import pathlib
+          import sys
+          import zipfile
+
+          archive = pathlib.Path(sys.argv[1])
+          with zipfile.ZipFile(archive) as bundle:
+              names = bundle.namelist()
+          bad = []
+          for name in names:
+              normalized = name.replace('\\', '/')
+              parts = pathlib.PurePosixPath(normalized).parts
+              if normalized.startswith('/') or '..' in parts or '\\' in name:
+                  bad.append(name)
+          if bad:
+              raise SystemExit('Unsafe archive paths: ' + ', '.join(bad))
+          roots = {pathlib.PurePosixPath(name.replace('\\', '/')).parts[0] for name in names if name}
+          if roots != {'02-sabri-authentication'}:
+              raise SystemExit('Unexpected archive roots: ' + ', '.join(sorted(roots)))
+          PY
+
           cat "$RUNNER_TEMP/build-a/CHECKSUMS.sha256"
