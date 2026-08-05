@@ -149,7 +149,7 @@ for marker in (
     "wp_check_password",
     "wp_set_auth_cookie",
     "membership_assertion",
-    "get_completion_state",
+    "SAUTH_Account_Contract::completion_state",
     "AccountAuthenticationSucceeded.v1",
     "AccountAuthenticationFailed.v1",
     "check_password_reset_key",
