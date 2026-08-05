@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   contract-integrity:
-    name: 0.3.0 source, architecture and public-safety integrity
+    name: 0.4.0 source, architecture and public-safety integrity
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -90,16 +90,28 @@ jobs:
 
           main = (root / 'sabri-authentication.php').read_text(encoding='utf-8')
           readme = (root / 'readme.txt').read_text(encoding='utf-8')
-          if 'Version: 0.3.0' not in main or "define( 'SA_VERSION', '0.3.0' );" not in main:
-              fail('plugin header or SA_VERSION is not 0.3.0')
-          if 'Stable tag: 0.3.0' not in readme:
-              fail('readme stable tag is not 0.3.0')
+          if 'Version: 0.4.0' not in main or "define( 'SA_VERSION', '0.4.0' );" not in main:
+              fail('plugin header or SA_VERSION is not 0.4.0')
+          if "define( 'SA_DB_VERSION', '0.4.0' );" not in main:
+              fail('SA_DB_VERSION is not 0.4.0')
+          if 'Stable tag: 0.4.0' not in readme:
+              fail('readme stable tag is not 0.4.0')
+          if "define( 'SA_ACCOUNT_CONTRACT_VERSION', '1.0.0' );" not in main:
+              fail('account orchestration contract version is missing')
+          if "define( 'SA_AUTH_EVENT_SCHEMA_VERSION', '1.0.0' );" not in main:
+              fail('authentication event schema version is missing')
           if "define( 'SA_PROFESSIONAL_REAUTH_VERSION', '1.0.0' );" not in main:
               fail('professional reauthentication contract version is missing')
 
           required = {
+              'PLAN-TRACEABILITY.md',
+              'includes/class-sauth-account-contract.php',
+              'includes/class-sauth-event-outbox.php',
+              'includes/class-sauth-session-manager.php',
               'includes/class-sa-authentication-assurance.php',
               'includes/class-sa-professional-reauthentication.php',
+              'templates/reset-password.php',
+              'tests/plan-harmonization-unit.php',
               'tests/cf01-assurance-unit.php',
               'tests/professional-reauthentication-unit.php',
               'tests/architecture-check.py',
@@ -108,7 +120,15 @@ jobs:
           present = {p.as_posix() for p in all_files}
           missing = sorted(required - present)
           if missing:
-              fail('missing 0.3.0 evidence: ' + ', '.join(missing))
+              fail('missing 0.4.0 evidence: ' + ', '.join(missing))
+
+          trace = (root / 'PLAN-TRACEABILITY.md').read_text(encoding='utf-8')
+          for requirement in [f'F02-FR-{n:03d}' for n in range(1, 13)]:
+              if requirement not in trace:
+                  fail(f'missing functional traceability: {requirement}')
+          for requirement in [f'F02-NFR-{n:03d}' for n in range(1, 11)]:
+              if requirement not in trace:
+                  fail(f'missing non-functional traceability: {requirement}')
 
           source_paths = sorted(
               p for p in all_files
@@ -120,7 +140,7 @@ jobs:
               data = path.read_bytes()
               canonical.append(f"{hashlib.sha256(data).hexdigest()}  {len(data)}  {path.as_posix()}")
           tree_text = '\n'.join(canonical) + '\n'
-          print('File 02 0.3.0 dynamic source-tree SHA-256:', hashlib.sha256(tree_text.encode()).hexdigest())
+          print('File 02 0.4.0 dynamic source-tree SHA-256:', hashlib.sha256(tree_text.encode()).hexdigest())
           print('Source files:', len(source_paths))
           print('Source bytes:', sum(p.stat().st_size for p in source_paths))
 
@@ -155,10 +175,11 @@ jobs:
         run: |
           set -euo pipefail
           mapfile -t php_files < <(find . -type f -name '*.php' -not -path './.git/*' -print | sort)
-          test "${#php_files[@]}" -ge 26
+          test "${#php_files[@]}" -ge 30
           for file in "${php_files[@]}"; do
             php -l "$file"
           done
           php tests/security-unit.php
           php tests/cf01-assurance-unit.php
           php tests/professional-reauthentication-unit.php
+          php tests/plan-harmonization-unit.php
