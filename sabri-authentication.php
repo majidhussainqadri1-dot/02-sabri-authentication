@@ -26,6 +26,7 @@ define( 'SA_URL', plugin_dir_url( __FILE__ ) );
 require_once SA_DIR . 'includes/class-sa-security.php';
 require_once SA_DIR . 'includes/class-sauth-account-contract.php';
 require_once SA_DIR . 'includes/class-sauth-event-outbox.php';
+require_once SA_DIR . 'includes/class-sauth-session-manager.php';
 require_once SA_DIR . 'includes/class-sa-authentication-assurance.php';
 require_once SA_DIR . 'includes/class-sa-professional-reauthentication.php';
 require_once SA_DIR . 'includes/class-sa-membership-adapter.php';
@@ -42,6 +43,7 @@ register_deactivation_hook( SA_FILE, array( 'SA_Activator', 'deactivate' ) );
 
 function sa_start_plugin() {
 	SAUTH_Event_Outbox::init();
+	SAUTH_Session_Manager::init();
 	SA_Authentication_Assurance::init();
 	SA_Professional_Reauthentication::init();
 	$plugin = new SA_Plugin();
