@@ -10,10 +10,7 @@ define( 'DAY_IN_SECONDS', 86400 );
 class WP_Error {
 	private $code;
 	private $message;
-	public function __construct( $code, $message ) {
-		$this->code = $code;
-		$this->message = $message;
-	}
+	public function __construct( $code, $message ) { $this->code = $code; $this->message = $message; }
 	public function get_error_code() { return $this->code; }
 	public function get_error_message() { return $this->message; }
 }
@@ -42,12 +39,21 @@ $adult = array(
 	'date_of_birth'      => '2000-01-01',
 	'address'            => 'Gujrat, Punjab',
 	'country'            => 'Pakistan',
+	'identity_type'      => 'national_id',
 	'identity_reference' => 'ID-REFERENCE',
 	'guardian_reference' => '',
 	'terms_version'      => '2026-08-05',
 	'privacy_version'    => '2026-08-05',
 );
 sauth_registration_assert( true === SA_Registration::validate_registration( $adult ), 'valid adult registration was rejected' );
+
+$passport = $adult;
+$passport['identity_type'] = 'passport';
+sauth_registration_assert( true === SA_Registration::validate_registration( $passport ), 'passport registration was rejected' );
+
+$unsupported_identity = $adult;
+$unsupported_identity['identity_type'] = 'driver_license';
+sauth_registration_assert( is_wp_error( SA_Registration::validate_registration( $unsupported_identity ) ), 'unsupported identity type was accepted' );
 
 $minor = $adult;
 $minor['sex'] = 'female';
