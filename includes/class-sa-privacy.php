@@ -11,7 +11,7 @@ final class SA_Privacy {
 
 	public function exporters( $exporters ) {
 		$exporters['sabri-authentication'] = array(
-			'exporter_friendly_name' => 'Sabri Google Authentication Link',
+			'exporter_friendly_name' => 'Sabri Authentication and Account Links',
 			'callback'               => array( $this, 'export_data' ),
 		);
 		return $exporters;
@@ -19,7 +19,7 @@ final class SA_Privacy {
 
 	public function erasers( $erasers ) {
 		$erasers['sabri-authentication'] = array(
-			'eraser_friendly_name' => 'Sabri Google Authentication Link and Legacy File 02 Data',
+			'eraser_friendly_name' => 'Sabri Authentication Links and Legacy File 02 Data',
 			'callback'             => array( $this, 'erase_data' ),
 		);
 		return $erasers;
@@ -32,24 +32,41 @@ final class SA_Privacy {
 		}
 
 		$fields = array(
-			'Google unique identifier' => get_user_meta( $user->ID, '_sa_google_sub', true ),
-			'Google link version'      => get_user_meta( $user->ID, '_sa_google_link_version', true ),
-			'Google linked'            => get_user_meta( $user->ID, '_sa_google_account', true ),
-			'Google account email'     => get_user_meta( $user->ID, '_sa_google_email', true ),
-			'Google email verified'    => get_user_meta( $user->ID, '_sa_google_email_verified', true ),
-			'Google profile image URL' => get_user_meta( $user->ID, '_sa_google_picture', true ),
-			'Google linked at'         => get_user_meta( $user->ID, '_sa_google_linked_at', true ),
-			'Google last login at'     => get_user_meta( $user->ID, '_sa_google_last_login_at', true ),
-			'Legacy account type'      => get_user_meta( $user->ID, '_sa_account_type', true ),
-			'Legacy phone'             => get_user_meta( $user->ID, '_sa_phone', true ),
-			'Legacy country'           => get_user_meta( $user->ID, '_sa_country', true ),
-			'Legacy city'              => get_user_meta( $user->ID, '_sa_city', true ),
-			'Legacy preferred language'=> get_user_meta( $user->ID, '_sa_preferred_language', true ),
-			'Legacy profile complete'  => get_user_meta( $user->ID, '_sa_profile_complete', true ),
-			'Legacy terms accepted at' => get_user_meta( $user->ID, '_sa_terms_accepted_at', true ),
-			'Legacy privacy accepted at'=> get_user_meta( $user->ID, '_sa_privacy_accepted_at', true ),
+			'Google unique identifier'   => get_user_meta( $user->ID, '_sa_google_sub', true ),
+			'Google link version'        => get_user_meta( $user->ID, '_sa_google_link_version', true ),
+			'Google linked'              => get_user_meta( $user->ID, '_sa_google_account', true ),
+			'Google account email'       => get_user_meta( $user->ID, '_sa_google_email', true ),
+			'Google email verified'      => get_user_meta( $user->ID, '_sa_google_email_verified', true ),
+			'Google profile image URL'   => get_user_meta( $user->ID, '_sa_google_picture', true ),
+			'Google linked at'           => get_user_meta( $user->ID, '_sa_google_linked_at', true ),
+			'Google last login at'       => get_user_meta( $user->ID, '_sa_google_last_login_at', true ),
+			'Legacy account type'        => get_user_meta( $user->ID, '_sa_account_type', true ),
+			'Legacy phone'               => get_user_meta( $user->ID, '_sa_phone', true ),
+			'Legacy country'             => get_user_meta( $user->ID, '_sa_country', true ),
+			'Legacy city'                => get_user_meta( $user->ID, '_sa_city', true ),
+			'Legacy preferred language'  => get_user_meta( $user->ID, '_sa_preferred_language', true ),
+			'Legacy profile complete'    => get_user_meta( $user->ID, '_sa_profile_complete', true ),
+			'Legacy terms accepted at'   => get_user_meta( $user->ID, '_sa_terms_accepted_at', true ),
+			'Legacy privacy accepted at' => get_user_meta( $user->ID, '_sa_privacy_accepted_at', true ),
 			'Legacy WordPress biography' => (string) $user->description,
 		);
+
+		global $wpdb;
+		$table = $wpdb->prefix . 'sa_email_verifications';
+		if ( self::table_exists( $table ) ) {
+			$row = $wpdb->get_row(
+				$wpdb->prepare( "SELECT status, sent_at, expires_at, verified_at, created_at, updated_at FROM {$table} WHERE user_id = %d", $user->ID ),
+				ARRAY_A
+			);
+			if ( is_array( $row ) ) {
+				$fields['Local email-verification status']     = $row['status'];
+				$fields['Verification email last sent at']     = $row['sent_at'];
+				$fields['Verification challenge expires at']   = $row['expires_at'];
+				$fields['Email locally verified at']           = $row['verified_at'];
+				$fields['Verification challenge created at']   = $row['created_at'];
+				$fields['Verification challenge last updated'] = $row['updated_at'];
+			}
+		}
 
 		$data = array();
 		foreach ( $fields as $name => $value ) {
@@ -97,11 +114,18 @@ final class SA_Privacy {
 			wp_update_user( array( 'ID' => $user->ID, 'description' => '' ) );
 		}
 
+		global $wpdb;
+		$table = $wpdb->prefix . 'sa_email_verifications';
+		if ( self::table_exists( $table ) ) {
+			$wpdb->delete( $table, array( 'user_id' => $user->ID ), array( '%d' ) );
+		}
+
 		return array(
 			'items_removed'  => true,
 			'items_retained' => true,
 			'messages'       => array(
-				'The WordPress account and Membership Core identity, role, verification, and institutional records are retained and must be handled through their respective privacy and deletion procedures.',
+				'The local File 02 verification challenge, Google link metadata and legacy File 02 fields were removed.',
+				'The WordPress account and Membership Core identity, role, verification, guardian, institutional and audit records are retained and must be handled through their respective privacy and deletion procedures.',
 			),
 			'done'           => true,
 		);
@@ -112,8 +136,14 @@ final class SA_Privacy {
 			return;
 		}
 		wp_add_privacy_policy_content(
-			'Sabri Google Authentication',
-			'<p class="privacy-policy-tutorial">This module may store a Google unique account identifier, the matching verified Google email address, an optional Google profile-image URL, and link/login timestamps. Google access and refresh tokens are not retained. New membership registration, identity documents, roles, verification status, and profile data remain under Sabri Membership Core. Legacy File 02 contact metadata may be exported or erased through the WordPress privacy tools.</p>'
+			'Sabri Authentication and Accounts',
+			'<p class="privacy-policy-tutorial">This module may temporarily store a one-way hash of a one-time email-verification token, an HMAC of the target email, delivery and expiry timestamps, verification status, a Google unique account identifier, the matching verified Google email address, an optional Google profile-image URL, and link/login timestamps. Raw verification tokens, passwords, Google access tokens, Google refresh tokens, TOTP secrets and recovery codes are not retained by File 02. Membership identity, guardian, roles and institutional verification remain under Sabri Membership Core.</p>'
 		);
+	}
+
+	private static function table_exists( $table ) {
+		global $wpdb;
+		$like = $wpdb->esc_like( $table );
+		return $table === $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $like ) );
 	}
 }
