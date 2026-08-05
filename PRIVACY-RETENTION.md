@@ -1,30 +1,51 @@
-# File 02 Privacy and Retention Schedule — 1.0.0
+# File 02 Privacy and Retention Register — 1.1.0
 
-## Principles
+## Governing principles
 
-File 02 collects only authentication data necessary for account entry, provider linking, abuse resistance, session control and operational evidence. File 00 remains the owner of membership identity, guardian, verification and institutional truth. Authentication data is never used as a public profile, ranking or advertising source.
+File 02 applies data minimization, purpose limitation, Islamic privacy and dignity, no secret disclosure, subject-bound access and expiry-based deletion. Authentication data never becomes profile, search, ranking, analytics or advertising data merely because it exists.
 
-## Lifecycle
+File 00 remains the canonical owner of identity, account class, age/guardian truth, verification, suspension and consents. File 03 owns the profile photograph. File 02 owns only authentication challenges, session/device projections, provider-link projections and operational evidence.
 
-| Data class | Purpose | Default lifecycle |
-|---|---|---|
-| Email challenge HMAC/status | Prove canonical email ownership | Pending until expiry/use; expired/delivery-failed removed after 7 days; verified local evidence after 30 days. |
-| Risk challenge HMAC/state | One-time sign-in step-up | Five-minute active life; invalid/consumed state removed after 7 days. |
-| Authentication attempts | Abuse/risk defense | 30 days; account bindings anonymized on erasure. |
-| Trusted-device projection | New-device risk and user security context | Trusted up to 90 days without activity; then expired and removed under cleanup policy. |
-| Session projection | User-visible session control and revocation evidence | Active until session expiry/revocation; inactive projection retained 30 days. |
-| Provider health | Reliability/circuit state | Transient, at most 7 days without refresh. |
-| Outbox events | Reliable delivery/audit | Pending through bounded retry/dead-letter; operational retention under approved event policy. |
-| Google link metadata | Explicit provider-account link | Until unlink, privacy erasure or account lifecycle decision. |
-| Encrypted provider secret | OAuth configuration | Until rotation/disable; never exported to users or diagnostics. |
+## Data classes and default lifecycle
 
-## Rights handling
+| Data | Storage | Default lifecycle | Privacy action |
+|---|---|---|---|
+| Rate-limit bucket | HMAC-only `sauth_rate_limits` | window plus bounded cleanup | expires; not user-readable raw telemetry |
+| Email-verification challenge | HMAC email/token binding | 30-minute validity; expired rows cleaned | export status/timestamps; erase when lawful |
+| Login-risk challenge | opaque/HMAC bindings | approximately 10 minutes | expired deletion |
+| Trusted-device projection | HMAC fingerprint/network plus generalized labels | bounded inactivity period | export and erase |
+| Session projection | HMAC token/device plus generalized labels | until expiry/revocation plus bounded cleanup | export and erase; WordPress session also revoked |
+| Authentication attempts | HMAC network/device and reason category | bounded security window | subject ID anonymized on erasure; residual minimized security evidence may remain |
+| Event outbox | sanitized versioned fact | published/dead-letter retention per security policy | no secrets; erasure/retention-hold coordination |
+| Google link projection | provider subject, verified matching email, timestamps, optional picture candidate | until unlink/erasure/retention hold | export and erase; no access/refresh token stored |
+| Provider configuration | encrypted secret and non-secret client ID/status | while configured | operator-controlled deletion/rotation |
+| Legacy `sa_*` tables/options | rollback evidence only after 1.1 migration | until separately approved purge | not active source; protected and included in privacy scan |
 
-The WordPress privacy exporter returns human-readable File 02-owned link, verification, session and device information without raw hashes/tokens. Erasure removes File 02-owned challenges, projections and provider metadata, revokes sessions, and anonymizes bounded security-attempt evidence. File 00 records remain under File 00 privacy procedures.
+## Parent-plan registration fields
 
-## Restrictions
+City, declared account type, separate Ethical Conduct consent and profile-photograph completion truth are stored by File 00 through `smc.authentication-account 1.1.0`. City and any Google picture candidate supplied to File 00 are encrypted with purpose/context binding. File 02 does not duplicate them into public profile data.
 
-- No raw passwords, reset keys, verification tokens, OAuth tokens, TOTP/recovery codes or session tokens are retained by File 02.
-- Full IP addresses are not stored in File 02 session/device/attempt tables.
-- No private authentication data enters public cache, search index, analytics warehouse or ordinary support bundle.
-- Legal/security retention exceptions require documented owner, purpose, scope and expiry.
+## Prohibited data
+
+File 02 does not retain raw passwords, reset keys, email-verification tokens, OAuth access/refresh/ID tokens, authorization codes, TOTP secrets, recovery codes, raw WordPress session tokens, full IP addresses or raw identity-document evidence in events, diagnostics or exports.
+
+## Export
+
+The privacy exporter may return provider-link metadata, challenge/session/device status, generalized labels, risk categories and timestamps. It must never reveal HMAC bindings, encrypted provider secrets, raw tokens, full network identifiers or internal collision keys. File 00 separately exports its owned registration/consent data.
+
+## Erasure and anonymization
+
+- Google projections and local challenge/session/device rows are deleted where no legal/security hold applies.
+- Active WordPress sessions are revoked before or with session-projection erasure.
+- Authentication-attempt subject IDs are anonymized while bounded security evidence may remain.
+- Outbox events follow their privacy class, retention hold and native owner policy.
+- File 02 never erases File 00 identity/membership/guardian/consent truth or File 03 profile media.
+- Preserved legacy tables must be included in erasure verification until an approved purge removes them.
+
+## Diagnostics and logs
+
+System Check, provider circuits and repair reports expose reason categories, counts and states only. They exclude credentials, raw payloads, full IP addresses, identity evidence and private File 00 facts. Support and analytics roles receive no blanket access.
+
+## Review gates
+
+Retention periods and exceptions require a dated policy source, purpose, owner, affected tables, privacy/Sharīʿah review, migration/erasure behavior, tests, rollback and Founder approval. Discovery of a new data path reopens review.
