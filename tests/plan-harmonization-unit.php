@@ -26,15 +26,17 @@ function sanitize_text_field( $value ) { return trim( strip_tags( (string) $valu
 function sanitize_textarea_field( $value ) { return trim( strip_tags( (string) $value ) ); }
 function sanitize_email( $value ) { return strtolower( filter_var( (string) $value, FILTER_SANITIZE_EMAIL ) ); }
 function wp_generate_uuid4() { return '11111111-2222-4333-8444-555555555555'; }
+function wp_validate_redirect( $url, $fallback = '' ) {
+	return 0 === strpos( (string) $url, 'https://example.test/' ) ? $url : $fallback;
+}
 
 final class SA_Security {
 	public static function client_fingerprint() { return str_repeat( 'a', 64 ); }
-	public static function safe_redirect( $url, $fallback = '' ) {
-		return 0 === strpos( (string) $url, 'https://example.test/' ) ? $url : $fallback;
-	}
+	public static function safe_redirect( $url, $fallback = '' ) { return wp_validate_redirect( $url, $fallback ); }
 }
 
 final class SMC_Authentication_Contract {
+	public static $unsafe_completion_route = false;
 	public static function register_account( $payload, $context ) {
 		return array(
 			'contract' => 'smc.authentication-account',
@@ -61,7 +63,7 @@ final class SMC_Authentication_Contract {
 			'result' => 'allow',
 			'reason_code' => 'completion_required',
 			'missing_steps' => array( 'guardian', 'profile', 'guardian' ),
-			'next_route' => 'https://example.test/complete-profile/',
+			'next_route' => self::$unsafe_completion_route ? 'https://attacker.test/continue' : 'https://example.test/complete-profile/',
 		);
 	}
 }
@@ -96,6 +98,11 @@ sauth_test_assert( ! array_key_exists( 'password', $registration ), 'password le
 $completion = SAUTH_Account_Contract::completion_state( 19 );
 sauth_test_assert( array( 'guardian', 'profile' ) === $completion['missing_steps'], 'completion steps were not normalized and deduplicated' );
 sauth_test_assert( 'https://example.test/complete-profile/' === $completion['next_route'], 'safe completion route was rejected' );
+SMC_Authentication_Contract::$unsafe_completion_route = true;
+$unsafe_completion = SAUTH_Account_Contract::completion_state( 19 );
+sauth_test_assert( 'unknown' === $unsafe_completion['result'], 'unsafe completion route did not fail closed' );
+sauth_test_assert( 'provider_route_invalid' === $unsafe_completion['reason_code'], 'unsafe completion route reason was not preserved' );
+SMC_Authentication_Contract::$unsafe_completion_route = false;
 
 $event = SAUTH_Event_Outbox::build_envelope(
 	'AccountAuthenticationSucceeded.v1',
