@@ -43,9 +43,8 @@ final class SA_Security {
 
 		$result = $wpdb->query( $sql );
 		if ( false === $result ) {
-			// Fixed-window fallback: do not extend the expiry on every attempt.
-			$key   = 'sa_fallback_' . substr( $bucket, 0, 32 );
-			$state = get_transient( $key );
+			$key    = 'sa_fallback_' . substr( $bucket, 0, 32 );
+			$state  = get_transient( $key );
 			$now_ts = time();
 			if ( ! is_array( $state ) || empty( $state['expires'] ) || (int) $state['expires'] <= $now_ts ) {
 				$state = array( 'hits' => 0, 'expires' => $now_ts + $window );
@@ -70,8 +69,15 @@ final class SA_Security {
 		delete_transient( 'sa_fallback_' . substr( $bucket, 0, 32 ) );
 	}
 
-	public static function safe_redirect( $url, $fallback = '' ) {
-		$fallback = $fallback ? $fallback : home_url( '/' );
+	/**
+	 * Same-origin redirect validation.
+	 *
+	 * Omitting the second argument defaults to Home. Passing an explicit empty
+	 * fallback preserves an empty result, which lets callers distinguish an
+	 * invalid optional route from a legitimate Home destination.
+	 */
+	public static function safe_redirect( $url, $fallback = null ) {
+		$fallback = func_num_args() < 2 ? home_url( '/' ) : (string) $fallback;
 		return wp_validate_redirect( (string) $url, $fallback );
 	}
 
