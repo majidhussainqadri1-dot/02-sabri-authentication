@@ -33,9 +33,9 @@ final class SAUTH_Session_Manager {
 			return '<div class="sa-auth-shell"><section class="sa-auth-card"><h1>Account access required</h1><p>Sign in to review active sessions.</p><a class="sa-primary-button" href="' . esc_url( SA_Membership_Adapter::login_url( SA_Security::page_url( 'sessions' ) ) ) . '">Log In</a></section></div>';
 		}
 
-		$user_id = get_current_user_id();
+		$user_id     = get_current_user_id();
 		self::ensure_current_registered( $user_id );
-		$sessions = self::list_for_user( $user_id );
+		$sessions    = self::list_for_user( $user_id );
 		$current_hash = self::current_token_hash();
 		$active_count = 0;
 		foreach ( $sessions as $session ) {
@@ -107,8 +107,8 @@ final class SAUTH_Session_Manager {
 			return;
 		}
 		$token_hash = self::token_hash( $token );
-		$now = current_time( 'mysql', true );
-		$existing = $wpdb->get_var( $wpdb->prepare( "SELECT public_id FROM " . self::table() . " WHERE user_id = %d AND token_hash = %s", $user_id, $token_hash ) );
+		$now        = current_time( 'mysql', true );
+		$existing   = $wpdb->get_var( $wpdb->prepare( "SELECT public_id FROM " . self::table() . " WHERE user_id = %d AND token_hash = %s", $user_id, $token_hash ) );
 		$data = array(
 			'user_id'       => $user_id,
 			'token_hash'    => $token_hash,
@@ -126,7 +126,7 @@ final class SAUTH_Session_Manager {
 			$wpdb->update( self::table(), $data, array( 'public_id' => (string) $existing ), array( '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s' ), array( '%s' ) );
 			return;
 		}
-		$data['public_id'] = strtolower( wp_generate_uuid4() );
+		$data['public_id']  = strtolower( wp_generate_uuid4() );
 		$data['created_at'] = $now;
 		$wpdb->insert( self::table(), $data, array( '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s' ) );
 	}
@@ -144,9 +144,7 @@ final class SAUTH_Session_Manager {
 		if ( '' === $token ) {
 			return $user_id;
 		}
-		$status = $wpdb->get_var(
-			$wpdb->prepare( "SELECT status FROM " . self::table() . " WHERE user_id = %d AND token_hash = %s", $user_id, self::token_hash( $token ) )
-		);
+		$status = $wpdb->get_var( $wpdb->prepare( "SELECT status FROM " . self::table() . " WHERE user_id = %d AND token_hash = %s", $user_id, self::token_hash( $token ) ) );
 		return 'revoked' === $status ? 0 : $user_id;
 	}
 
@@ -156,7 +154,7 @@ final class SAUTH_Session_Manager {
 			return;
 		}
 		$user_id = get_current_user_id();
-		$hash = self::current_token_hash();
+		$hash    = self::current_token_hash();
 		if ( '' === $hash ) {
 			return;
 		}
@@ -218,21 +216,42 @@ final class SAUTH_Session_Manager {
 	}
 
 	public static function revoke_all() {
-		global $wpdb;
 		if ( ! is_user_logged_in() ) {
 			auth_redirect();
 		}
 		check_admin_referer( 'sauth_revoke_all_sessions', 'sauth_nonce' );
 		$user_id = get_current_user_id();
-		$wpdb->query( $wpdb->prepare( "UPDATE " . self::table() . " SET status = 'revoked', revoked_at = %s, updated_at = %s WHERE user_id = %d AND status = 'active'", current_time( 'mysql', true ), current_time( 'mysql', true ), $user_id ) );
-		if ( class_exists( 'WP_Session_Tokens' ) ) {
-			WP_Session_Tokens::get_instance( $user_id )->destroy_all();
-		}
+		self::revoke_user_sessions( $user_id, 'user_request' );
 		SAUTH_Event_Outbox::emit( 'AuthSessionRevoked.v1', $user_id, $user_id, array( 'scope' => 'all_sessions', 'reason' => 'user_request' ), 'security' );
 		SA_Membership_Adapter::audit( 'authentication_sessions_revoked', $user_id, array( 'scope' => 'all' ) );
 		wp_clear_auth_cookie();
 		wp_safe_redirect( SA_Security::message_url( 'login', 'success', 'You have been signed out on all devices.' ) );
 		exit;
+	}
+
+	/**
+	 * Revoke every session for a subject after a password/security event.
+	 */
+	public static function revoke_user_sessions( $user_id, $reason = 'security_policy' ) {
+		global $wpdb;
+		$user_id = absint( $user_id );
+		if ( ! $user_id ) {
+			return false;
+		}
+		$now = current_time( 'mysql', true );
+		$wpdb->query(
+			$wpdb->prepare(
+				"UPDATE " . self::table() . " SET status = 'revoked', revoked_at = %s, revocation_reason = %s, updated_at = %s WHERE user_id = %d AND status = 'active'",
+				$now,
+				sanitize_key( (string) $reason ),
+				$now,
+				$user_id
+			)
+		);
+		if ( class_exists( 'WP_Session_Tokens' ) ) {
+			WP_Session_Tokens::get_instance( $user_id )->destroy_all();
+		}
+		return true;
 	}
 
 	public static function cleanup() {
@@ -242,9 +261,6 @@ final class SAUTH_Session_Manager {
 		$wpdb->query( $wpdb->prepare( "DELETE FROM " . self::table() . " WHERE status IN ('revoked','expired') AND updated_at < %s", gmdate( 'Y-m-d H:i:s', time() - self::HISTORY_RETENTION ) ) );
 	}
 
-	/**
-	 * @return array<int,array<string,string>>
-	 */
 	private static function list_for_user( $user_id ) {
 		global $wpdb;
 		$rows = $wpdb->get_results(
@@ -260,7 +276,7 @@ final class SAUTH_Session_Manager {
 		if ( '' === $token ) {
 			return;
 		}
-		$hash = self::token_hash( $token );
+		$hash   = self::token_hash( $token );
 		$exists = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM " . self::table() . " WHERE user_id = %d AND token_hash = %s", absint( $user_id ), $hash ) );
 		if ( 0 === (int) $exists ) {
 			self::register_cookie( '', time() + DAY_IN_SECONDS, time() + DAY_IN_SECONDS, $user_id, 'logged_in', $token );
