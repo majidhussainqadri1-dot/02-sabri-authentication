@@ -33,17 +33,9 @@ The post-implementation adversarial review found and corrected:
 - incomplete privacy export/erasure coverage for the new verification challenge;
 - inconsistent authentication-route ownership and the obsolete orange primary visual token.
 
-## Exact-head automated evidence
+## Automated evidence
 
-Exact head: `e54e69554c4c26da1a19aeaf8ff9da7dcdc1807c`.
-
-GitHub Actions run `31033582209` completed successfully:
-
-- `0.4.0 source, architecture and public-safety integrity`: success;
-- `PHP 7.4 lint and runtime suites`: success;
-- `PHP 8.3 lint and runtime suites`: success;
-- existing security, CF-01 assurance, professional reauthentication and plan-harmonization suites: success;
-- registration, age/guardian, password-policy and verification-token policy suite: success.
+The branch workflow verifies source/architecture/public-safety integrity and PHP 7.4/8.3 lint/runtime suites on every branch update. The PR description records the latest exact head and run identifier; a head is acceptable only when all three jobs are successful.
 
 ## Still required
 
@@ -65,7 +57,7 @@ GitHub Actions run `31033582209` completed successfully:
 - Specified: **Complete in governing plan**
 - Coded: **Substantial partial 0.4.0 candidate; remaining Must scope listed above**
 - Packaged: **No**
-- Automated QA: **Green on exact head `e54e69554c4c26da1a19aeaf8ff9da7dcdc1807c` within the defined repository scope**
+- Automated QA: **Required green on the current exact head; see PR evidence**
 - Staging accepted: **No**
 - Live deployed: **No**
 - Operational: **No**
