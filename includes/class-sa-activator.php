@@ -7,13 +7,14 @@ final class SA_Activator {
 		if ( ! SA_Membership_Adapter::plugin_active() ) {
 			deactivate_plugins( plugin_basename( SA_FILE ) );
 			wp_die(
-				esc_html__( 'Sabri Authentication requires File 00 — Sabri Membership Core 1.0.1 or later to be active and load correctly. No account or role system will be created independently.', 'sabri-authentication' ),
+				esc_html__( 'Sabri Authentication requires File 00 — Sabri Membership Core 1.2.7 or later with the approved assurance contract. No account, role, guardian or verification authority will be created independently.', 'sabri-authentication' ),
 				esc_html__( 'Required dependency missing', 'sabri-authentication' ),
 				array( 'back_link' => true )
 			);
 		}
 
 		self::create_rate_limit_table();
+		self::create_auth_outbox_table();
 		self::create_pages();
 		self::migrate_google_secret();
 
@@ -26,12 +27,16 @@ final class SA_Activator {
 	}
 
 	public static function deactivate() {
+		if ( function_exists( 'wp_clear_scheduled_hook' ) && class_exists( 'SAUTH_Event_Outbox' ) ) {
+			wp_clear_scheduled_hook( SAUTH_Event_Outbox::CRON_HOOK );
+		}
 		flush_rewrite_rules( false );
 	}
 
 	public static function maybe_upgrade() {
 		if ( SA_DB_VERSION !== (string) get_option( 'sa_db_version', '' ) ) {
 			self::create_rate_limit_table();
+			self::create_auth_outbox_table();
 			self::create_pages();
 			self::migrate_google_secret();
 			update_option( 'sa_version', SA_VERSION, false );
@@ -53,6 +58,38 @@ final class SA_Activator {
 			updated_at datetime NOT NULL,
 			PRIMARY KEY  (bucket_hash),
 			KEY expires_at (expires_at)
+		) {$collate};";
+		dbDelta( $sql );
+	}
+
+	public static function create_auth_outbox_table() {
+		global $wpdb;
+		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+
+		$table   = $wpdb->prefix . 'sa_auth_outbox';
+		$collate = $wpdb->get_charset_collate();
+		$sql     = "CREATE TABLE {$table} (
+			id bigint unsigned NOT NULL AUTO_INCREMENT,
+			event_id char(36) NOT NULL,
+			event_name varchar(100) NOT NULL,
+			schema_version varchar(20) NOT NULL,
+			privacy_class varchar(20) NOT NULL DEFAULT 'restricted',
+			actor_user_id bigint unsigned NOT NULL DEFAULT 0,
+			subject_user_id bigint unsigned NOT NULL DEFAULT 0,
+			trace_id varchar(64) NOT NULL,
+			payload_json longtext NOT NULL,
+			status varchar(20) NOT NULL DEFAULT 'pending',
+			attempts smallint unsigned NOT NULL DEFAULT 0,
+			available_at datetime NOT NULL,
+			published_at datetime NULL,
+			last_error varchar(500) NOT NULL DEFAULT '',
+			created_at datetime NOT NULL,
+			updated_at datetime NOT NULL,
+			PRIMARY KEY  (id),
+			UNIQUE KEY event_id (event_id),
+			KEY dispatch_due (status, available_at, id),
+			KEY subject_event (subject_user_id, event_name, created_at),
+			KEY trace_id (trace_id)
 		) {$collate};";
 		dbDelta( $sql );
 	}
@@ -157,8 +194,7 @@ final class SA_Activator {
 	}
 
 	/**
-	 * Kept only for backward compatibility with code that called this method.
-	 * File 00 remains the exclusive role authority.
+	 * Kept only for backward compatibility. File 00 is the exclusive role owner.
 	 */
 	public static function register_roles() {
 		return false;
@@ -166,10 +202,12 @@ final class SA_Activator {
 
 	public static function page_specs() {
 		return array(
-			'login'          => array( 'title' => 'Secure Log In', 'slug' => 'account-login', 'shortcode' => '[sabri_auth_login]' ),
-			'signup'         => array( 'title' => 'Create Verified Account', 'slug' => 'create-account', 'shortcode' => '[sabri_auth_signup]' ),
+			'login'          => array( 'title' => 'Secure Log In', 'slug' => 'login', 'shortcode' => '[sabri_auth_login]' ),
+			'signup'         => array( 'title' => 'Create Verified Account', 'slug' => 'register', 'shortcode' => '[sabri_auth_signup]' ),
 			'complete'       => array( 'title' => 'Complete Verified Profile', 'slug' => 'complete-profile', 'shortcode' => '[sabri_auth_complete_profile]' ),
 			'forgot'         => array( 'title' => 'Forgot Password', 'slug' => 'forgot-password', 'shortcode' => '[sabri_auth_forgot_password]' ),
+			'reset'          => array( 'title' => 'Reset Password', 'slug' => 'reset-password', 'shortcode' => '[sabri_auth_reset_password]' ),
+			'sessions'       => array( 'title' => 'Account Sessions', 'slug' => 'account-sessions', 'shortcode' => '[sabri_auth_sessions]' ),
 			'access'         => array( 'title' => 'Account Access Required', 'slug' => 'account-access-required', 'shortcode' => '[sabri_auth_access_required]' ),
 			'google_account' => array( 'title' => 'Google Account Security', 'slug' => 'google-account-security', 'shortcode' => '[sabri_auth_google_account]' ),
 			'google_verify'  => array( 'title' => 'Verify Google Sign-In', 'slug' => 'google-signin-verification', 'shortcode' => '[sabri_auth_google_verify]' ),
