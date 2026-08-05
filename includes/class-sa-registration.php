@@ -4,23 +4,46 @@ defined( 'ABSPATH' ) || exit;
 
 /**
  * Authentication entry, registration orchestration and password recovery.
- * File 00 remains the sole membership, identity, guardian, role and verification owner.
+ * File 00 remains the sole membership, identity, account-class, guardian,
+ * role and verification owner.
  */
 final class SA_Registration {
 	const MIN_PASSWORD_LENGTH = 12;
 	const MIN_MALE_AGE        = 15;
 	const MIN_FEMALE_AGE      = 12;
+	const POLICY_VERSION      = '2026-08-06';
 
 	public function hooks() {
 		add_action( 'admin_post_nopriv_sa_login', array( $this, 'login' ) );
 		add_action( 'admin_post_sa_login', array( $this, 'login' ) );
+		add_action( 'admin_post_nopriv_sauth_login', array( $this, 'login' ) );
+		add_action( 'admin_post_sauth_login', array( $this, 'login' ) );
 		add_action( 'admin_post_nopriv_sa_register', array( $this, 'register' ) );
 		add_action( 'admin_post_sa_register', array( $this, 'register' ) );
+		add_action( 'admin_post_nopriv_sauth_register', array( $this, 'register' ) );
+		add_action( 'admin_post_sauth_register', array( $this, 'register' ) );
 		add_action( 'admin_post_nopriv_sa_forgot_password', array( $this, 'forgot_password' ) );
 		add_action( 'admin_post_sa_forgot_password', array( $this, 'forgot_password' ) );
+		add_action( 'admin_post_nopriv_sauth_forgot_password', array( $this, 'forgot_password' ) );
+		add_action( 'admin_post_sauth_forgot_password', array( $this, 'forgot_password' ) );
 		add_action( 'admin_post_nopriv_sa_reset_password', array( $this, 'reset_password' ) );
 		add_action( 'admin_post_sa_reset_password', array( $this, 'reset_password' ) );
+		add_action( 'admin_post_nopriv_sauth_reset_password', array( $this, 'reset_password' ) );
+		add_action( 'admin_post_sauth_reset_password', array( $this, 'reset_password' ) );
 		add_action( 'admin_post_sa_logout', array( $this, 'logout' ) );
+		add_action( 'admin_post_sauth_logout', array( $this, 'logout' ) );
+	}
+
+	public static function account_types() {
+		return array(
+			'member'                     => 'Member / Patient / General User',
+			'doctor'                     => 'Homeopathic Doctor',
+			'student'                    => 'Student',
+			'teacher'                    => 'Teacher / Trainer',
+			'researcher'                 => 'Researcher / Author',
+			'clinic_staff'                => 'Clinic Staff',
+			'institution_representative' => 'Institution Representative',
+		);
 	}
 
 	public function login() {
@@ -84,7 +107,13 @@ final class SA_Registration {
 			$this->registration_redirect( 'error', 'Account registration is temporarily unavailable. No account was created.' );
 		}
 
-		$payload = self::registration_input( $_POST );
+		$google_token   = isset( $_POST['google_registration_token'] ) ? sanitize_text_field( wp_unslash( $_POST['google_registration_token'] ) ) : '';
+		$google_context = '' !== $google_token ? SAUTH_Google_Registration::context( $google_token ) : array();
+		if ( '' !== $google_token && empty( $google_context ) ) {
+			$this->registration_redirect( 'error', 'The Google registration proof expired or changed. Start Google registration again.' );
+		}
+
+		$payload = self::registration_input( $_POST, $google_context );
 		$valid   = self::validate_registration( $payload );
 		if ( is_wp_error( $valid ) ) {
 			$this->registration_redirect( 'error', $valid->get_error_message() );
@@ -109,10 +138,28 @@ final class SA_Registration {
 			$this->registration_redirect( 'error', 'Registration could not be completed. The details may already belong to an account, or the membership service may require review.' );
 		}
 		SAUTH_Provider_Health::record_success( 'membership', $latency );
+		$user_id = absint( $result['user_id'] );
 
-		$user_id  = absint( $result['user_id'] );
+		if ( 'google' === $payload['authentication_method'] ) {
+			$consumed = SAUTH_Google_Registration::consume( $google_token );
+			if ( empty( $consumed ) || ! SAUTH_Google_Registration::finalize_link( $user_id, $consumed ) ) {
+				SAUTH_Session_Manager::revoke_user_sessions( $user_id, 'google_registration_link_failed' );
+				SA_Membership_Adapter::audit( 'google_registration_link_failed', $user_id );
+				$this->registration_redirect( 'error', 'The account was placed in protected incomplete state because the Google link could not be finalized. Use password recovery or contact support.' );
+			}
+			$verified = SAUTH_Account_Contract::mark_email_verified( $user_id, $payload['email'], array( 'purpose' => 'google_registration_email_ownership' ) );
+			if ( 'allow' !== ( $verified['result'] ?? '' ) ) {
+				SAUTH_Session_Manager::revoke_user_sessions( $user_id, 'google_registration_email_completion_failed' );
+				$this->registration_redirect( 'error', 'The account was created but email ownership completion failed safely. Contact support.' );
+			}
+			SAUTH_Event_Outbox::emit( 'EmailVerified.v1', $user_id, $user_id, array( 'method' => 'google_oidc_registration' ), 'security' );
+			$destination = SA_Security::page_url( 'complete', SA_Membership_Adapter::profile_url() );
+			wp_safe_redirect( SA_Security::message_url( 'complete', 'success', 'Your Google email was verified. Complete the remaining identity, profile photograph, phone, guardian and verification steps.' ) );
+			exit;
+		}
+
 		$delivery = SAUTH_Email_Verification::issue( $user_id, $payload['email'], true );
-		SA_Membership_Adapter::audit( 'account_registration_orchestrated', $user_id, array( 'contract_version' => SA_ACCOUNT_CONTRACT_VERSION ) );
+		SA_Membership_Adapter::audit( 'account_registration_orchestrated', $user_id, array( 'contract_version' => SAUTH_ACCOUNT_CONTRACT_VERSION, 'account_type' => $payload['account_type'] ) );
 		$payload['password'] = '';
 		$payload['password_confirm'] = '';
 		unset( $_POST['password'], $_POST['password_confirm'] );
@@ -153,7 +200,6 @@ final class SA_Registration {
 			wp_safe_redirect( SA_Security::message_url( 'reset', 'error', 'Too many reset attempts. Request a new password reset email.' ) );
 			exit;
 		}
-
 		$user = check_password_reset_key( $key, $login );
 		if ( is_wp_error( $user ) ) {
 			wp_safe_redirect( SA_Security::message_url( 'reset', 'error', 'This reset link is invalid, expired or already used.' ) );
@@ -166,7 +212,6 @@ final class SA_Registration {
 			wp_safe_redirect( $url );
 			exit;
 		}
-
 		reset_password( $user, $password );
 		$password = '';
 		$confirm  = '';
@@ -191,32 +236,34 @@ final class SA_Registration {
 		exit;
 	}
 
-	/**
-	 * @param array<string,mixed> $input Raw request values.
-	 * @return array<string,mixed>
-	 */
-	public static function registration_input( array $input ) {
+	public static function registration_input( array $input, array $google_context = array() ) {
+		$google = ! empty( $google_context['email'] ) && ! empty( $google_context['sub'] );
 		return array(
-			'name'               => isset( $input['name'] ) ? sanitize_text_field( wp_unslash( $input['name'] ) ) : '',
-			'email'              => isset( $input['email'] ) ? sanitize_email( wp_unslash( $input['email'] ) ) : '',
-			'phone'              => isset( $input['phone'] ) ? sanitize_text_field( wp_unslash( $input['phone'] ) ) : '',
-			'password'           => isset( $input['password'] ) ? (string) wp_unslash( $input['password'] ) : '',
-			'password_confirm'   => isset( $input['password_confirm'] ) ? (string) wp_unslash( $input['password_confirm'] ) : '',
-			'sex'                => isset( $input['sex'] ) ? sanitize_key( wp_unslash( $input['sex'] ) ) : '',
-			'date_of_birth'      => isset( $input['date_of_birth'] ) ? sanitize_text_field( wp_unslash( $input['date_of_birth'] ) ) : '',
-			'address'            => isset( $input['address'] ) ? sanitize_textarea_field( wp_unslash( $input['address'] ) ) : '',
-			'country'            => isset( $input['country'] ) ? sanitize_text_field( wp_unslash( $input['country'] ) ) : '',
-			'identity_type'      => isset( $input['identity_type'] ) ? sanitize_key( wp_unslash( $input['identity_type'] ) ) : '',
-			'identity_reference' => isset( $input['identity_reference'] ) ? sanitize_text_field( wp_unslash( $input['identity_reference'] ) ) : '',
-			'guardian_reference' => isset( $input['guardian_reference'] ) ? sanitize_text_field( wp_unslash( $input['guardian_reference'] ) ) : '',
-			'terms_version'      => ! empty( $input['accept_terms'] ) ? '2026-08-05' : '',
-			'privacy_version'    => ! empty( $input['accept_privacy'] ) ? '2026-08-05' : '',
+			'name'                     => $google && ! empty( $google_context['name'] ) ? sanitize_text_field( $google_context['name'] ) : ( isset( $input['name'] ) ? sanitize_text_field( wp_unslash( $input['name'] ) ) : '' ),
+			'email'                    => $google ? sanitize_email( $google_context['email'] ) : ( isset( $input['email'] ) ? sanitize_email( wp_unslash( $input['email'] ) ) : '' ),
+			'phone'                    => isset( $input['phone'] ) ? sanitize_text_field( wp_unslash( $input['phone'] ) ) : '',
+			'password'                 => $google ? '' : ( isset( $input['password'] ) ? (string) wp_unslash( $input['password'] ) : '' ),
+			'password_confirm'         => $google ? '' : ( isset( $input['password_confirm'] ) ? (string) wp_unslash( $input['password_confirm'] ) : '' ),
+			'authentication_method'    => $google ? 'google' : 'password',
+			'google_subject'           => $google ? sanitize_text_field( $google_context['sub'] ) : '',
+			'google_email_verified'    => $google,
+			'google_picture_candidate' => $google && ! empty( $google_context['picture'] ) ? esc_url_raw( $google_context['picture'] ) : '',
+			'sex'                      => isset( $input['sex'] ) ? sanitize_key( wp_unslash( $input['sex'] ) ) : '',
+			'date_of_birth'            => isset( $input['date_of_birth'] ) ? sanitize_text_field( wp_unslash( $input['date_of_birth'] ) ) : '',
+			'address'                  => isset( $input['address'] ) ? sanitize_textarea_field( wp_unslash( $input['address'] ) ) : '',
+			'city'                     => isset( $input['city'] ) ? sanitize_text_field( wp_unslash( $input['city'] ) ) : '',
+			'country'                  => isset( $input['country'] ) ? sanitize_text_field( wp_unslash( $input['country'] ) ) : '',
+			'account_type'             => isset( $input['account_type'] ) ? sanitize_key( wp_unslash( $input['account_type'] ) ) : '',
+			'identity_type'            => isset( $input['identity_type'] ) ? sanitize_key( wp_unslash( $input['identity_type'] ) ) : '',
+			'identity_reference'       => isset( $input['identity_reference'] ) ? sanitize_text_field( wp_unslash( $input['identity_reference'] ) ) : '',
+			'guardian_reference'       => isset( $input['guardian_reference'] ) ? sanitize_text_field( wp_unslash( $input['guardian_reference'] ) ) : '',
+			'profile_photo_required'   => ! empty( $input['profile_photo_required'] ),
+			'terms_version'            => ! empty( $input['accept_terms'] ) ? self::POLICY_VERSION : '',
+			'privacy_version'          => ! empty( $input['accept_privacy'] ) ? self::POLICY_VERSION : '',
+			'ethical_conduct_version'  => ! empty( $input['accept_ethics'] ) ? self::POLICY_VERSION : '',
 		);
 	}
 
-	/**
-	 * @return true|WP_Error
-	 */
 	public static function validate_registration( array $payload ) {
 		if ( strlen( trim( (string) $payload['name'] ) ) < 2 || strlen( (string) $payload['name'] ) > 100 ) {
 			return new WP_Error( 'sauth_registration_name', 'Enter your complete name.' );
@@ -228,8 +275,11 @@ final class SA_Registration {
 		if ( strlen( $phone_digits ) < 8 || strlen( $phone_digits ) > 18 ) {
 			return new WP_Error( 'sauth_registration_phone', 'Enter a valid phone number with country code.' );
 		}
-		if ( strlen( (string) $payload['password'] ) < self::MIN_PASSWORD_LENGTH || $payload['password'] !== $payload['password_confirm'] ) {
+		if ( 'password' === $payload['authentication_method'] && ( strlen( (string) $payload['password'] ) < self::MIN_PASSWORD_LENGTH || $payload['password'] !== $payload['password_confirm'] ) ) {
 			return new WP_Error( 'sauth_registration_password', 'Use matching passwords of at least 12 characters.' );
+		}
+		if ( 'google' === $payload['authentication_method'] && ( empty( $payload['google_email_verified'] ) || '' === trim( (string) $payload['google_subject'] ) ) ) {
+			return new WP_Error( 'sauth_registration_google', 'The Google email-ownership proof is invalid or expired.' );
 		}
 		if ( ! in_array( $payload['sex'], array( 'male', 'female' ), true ) ) {
 			return new WP_Error( 'sauth_registration_sex', 'Select the applicable sex for the platform age rule.' );
@@ -245,17 +295,26 @@ final class SA_Registration {
 		if ( $age < 18 && '' === trim( (string) $payload['guardian_reference'] ) ) {
 			return new WP_Error( 'sauth_registration_guardian', 'A verifiable guardian reference is required for every minor account.' );
 		}
-		if ( '' === trim( (string) $payload['address'] ) || '' === trim( (string) $payload['country'] ) ) {
-			return new WP_Error( 'sauth_registration_address', 'Enter your address and country.' );
+		if ( '' === trim( (string) $payload['address'] ) || '' === trim( (string) $payload['city'] ) || '' === trim( (string) $payload['country'] ) ) {
+			return new WP_Error( 'sauth_registration_address', 'Enter your full address, city and country.' );
+		}
+		if ( ! array_key_exists( $payload['account_type'], self::account_types() ) ) {
+			return new WP_Error( 'sauth_registration_account_type', 'Select the account type that truthfully describes your intended use.' );
+		}
+		if ( in_array( $payload['account_type'], array( 'doctor', 'teacher', 'clinic_staff', 'institution_representative' ), true ) && $age < 18 ) {
+			return new WP_Error( 'sauth_registration_professional_age', 'Professional and institutional account declarations require an adult account.' );
 		}
 		if ( ! in_array( $payload['identity_type'], array( 'national_id', 'passport' ), true ) ) {
 			return new WP_Error( 'sauth_registration_identity_type', 'Select National ID or Passport.' );
 		}
-		if ( '' === trim( (string) $payload['identity_reference'] ) ) {
+		if ( strlen( trim( (string) $payload['identity_reference'] ) ) < 5 ) {
 			return new WP_Error( 'sauth_registration_identity', 'Enter the selected National ID or Passport reference required by Membership Core.' );
 		}
-		if ( '' === (string) $payload['terms_version'] || '' === (string) $payload['privacy_version'] ) {
-			return new WP_Error( 'sauth_registration_consent', 'Accept the current Terms and Privacy Notice to continue.' );
+		if ( empty( $payload['profile_photo_required'] ) ) {
+			return new WP_Error( 'sauth_registration_profile_photo', 'Acknowledge that a profile photograph must be completed through the canonical profile workflow.' );
+		}
+		if ( '' === (string) $payload['terms_version'] || '' === (string) $payload['privacy_version'] || '' === (string) $payload['ethical_conduct_version'] ) {
+			return new WP_Error( 'sauth_registration_consent', 'Accept the current Terms, Privacy Notice and Ethical Conduct Charter to continue.' );
 		}
 		return true;
 	}
