@@ -35,15 +35,17 @@ The post-implementation adversarial review found and corrected:
 
 ## Exact-head automated evidence
 
-Exact head: `879f7bfd016fcd936387b895e515d62711649a6f`
+Latest exact head before this status-only alignment commit: `e6301c94a1f7188c6fa96808628a25b88dec6f12`.
 
-GitHub Actions run `31033446950` completed successfully:
+GitHub Actions run `31033516226` completed successfully:
 
 - `0.4.0 source, architecture and public-safety integrity`: success;
 - `PHP 7.4 lint and runtime suites`: success;
 - `PHP 8.3 lint and runtime suites`: success;
 - existing security, CF-01 assurance, professional reauthentication and plan-harmonization suites: success;
 - registration, age/guardian, password-policy and verification-token policy suite: success.
+
+This commit changes status documentation only; no runtime source, schema, workflow or test file is changed.
 
 ## Still required
 
@@ -65,7 +67,7 @@ GitHub Actions run `31033446950` completed successfully:
 - Specified: **Complete in governing plan**
 - Coded: **Substantial partial 0.4.0 candidate; remaining Must scope listed above**
 - Packaged: **No**
-- Automated QA: **Green on exact head `879f7bfd016fcd936387b895e515d62711649a6f` within the defined repository scope**
+- Automated QA: **Green on the latest runtime-equivalent exact head within the defined repository scope**
 - Staging accepted: **No**
 - Live deployed: **No**
 - Operational: **No**
