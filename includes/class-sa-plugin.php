@@ -20,24 +20,17 @@ final class SA_Plugin {
 	public function run() {
 		$this->privacy->hooks();
 		$this->access->privacy_hooks();
+		$this->registration->hooks();
+		$this->profile->hooks();
+		$this->access->hooks();
 
 		add_action( 'admin_menu', array( $this, 'admin_menu' ), 30 );
 		add_action( 'admin_post_sa_save_auth_settings', array( $this, 'save_settings' ) );
 		add_action( 'admin_notices', array( $this, 'activation_notice' ) );
 
-		if ( ! SA_Membership_Adapter::available() ) {
-			add_action( 'admin_notices', array( $this, 'dependency_notice' ) );
-			return;
-		}
-
-		SA_Activator::maybe_upgrade();
-		$this->registration->hooks();
-		$this->profile->hooks();
-		$this->google->hooks();
-		$this->access->hooks();
-
 		add_shortcode( 'sabri_auth_login', array( $this, 'login_shortcode' ) );
 		add_shortcode( 'sabri_auth_signup', array( $this, 'signup_shortcode' ) );
+		add_shortcode( 'sabri_auth_verify_email', array( 'SAUTH_Email_Verification', 'render' ) );
 		add_shortcode( 'sabri_auth_complete_profile', array( $this, 'profile_shortcode' ) );
 		add_shortcode( 'sabri_auth_forgot_password', array( $this, 'forgot_shortcode' ) );
 		add_shortcode( 'sabri_auth_reset_password', array( $this, 'reset_shortcode' ) );
@@ -46,6 +39,14 @@ final class SA_Plugin {
 		add_shortcode( 'sabri_auth_google_account', array( $this, 'google_account_shortcode' ) );
 		add_shortcode( 'sabri_auth_google_verify', array( $this, 'google_verify_shortcode' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'assets' ) );
+
+		if ( ! SA_Membership_Adapter::available() ) {
+			add_action( 'admin_notices', array( $this, 'dependency_notice' ) );
+			return;
+		}
+
+		SA_Activator::maybe_upgrade();
+		$this->google->hooks();
 	}
 
 	public function assets() {
@@ -59,7 +60,7 @@ final class SA_Plugin {
 			'SabriAuth',
 			array(
 				'loggedIn' => is_user_logged_in(),
-				'loginUrl' => SA_Membership_Adapter::login_url( self::current_url() ),
+				'loginUrl' => SA_Security::page_url( 'login', wp_login_url() ),
 			)
 		);
 	}
@@ -72,9 +73,12 @@ final class SA_Plugin {
 		return $this->template(
 			'login',
 			array(
-				'google_ready' => SA_Google_OAuth::configured(),
-				'redirect_to'  => $redirect,
-				'member_login' => SA_Membership_Adapter::login_url( $redirect ),
+				'google_ready'  => SA_Google_OAuth::configured(),
+				'password_ready'=> SA_Membership_Adapter::available() && SAUTH_Account_Contract::provider_available(),
+				'redirect_to'   => $redirect,
+				'form_action'    => admin_url( 'admin-post.php' ),
+				'forgot_url'     => SA_Security::page_url( 'forgot', wp_lostpassword_url() ),
+				'signup_url'     => SA_Security::page_url( 'signup', wp_registration_url() ),
 			)
 		);
 	}
@@ -86,9 +90,9 @@ final class SA_Plugin {
 		return $this->template(
 			'signup',
 			array(
-				'register_url' => SA_Membership_Adapter::register_url(),
-				'login_url'    => SA_Membership_Adapter::login_url(),
-				'account_contract_ready' => SAUTH_Account_Contract::provider_available(),
+				'form_action'            => admin_url( 'admin-post.php' ),
+				'login_url'              => SA_Security::page_url( 'login', wp_login_url() ),
+				'account_contract_ready' => SA_Membership_Adapter::available() && SAUTH_Account_Contract::provider_available(),
 			)
 		);
 	}
@@ -163,7 +167,7 @@ final class SA_Plugin {
 
 	private function signed_in_card() {
 		$user = wp_get_current_user();
-		return '<div class="sa-auth-shell"><div class="sa-auth-card sa-signed-in"><h2>' . esc_html__( 'You are signed in', 'sabri-authentication' ) . '</h2><p>' . esc_html( $user->display_name ) . '</p><a class="sa-primary-button" href="' . esc_url( SA_Membership_Adapter::profile_url() ) . '">Membership Profile</a><a class="sa-secondary-button" href="' . esc_url( SA_Security::page_url( 'sessions' ) ) . '">Active Sessions</a><a class="sa-secondary-button" href="' . esc_url( SA_Security::page_url( 'google_account', SA_Membership_Adapter::profile_url() ) ) . '">Google Account Security</a><a class="sa-text-link" href="' . esc_url( wp_logout_url( home_url( '/' ) ) ) . '">Log Out</a></div></div>';
+		return '<div class="sa-auth-shell"><div class="sa-auth-card sa-signed-in"><h2>' . esc_html__( 'You are signed in', 'sabri-authentication' ) . '</h2><p>' . esc_html( $user->display_name ) . '</p><a class="sa-primary-button" href="' . esc_url( SA_Membership_Adapter::profile_url() ) . '">Membership Profile</a><a class="sa-secondary-button" href="' . esc_url( SA_Security::page_url( 'sessions' ) ) . '">Active Sessions</a><a class="sa-secondary-button" href="' . esc_url( SA_Security::page_url( 'google_account', SA_Membership_Adapter::profile_url() ) ) . '">Google Account Security</a><a class="sa-text-link" href="' . esc_url( wp_logout_url( home_url( '/' ) ) . '">Log Out</a></div></div>';
 	}
 
 	private function template( $name, array $vars ) {
@@ -186,10 +190,10 @@ final class SA_Plugin {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return;
 		}
-		$counts           = count_users();
-		$dependency_ready = SA_Membership_Adapter::available();
+		$counts                 = count_users();
+		$dependency_ready       = SA_Membership_Adapter::available();
 		$account_contract_ready = SAUTH_Account_Contract::provider_available();
-		$legacy_roles     = SA_Membership_Adapter::legacy_role_count();
+		$legacy_roles           = SA_Membership_Adapter::legacy_role_count();
 		include SA_DIR . 'admin/account-settings.php';
 	}
 
@@ -219,7 +223,7 @@ final class SA_Plugin {
 		}
 
 		$enable = ! empty( $_POST['google_enabled'] );
-		if ( $enable && ( ! SA_Membership_Adapter::available() || ! is_ssl() || '' === $client_id || '' === SA_Security::decrypt( (string) get_option( 'sa_google_client_secret', '' ) ) ) ) {
+		if ( $enable && ( ! SA_Membership_Adapter::available() || ! is_ssl() || '' === $client_id || '' === SA_Security::decrypt( (string) get_option( 'sa_google_client_secret', '' ) ) ) {
 			update_option( 'sa_google_enabled', '0', false );
 			wp_safe_redirect( add_query_arg( 'error', 'not_ready', self::settings_url() ) );
 			exit;
@@ -235,22 +239,17 @@ final class SA_Plugin {
 			return;
 		}
 		delete_transient( 'sa_activation_notice' );
-		echo '<div class="notice notice-success is-dismissible"><p><strong>Sabri Authentication activated.</strong> File 00 remains the exclusive membership, role, guardian, profile, verification and two-factor authority. File 02 now supplies versioned authentication orchestration, audit-event outbox and session controls.</p></div>';
+		echo '<div class="notice notice-success is-dismissible"><p><strong>Sabri Authentication activated.</strong> File 00 remains the exclusive membership, role, guardian, profile, verification and two-factor authority. File 02 supplies registration and authentication orchestration, signed email verification, audit-event outbox and session controls.</p></div>';
 	}
 
 	public function dependency_notice() {
 		if ( current_user_can( 'activate_plugins' ) ) {
-			echo '<div class="notice notice-error"><p><strong>Sabri Authentication is inactive at runtime:</strong> File 00 — Sabri Membership Core 1.2.7 or later with the approved assurance contract is required. No permissive fallback account or role system has started.</p></div>';
+			echo '<div class="notice notice-error"><p><strong>Sabri Authentication is in safe degraded mode:</strong> File 00 — Sabri Membership Core 1.2.7 or later with the approved assurance and account-orchestration contracts is required. Public reading remains available; registration and protected sign-in actions fail closed.</p></div>';
 		}
 	}
 
 	private static function settings_url() {
 		$base = defined( 'SABRI_SHELL_VERSION' ) ? admin_url( 'admin.php' ) : admin_url( 'options-general.php' );
 		return add_query_arg( 'page', 'sabri-authentication', $base );
-	}
-
-	private static function current_url() {
-		$uri = isset( $_SERVER['REQUEST_URI'] ) ? (string) wp_unslash( $_SERVER['REQUEST_URI'] ) : '/';
-		return SA_Security::safe_redirect( home_url( $uri ) );
 	}
 }
