@@ -22,7 +22,10 @@ required_files = {
     "includes/class-sa-authentication-assurance.php",
     "includes/class-sauth-account-contract.php",
     "includes/class-sauth-event-outbox.php",
+    "includes/class-sauth-email-verification.php",
     "includes/class-sauth-session-manager.php",
+    "templates/login.php",
+    "templates/signup.php",
     "templates/google-account.php",
     "templates/google-verify.php",
     "templates/reset-password.php",
@@ -38,12 +41,14 @@ for marker in (
     "class-sa-security.php",
     "class-sauth-account-contract.php",
     "class-sauth-event-outbox.php",
+    "class-sauth-email-verification.php",
     "class-sauth-session-manager.php",
     "class-sa-authentication-assurance.php",
     "class-sa-membership-adapter.php",
     "SA_ACCOUNT_CONTRACT_VERSION",
     "SA_AUTH_EVENT_SCHEMA_VERSION",
     "SAUTH_Event_Outbox::init()",
+    "SAUTH_Email_Verification::init()",
     "SAUTH_Session_Manager::init()",
     "SA_Authentication_Assurance::init()",
 ):
@@ -56,7 +61,7 @@ forbidden = {
     "role mutation": r"->\s*set_role\s*\(",
     "capability mutation": r"->\s*(?:add_cap|remove_cap)\s*\(",
     "parallel user creation": r"\b(?:wp_insert_user|wp_create_user)\s*\(",
-    "parallel password login": r"\bwp_signon\s*\(",
+    "opaque wp_signon bypass": r"\bwp_signon\s*\(",
     "File 00 private 2FA flag": r"_smc_2fa_enabled",
     "File 00 private TOTP storage": r"_smc_totp_secret(?:_enc)?",
     "direct File 00 recovery-code mutation": r"SMC_Security::consume_recovery_code",
@@ -73,6 +78,8 @@ for marker in (
     "SMC_CF01_Contract::membership_assertion",
     "SA_Authentication_Assurance::verify_and_record",
     "SA_Authentication_Assurance::assertion",
+    "SA_Security::page_url( 'login'",
+    "SA_Security::page_url( 'signup'",
     "authentication_link",
     "authentication_unlink",
 ):
@@ -111,6 +118,51 @@ for marker in (
     if marker not in outbox:
         fail(f"authentication event outbox is missing {marker}")
 
+email = PHP["includes/class-sauth-email-verification.php"]
+for marker in (
+    "TOKEN_TTL",
+    "RESEND_DELAY",
+    "MAX_ATTEMPTS",
+    "token_hash",
+    "hash_equals",
+    "mark_email_verified",
+    "EmailVerified.v1",
+    "delivery_failed",
+    "sa_email_verifications",
+    "sauth_email_verification_delivery",
+):
+    if marker not in email:
+        fail(f"email verification lifecycle is missing {marker}")
+for forbidden_marker in ("update_user_meta", "wp_insert_user", "wp_create_user", "access_token", "refresh_token"):
+    if forbidden_marker in email:
+        fail(f"email verification contains forbidden ownership or secret marker: {forbidden_marker}")
+
+registration = PHP["includes/class-sa-registration.php"]
+for marker in (
+    "SAUTH_Account_Contract::register_account",
+    "SAUTH_Email_Verification::issue",
+    "validate_registration",
+    "MIN_MALE_AGE",
+    "MIN_FEMALE_AGE",
+    "guardian_reference",
+    "identity_reference",
+    "wp_check_password",
+    "wp_set_auth_cookie",
+    "membership_assertion",
+    "get_completion_state",
+    "AccountAuthenticationSucceeded.v1",
+    "AccountAuthenticationFailed.v1",
+    "check_password_reset_key",
+    "reset_password",
+    "destroy_all",
+    "PasswordResetCompleted.v1",
+):
+    if marker not in registration:
+        fail(f"registration/authentication surface is missing {marker}")
+for forbidden_marker in ("wp_insert_user", "wp_create_user", "set_role", "add_role"):
+    if forbidden_marker in registration:
+        fail(f"registration surface contains File 00 ownership bypass: {forbidden_marker}")
+
 sessions = PHP["includes/class-sauth-session-manager.php"]
 for marker in (
     "destroy_others",
@@ -144,24 +196,24 @@ for forbidden_marker in ("wp_get_session_token() );", "'session_token' =>", "'co
     if forbidden_marker in assurance:
         fail(f"authentication assurance may expose sensitive material: {forbidden_marker}")
 
-registration = PHP["includes/class-sa-registration.php"]
-for marker in (
-    "SA_Membership_Adapter::register_url",
-    "SA_Membership_Adapter::login_url",
-    "check_password_reset_key",
-    "reset_password",
-    "destroy_all",
-    "PasswordResetCompleted.v1",
-):
-    if marker not in registration:
-        fail(f"registration/recovery surface is missing {marker}")
-
 profile = PHP["includes/class-sa-profile.php"]
 if "SA_Membership_Adapter::profile_url" not in profile:
     fail("legacy profile route does not delegate to Membership Core")
 
 access = PHP["includes/class-sa-access-control.php"]
-for marker in ("privacy_hooks", "noindex", "noarchive", "nocache_headers", "no-store", "X-Robots-Tag", "Referrer-Policy: no-referrer", "X-Frame-Options", "sabri_auth_reset_password", "sabri_auth_sessions"):
+for marker in (
+    "privacy_hooks",
+    "noindex",
+    "noarchive",
+    "nocache_headers",
+    "no-store",
+    "X-Robots-Tag",
+    "Referrer-Policy: no-referrer",
+    "X-Frame-Options",
+    "sabri_auth_verify_email",
+    "sabri_auth_reset_password",
+    "sabri_auth_sessions",
+):
     if marker not in access:
         fail(f"private-page response protection is missing {marker}")
 
@@ -186,6 +238,8 @@ for key in (
     "_sa_privacy_accepted_at",
     "_sa_google_sub",
     "_sa_google_link_version",
+    "sa_email_verifications",
+    "token",
 ):
     if key not in privacy:
         fail(f"privacy coverage is missing {key}")
@@ -196,9 +250,30 @@ for marker in ("sa_rate_limits", "ON DUPLICATE KEY UPDATE", "clear_rate_limit", 
         fail(f"security implementation is missing {marker}")
 
 activator = PHP["includes/class-sa-activator.php"]
-for marker in ("sa_page_map", "_sa_managed_page", "exact_shortcode_page", "known_id", "sa_auth_outbox", "reset-password", "account-sessions"):
+for marker in (
+    "sa_page_map",
+    "_sa_managed_page",
+    "exact_shortcode_page",
+    "known_id",
+    "sa_auth_outbox",
+    "sa_email_verifications",
+    "sauth_dummy_password_hash",
+    "verify-email",
+    "reset-password",
+    "account-sessions",
+):
     if marker not in activator:
         fail(f"activation/schema implementation is missing {marker}")
+
+login_template = PHP["templates/login.php"]
+for marker in ("user_login", "current-password", "sa_login", "password_ready"):
+    if marker not in login_template:
+        fail(f"password login template is missing {marker}")
+
+signup_template = PHP["templates/signup.php"]
+for marker in ("date_of_birth", "identity_reference", "guardian_reference", "accept_terms", "accept_privacy"):
+    if marker not in signup_template:
+        fail(f"registration template is missing {marker}")
 
 print("File 02 architecture guard passed.")
 print(f"PHP files checked: {len(PHP)}")
