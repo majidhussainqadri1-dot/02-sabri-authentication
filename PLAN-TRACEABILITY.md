@@ -1,72 +1,103 @@
-# File 02 — Plan-to-Code Traceability
+# File 02 — Three-Plan Plan-to-Code Traceability
 
-**Governing specification:** `SSH-F02-PLAN-2026-v1.0`  
-**Candidate branch:** `codex/file02-full-plan-harmonization-0.4.0`  
-**Candidate version/schema:** `1.0.0 / 1.0.0`  
-**Source status:** all F02-FR and F02-NFR source obligations are represented; automated/package/staging/live/operational evidence remain separate gates.
+**Governing sources**
 
-## Governing ownership
+1. Definitive Master Plan v3.0
+2. File 02 Complete Master Plan `SSH-F02-PLAN-2026-v1.0`
+3. Consolidated All-Chats Directives v2.1
 
-File 02 owns authentication surfaces and orchestration for email/password, Google OAuth, recovery, login-risk challenge, session-entry presentation and account completion. File 00 remains the sole owner of platform identity, membership eligibility, roles, guardian state, verification, institutional authority and MFA policy. No File 02 source path creates a parallel platform role, membership truth or provider-based identity.
+**Candidate branch:** `codex/file02-three-plan-completion-1.1.0`  
+**Candidate version/schema:** `1.1.0 / 1.1.0`  
+**Paired File 00 contract:** `smc.authentication-account 1.1.0`
+
+## Ownership and constitution
+
+| Constitution item | Resolution |
+|---|---|
+| Canonical repository | `02-sabri-authentication-and-accounts`; owner-level rename remains external |
+| Package folder | `02-sabri-authentication` |
+| WordPress slug/text domain | `sabri-authentication` |
+| Public PHP prefix | `SAUTH_`; legacy `SA_` identifiers are bounded compatibility aliases |
+| Canonical session route | `/account/sessions/`; legacy route redirects permanently |
+| Identity/roles/guardian/verification owner | File 00 only |
+| Authentication surfaces/orchestration owner | File 02 only |
+| Shell/layout owner | File 20 only; File 02 supplies manifests and semantic content |
+| Profile photograph owner | File 03; File 00 supplies the completion truth and route |
+
+## Parent-plan mandatory registration fields
+
+| Field/control | Source evidence | Owner |
+|---|---|---|
+| Complete name | `templates/signup.php`, `SA_Registration` | File 00 truth |
+| Email | password or Google-verified email | File 00/WordPress identity |
+| Mobile/phone | registration payload plus File 00 completion | File 00 verification |
+| Country and city | required fields and File 00 v1.1 private state | File 00 |
+| Full address | validated and encrypted by File 00 | File 00 |
+| Date of birth and sex | age validation plus File 00 eligibility | File 00 |
+| Declared account type | required; never grants privileges | File 00 |
+| Password or Google | separate complete registration paths | File 02 |
+| Profile photograph | required completion acknowledgement and File 03 hook | File 03/File 00 completion |
+| National ID/Passport | explicit type and reference handoff | File 00 |
+| Guardian reference | required for every under-18 account | File 00 |
+| Terms | versioned consent | File 00 |
+| Privacy | versioned consent | File 00 |
+| Ethical Conduct Charter | separate versioned consent | File 00 |
 
 ## Functional requirements
 
-| Requirement | Version 1.0.0 source evidence | Source status |
+| Requirement | Version 1.1.0 source evidence | Status |
 |---|---|---|
-| F02-FR-001 Account registration | `SA_Registration` validates all required fields and invokes only `SAUTH_Account_Contract::register_account()` with rate limits and idempotency. | Implemented |
-| F02-FR-002 Email verification | `SAUTH_Email_Verification` provides secure one-time token issue, canonical-email binding, expiry, resend/attempt limits, replay/concurrency protection, File 00 completion and `EmailVerified.v1`. | Implemented |
-| F02-FR-003 Password authentication | WordPress password APIs, unknown-user dummy hash, generic errors, per-IP/per-account limits, File 00 assertion/completion checks and risk orchestration. | Implemented |
-| F02-FR-004 Google OAuth | State, OpenID nonce, PKCE, exact redirect, issuer/audience/azp/time checks, minimal scopes and verified-email validation. | Implemented |
-| F02-FR-005 Account linking | Existing-session and File 00 step-up requirement, exact same-email linking, collision/concurrency controls, unlink and session revocation. | Implemented |
-| F02-FR-006 Password recovery | Non-enumerating initiation, WordPress one-time reset key, minimum password policy, replay denial and all-session revocation. | Implemented |
-| F02-FR-007 Session management | `SAUTH_Session_Manager` stores HMAC-only session bindings and opaque public IDs; provides current marker, generalized device/network, last activity/risk, individual revoke, revoke others and revoke all. | Implemented |
-| F02-FR-008 Login risk challenge | `SAUTH_Login_Risk` evaluates new device, new network, recent failures and provider health; creates expiring one-time challenge and invokes File 00-owned step-up. | Implemented |
-| F02-FR-009 Account completion | `SAUTH_Completion_Resolver` consumes File 00 state, validates same-origin owner route, blocks auth-route loops and prevents repeated unresolved redirects. | Implemented |
-| F02-FR-010 Safe redirects | `SA_Security::safe_redirect()` plus completion-owner validation are used on login, logout, provider, recovery and completion routes. | Implemented |
-| F02-FR-011 Auth audit events | Versioned privacy-minimized outbox with trace IDs, bounded retries/dead-letter and events for auth success/failure, email, reset, linking and session revocation. | Implemented |
-| F02-FR-012 Degraded provider UX | Provider circuits, bounded HTTP behavior, Safe Mode, explicit fail-closed messages and redacted System Check preserve public reading and prevent false success. | Implemented |
+| F02-FR-001 Account registration | `SAUTH_Registration` compatibility alias, mandatory fields, password/Google methods, idempotency and File 00 v1.1 provider | Implemented |
+| F02-FR-002 Email verification | signed one-time token, canonical email, expiry, resend/attempt controls, atomic replay protection and audit | Implemented |
+| F02-FR-003 Password authentication | WordPress hashing APIs, dummy verification, generic errors, rate controls and File 00 rechecks | Implemented |
+| F02-FR-004 Google OAuth | state, nonce, PKCE, issuer/audience/azp/time/email validation for login and registration | Implemented |
+| F02-FR-005 Linking/unlinking | exact-email, current session, step-up, duplicate lock, unlink and session revocation | Implemented |
+| F02-FR-006 Password recovery | non-enumerating initiation, one-time key, strength check and all-session revocation | Implemented |
+| F02-FR-007 Sessions | HMAC-only bindings, opaque IDs, current marker, generalized presentation and scoped revoke operations | Implemented |
+| F02-FR-008 Login risk | new device/network/failure/provider state and File 00-owned second factor | Implemented |
+| F02-FR-009 Completion | File 00 state including city/type/ethics/photo, same-origin route and loop prevention | Implemented |
+| F02-FR-010 Redirect safety | same-origin allowlist and canonical route validation | Implemented |
+| F02-FR-011 Audit events | versioned outbox, trace IDs, retries/dead-letter, secret stripping and all auth facts | Implemented |
+| F02-FR-012 Degraded UX | provider circuits, Safe Mode, bounded HTTP, explicit failure states and public-read preservation | Implemented |
 
 ## Non-functional requirements
 
-| Requirement | Version 1.0.0 source evidence | Source status |
+| Requirement | Source resolution | Evidence boundary |
 |---|---|---|
-| F02-NFR-001 Authorization | File 00 mandatory; action nonces; own-user session controls; object/public-ID binding; current membership/suspension/completion/step-up rechecks; no direct companion writes. | Implemented; staging IDOR matrix pending |
-| F02-NFR-002 Privacy lifecycle | Data minimization, HMAC token/device bindings, generalized network labels, event secret stripping, export/erasure, attempt anonymization and bounded cleanup. | Implemented; real provider/deletion evidence pending |
-| F02-NFR-003 Reliability | Atomic rate limits, registration idempotency, one-time challenges, concurrency claims, outbox retry/dead-letter, circuit breakers and guarded repair. | Implemented; real failure-injection pending |
-| F02-NFR-004 Performance | Bounded table indexes, list/batch limits, provider timeout/redirect bounds, circuit breaker and route asset scoping. | Implemented; measured staging p75/p95 pending |
-| F02-NFR-005 Accessibility | Semantic account surfaces, explicit labels, error/status roles, keyboard focus, touch sizing, responsive reflow, logical CSS and reduced-motion handling. | Implemented; human WCAG/RTL/browser evidence pending |
-| F02-NFR-006 Observability | Trace IDs, audit/outbox records, provider health, System Check, route/schema/cron diagnostics and redacted reason categories. | Implemented |
-| F02-NFR-007 Migration/rollback | Additive idempotent `dbDelta` schemas, version gates, managed-page reconciliation, non-destructive uninstall and guarded repair. | Implemented; real upgrades/rollback pending |
-| F02-NFR-008 Operability | Redacted System Check, Safe Mode, File 02-only repair, health menu, provider circuits and File 01/File 20 manifests. | Implemented |
-| F02-NFR-009 Compatibility | PHP 7.4/8.3 source target, WordPress APIs, exact-head CI matrix, deterministic package and clean-extract lint workflow. | Implemented; Hostinger/WordPress acceptance pending |
-| F02-NFR-010 Localization | Text domain, translation-ready WordPress messages, locale-independent data contracts, logical CSS and mixed RTL/LTR-safe presentation baseline. | Implemented; complete Urdu/Arabic linguistic QA pending |
+| F02-NFR-001 Authorization | File 00 mandatory, nonce/subject binding, fail closed | Real-role IDOR staging pending |
+| F02-NFR-002 Privacy | minimization, HMAC/encryption, export/erasure/anonymization | Provider/deletion staging pending |
+| F02-NFR-003 Reliability | idempotency, atomic claims, retry/dead-letter, circuit breakers | Failure injection pending |
+| F02-NFR-004 Performance | bounded lists/indexes/timeouts and route-scoped assets | Measured p75/p95 pending |
+| F02-NFR-005 Accessibility | labels, status roles, keyboard/focus/touch/reflow/reduced motion | Human WCAG/RTL/browser pending |
+| F02-NFR-006 Observability | traces, audits, provider state, System Check and diagnostics | Implemented |
+| F02-NFR-007 Migration/rollback | additive versioning, option/route compatibility, non-destructive uninstall | Real upgrade/rollback pending |
+| F02-NFR-008 Operability | Safe Mode, health report, guarded repair and manifests | Implemented |
+| F02-NFR-009 Compatibility | PHP 7.4/8.3 CI, WordPress APIs, deterministic package and clean extraction | Hostinger pending |
+| F02-NFR-010 Localization | text domain, semantic markup, logical CSS and mixed-direction baseline | Linguistic/visual QA pending |
 
-## Source delivery batches completed
+## Consolidated directives
 
-1. Canonical File 02/File 00 ownership and fail-closed contracts.
-2. Registration, email verification and password authentication.
-3. Google OAuth/link/unlink and assurance boundaries.
-4. Password recovery and all-session revocation.
-5. Opaque individual-session registry and revoked-token denial.
-6. New-device/network login risk challenge and trusted-device lifecycle.
-7. Loop-safe account-completion resolver.
-8. Privacy-safe event outbox and provider circuit/HTTP controls.
-9. System Check, Safe Mode, guarded repair and File 01/File 20 manifests.
-10. Privacy/export/erasure/retention coverage, additive migration schemas and non-destructive uninstall.
-11. Deterministic package builder and exact-head CI/package-parity workflow.
-12. Architecture and no-network policy suites covering all twelve functional requirements.
+| Directive | Resolution |
+|---|---|
+| Green primary identity | Authentication CSS uses green identity |
+| Islamic privacy and dignity | minimization, no raw secrets/full IP, separate Ethical Conduct consent |
+| One canonical owner | File 02/File 00/File 03/File 20 boundaries are explicit |
+| Fresh review → fix → retest | enforced by review record and CI |
+| Zero known defect release gate | source gate only; new evidence reopens review |
+| Observable progress | branch, exact head, jobs, artifacts, checksums and remaining gates reported |
+| Responsive/RTL/accessibility | source baseline present; real acceptance remains separate |
+| Staging first | no live authorization in repository |
 
-## Evidence gates still external to source completion
+## External evidence gates
 
-- File 00 provider branch compatibility and cross-repository acceptance;
-- exact latest-head CI success and deterministic package digest;
-- fresh/upgrade/deactivate/reactivate/non-destructive uninstall on Hostinger staging;
-- real SMTP/email, Google OAuth and optional File 19 transport tests;
-- File 01/File 20/theme/LiteSpeed/File 24 integration acceptance;
-- real-role security/privacy/IDOR/guardian/suspension journeys;
-- browser/mobile/RTL/keyboard/screen-reader/zoom/load/provider-outage acceptance;
-- database/files/keys backup restore and rollback rehearsal;
-- two fresh final review/fix rounds on the immutable release head;
-- Founder staging acceptance, production deployment and operational monitoring.
+- owner-level repository rename;
+- paired File 00 contract acceptance/merge;
+- current exact-head GitHub Actions success and retained artifact;
+- Hostinger fresh install/upgrade/deactivate/reactivate/uninstall;
+- real SMTP/Google/File 01/File 20/File 03/File 24/theme/LiteSpeed;
+- real roles, IDOR, privacy, replay and race tests;
+- mobile/browser/RTL/WCAG/performance/load;
+- backup/restore and rollback rehearsal;
+- Founder staging approval, production deployment and operational monitoring.
 
-These gates determine **Automated-QA Green**, **Packaged**, **Staging-Accepted**, **Live-Deployed** and **Operational** status; they do not reopen the frozen source scope unless new defects or contract changes are discovered.
+These external gates do not invalidate completed source coding, but they prohibit any claim that the system is staging-accepted, live or operational before evidence exists.
