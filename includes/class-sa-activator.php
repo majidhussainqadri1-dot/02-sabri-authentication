@@ -15,8 +15,10 @@ final class SA_Activator {
 
 		self::create_rate_limit_table();
 		self::create_auth_outbox_table();
+		self::create_email_verification_table();
 		self::create_pages();
 		self::migrate_google_secret();
+		self::ensure_dummy_password_hash();
 
 		add_option( 'sa_google_enabled', '0', '', false );
 		add_option( 'sa_google_client_id', '', '', false );
@@ -27,8 +29,13 @@ final class SA_Activator {
 	}
 
 	public static function deactivate() {
-		if ( function_exists( 'wp_clear_scheduled_hook' ) && class_exists( 'SAUTH_Event_Outbox' ) ) {
-			wp_clear_scheduled_hook( SAUTH_Event_Outbox::CRON_HOOK );
+		if ( function_exists( 'wp_clear_scheduled_hook' ) ) {
+			if ( class_exists( 'SAUTH_Event_Outbox' ) ) {
+				wp_clear_scheduled_hook( SAUTH_Event_Outbox::CRON_HOOK );
+			}
+			if ( class_exists( 'SAUTH_Email_Verification' ) ) {
+				wp_clear_scheduled_hook( SAUTH_Email_Verification::CLEANUP_HOOK );
+			}
 		}
 		flush_rewrite_rules( false );
 	}
@@ -37,8 +44,10 @@ final class SA_Activator {
 		if ( SA_DB_VERSION !== (string) get_option( 'sa_db_version', '' ) ) {
 			self::create_rate_limit_table();
 			self::create_auth_outbox_table();
+			self::create_email_verification_table();
 			self::create_pages();
 			self::migrate_google_secret();
+			self::ensure_dummy_password_hash();
 			update_option( 'sa_version', SA_VERSION, false );
 			update_option( 'sa_db_version', SA_DB_VERSION, false );
 		}
@@ -94,6 +103,30 @@ final class SA_Activator {
 		dbDelta( $sql );
 	}
 
+	public static function create_email_verification_table() {
+		global $wpdb;
+		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+
+		$table   = $wpdb->prefix . 'sa_email_verifications';
+		$collate = $wpdb->get_charset_collate();
+		$sql     = "CREATE TABLE {$table} (
+			user_id bigint unsigned NOT NULL,
+			email_hash char(64) NOT NULL,
+			token_hash char(64) NOT NULL,
+			status varchar(24) NOT NULL DEFAULT 'pending',
+			attempts smallint unsigned NOT NULL DEFAULT 0,
+			sent_at datetime NOT NULL,
+			expires_at datetime NOT NULL,
+			verified_at datetime NULL,
+			created_at datetime NOT NULL,
+			updated_at datetime NOT NULL,
+			PRIMARY KEY  (user_id),
+			KEY expiry_status (status, expires_at),
+			KEY email_hash (email_hash)
+		) {$collate};";
+		dbDelta( $sql );
+	}
+
 	private static function create_pages() {
 		$known    = (array) get_option( 'sa_page_map', array() );
 		$page_map = array();
@@ -137,7 +170,7 @@ final class SA_Activator {
 			array(
 				'post_type'      => 'page',
 				'post_status'    => array( 'publish', 'draft', 'private', 'pending' ),
-				'posts_per_page' => 20,
+				'posts_per_page' => 30,
 				'meta_key'       => '_sa_managed_page',
 				'meta_value'     => '1',
 				'orderby'        => 'ID',
@@ -193,6 +226,14 @@ final class SA_Activator {
 		}
 	}
 
+	private static function ensure_dummy_password_hash() {
+		$existing = (string) get_option( 'sauth_dummy_password_hash', '' );
+		if ( '' !== $existing || ! function_exists( 'wp_hash_password' ) ) {
+			return;
+		}
+		update_option( 'sauth_dummy_password_hash', wp_hash_password( SA_Security::random_token( 32 ) ), false );
+	}
+
 	/**
 	 * Kept only for backward compatibility. File 00 is the exclusive role owner.
 	 */
@@ -204,6 +245,7 @@ final class SA_Activator {
 		return array(
 			'login'          => array( 'title' => 'Secure Log In', 'slug' => 'login', 'shortcode' => '[sabri_auth_login]' ),
 			'signup'         => array( 'title' => 'Create Verified Account', 'slug' => 'register', 'shortcode' => '[sabri_auth_signup]' ),
+			'email_verify'   => array( 'title' => 'Verify Email', 'slug' => 'verify-email', 'shortcode' => '[sabri_auth_verify_email]' ),
 			'complete'       => array( 'title' => 'Complete Verified Profile', 'slug' => 'complete-profile', 'shortcode' => '[sabri_auth_complete_profile]' ),
 			'forgot'         => array( 'title' => 'Forgot Password', 'slug' => 'forgot-password', 'shortcode' => '[sabri_auth_forgot_password]' ),
 			'reset'          => array( 'title' => 'Reset Password', 'slug' => 'reset-password', 'shortcode' => '[sabri_auth_reset_password]' ),
