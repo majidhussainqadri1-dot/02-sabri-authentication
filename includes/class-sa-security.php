@@ -19,7 +19,7 @@ final class SA_Security {
 		$limit   = max( 1, absint( $limit ) );
 		$window  = max( 60, absint( $window ) );
 		$bucket  = self::bucket_hash( $action, $subject );
-		$table   = $wpdb->prefix . 'sa_rate_limits';
+		$table   = SAUTH_Activator::table( 'rate_limits' );
 		$now     = gmdate( 'Y-m-d H:i:s' );
 		$expires = gmdate( 'Y-m-d H:i:s', time() + $window );
 		$sql = $wpdb->prepare(
@@ -58,7 +58,7 @@ final class SA_Security {
 	public static function clear_rate_limit( $action, $subject = '' ) {
 		global $wpdb;
 		$bucket = self::bucket_hash( $action, $subject );
-		$wpdb->delete( $wpdb->prefix . 'sa_rate_limits', array( 'bucket_hash' => $bucket ), array( '%s' ) );
+		$wpdb->delete( SAUTH_Activator::table( 'rate_limits' ), array( 'bucket_hash' => $bucket ), array( '%s' ) );
 		delete_transient( 'sauth_fallback_' . substr( $bucket, 0, 32 ) );
 		delete_transient( 'sa_fallback_' . substr( $bucket, 0, 32 ) );
 	}
@@ -142,7 +142,7 @@ final class SA_Security {
 
 	public static function random_token( $bytes = 32 ) {
 		try {
-			return bin2hex( random_bytes( max( 16, absint( $bytes ) ) ) );
+			return bin2hex( random_bytes( max( 16, absint( $bytes ) ) );
 		} catch ( Exception $exception ) {
 			return wp_generate_password( 64, false, false );
 		}
