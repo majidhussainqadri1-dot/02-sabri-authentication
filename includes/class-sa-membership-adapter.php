@@ -32,12 +32,12 @@ final class SA_Membership_Adapter {
 	}
 
 	public static function login_url( $redirect = '' ) {
-		$url = self::available() ? smc_page_url( 'sabri_login', '/sabri-login/' ) : wp_login_url();
-		return $redirect ? add_query_arg( 'redirect_to', SA_Security::safe_redirect( $redirect ), $url ) : $url;
+		$url = SA_Security::page_url( 'login', wp_login_url() );
+		return $redirect ? add_query_arg( 'redirect_to', rawurlencode( SA_Security::safe_redirect( $redirect ) ), $url ) : $url;
 	}
 
 	public static function register_url() {
-		return self::available() ? smc_page_url( 'sabri_register', '/sabri-register/' ) : wp_registration_url();
+		return SA_Security::page_url( 'signup', wp_registration_url() );
 	}
 
 	public static function profile_url() {
