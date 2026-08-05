@@ -107,10 +107,14 @@ jobs:
               'PLAN-TRACEABILITY.md',
               'includes/class-sauth-account-contract.php',
               'includes/class-sauth-event-outbox.php',
+              'includes/class-sauth-email-verification.php',
               'includes/class-sauth-session-manager.php',
               'includes/class-sa-authentication-assurance.php',
               'includes/class-sa-professional-reauthentication.php',
+              'templates/login.php',
+              'templates/signup.php',
               'templates/reset-password.php',
+              'tests/registration-authentication-unit.php',
               'tests/plan-harmonization-unit.php',
               'tests/cf01-assurance-unit.php',
               'tests/professional-reauthentication-unit.php',
@@ -175,7 +179,7 @@ jobs:
         run: |
           set -euo pipefail
           mapfile -t php_files < <(find . -type f -name '*.php' -not -path './.git/*' -print | sort)
-          test "${#php_files[@]}" -ge 30
+          test "${#php_files[@]}" -ge 31
           for file in "${php_files[@]}"; do
             php -l "$file"
           done
@@ -183,3 +187,4 @@ jobs:
           php tests/cf01-assurance-unit.php
           php tests/professional-reauthentication-unit.php
           php tests/plan-harmonization-unit.php
+          php tests/registration-authentication-unit.php
