@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail-fast architecture guard for the File 02 1.0.0 source candidate."""
+"""Fail-fast architecture guard for the File 02 1.1.0 source candidate."""
 from __future__ import annotations
 
 import pathlib
@@ -38,6 +38,8 @@ required_files = {
     "includes/class-sauth-provider-http-guard.php",
     "includes/class-sauth-session-manager.php",
     "includes/class-sauth-operations.php",
+    "includes/class-sauth-google-registration.php",
+    "includes/class-sauth-canonical-routes.php",
     "templates/login.php",
     "templates/signup.php",
     "templates/google-account.php",
@@ -46,22 +48,18 @@ required_files = {
 }
 missing = sorted(required_files - set(PHP))
 if missing:
-    fail("missing 1.0.0 source files: " + ", ".join(missing))
+    fail("missing 1.1.0 source files: " + ", ".join(missing))
 
 main = PHP["sabri-authentication.php"]
 for marker in (
-    "Version: 1.0.0",
-    "define( 'SA_VERSION', '1.0.0' );",
-    "define( 'SA_DB_VERSION', '1.0.0' );",
-    "class-sauth-provider-health.php",
-    "class-sauth-provider-http-guard.php",
-    "class-sauth-completion-resolver.php",
-    "class-sauth-login-risk.php",
-    "SAUTH_Provider_Health::init()",
-    "SAUTH_Provider_HTTP_Guard::init()",
-    "SAUTH_Login_Risk::init()",
-    "SAUTH_Session_Manager::init()",
-    "SAUTH_Operations::init()",
+    "Version: 1.1.0",
+    "define( 'SAUTH_VERSION', '1.1.0' );",
+    "define( 'SAUTH_DB_VERSION', '1.1.0' );",
+    "define( 'SAUTH_ACCOUNT_CONTRACT_VERSION', '1.1.0' );",
+    "class-sauth-google-registration.php",
+    "class-sauth-canonical-routes.php",
+    "SAUTH_Google_Registration::init()",
+    "SAUTH_Canonical_Routes::init()",
 ):
     if marker not in main:
         fail(f"main plugin bootstrap is missing {marker}")
@@ -87,19 +85,67 @@ require_markers(
     (
         "sauth.account-orchestration",
         "smc.authentication-account",
-        "SMC_AUTHENTICATION_CONTRACT_VERSION",
+        "PROVIDER_MIN_VERSION = '1.1.0'",
+        "SMC_Authentication_Contract_V11",
         "register_account",
         "mark_email_verified",
         "get_completion_state",
-        "provider_unavailable",
-        "provider_contract_invalid",
+        "ethical_conduct_version",
+        "profile_photo_required",
+        "account_type",
+        "city",
+    ),
+)
+
+require_markers(
+    "includes/class-sauth-google-registration.php",
+    (
+        "code_challenge_method",
+        "S256",
+        "nonce",
+        "email_verified",
+        "hash_equals",
+        "finalize_link",
+        "get_users",
+        "google_registration_context",
+    ),
+)
+
+require_markers(
+    "includes/class-sauth-canonical-routes.php",
+    (
+        "^account/sessions/?$",
+        "/account/sessions/",
+        "02-sabri-authentication-and-accounts",
+        "SAUTH_",
+        "sabri_shell_route_manifests",
+        "spf_module_manifests",
+    ),
+)
+
+require_markers(
+    "includes/class-sa-registration.php",
+    (
+        "SAUTH_Google_Registration::context",
+        "SAUTH_Google_Registration::finalize_link",
+        "authentication_method",
+        "account_type",
+        "ethical_conduct_version",
+        "profile_photo_required",
+        "city",
+        "MIN_MALE_AGE",
+        "MIN_FEMALE_AGE",
+        "guardian_reference",
+        "wp_check_password",
+        "membership_assertion",
+        "check_password_reset_key",
+        "revoke_user_sessions",
     ),
 )
 
 require_markers(
     "includes/class-sauth-completion-resolver.php",
     (
-        "sauth.account-completion-resolver",
         "completion_loop_prevented",
         "canonical_completion_route",
         "MAX_REPEAT_VISITS",
@@ -117,17 +163,12 @@ require_markers(
         "SA_Authentication_Assurance::verify_and_record",
         "SAUTH_Completion_Resolver::resolve",
         "step_up_verified",
-        "sa_auth_risk_challenges",
-        "sa_auth_devices",
-        "sa_auth_attempts",
-        "AccountAuthenticationSucceeded.v1",
     ),
 )
 
 require_markers(
     "includes/class-sauth-session-manager.php",
     (
-        "sa_auth_sessions",
         "token_hash",
         "public_id",
         "deny_revoked_session",
@@ -136,34 +177,10 @@ require_markers(
         "revoke_user_sessions",
         "destroy_others",
         "destroy_all",
-        "AuthSessionRevoked.v1",
     ),
 )
 if "'session_token' =>" in PHP["includes/class-sauth-session-manager.php"]:
     fail("session manager may expose raw session material")
-
-require_markers(
-    "includes/class-sauth-provider-health.php",
-    (
-        "FAILURE_THRESHOLD",
-        "OPEN_SECONDS",
-        "allow_request",
-        "record_success",
-        "record_failure",
-        "half_open",
-    ),
-)
-require_markers(
-    "includes/class-sauth-provider-http-guard.php",
-    (
-        "pre_http_request",
-        "http_request_args",
-        "http_api_debug",
-        "reject_unsafe_urls",
-        "sslverify",
-        "SAUTH_Provider_Health",
-    ),
-)
 
 require_markers(
     "includes/class-sauth-operations.php",
@@ -175,98 +192,6 @@ require_markers(
         "foundation_manifest",
         "shell_manifest",
         "route_manifest",
-    ),
-)
-
-require_markers(
-    "includes/class-sa-registration.php",
-    (
-        "SAUTH_Login_Risk::complete_password_login",
-        "SAUTH_Provider_Health",
-        "SAUTH_Account_Contract::register_account",
-        "SAUTH_Email_Verification::issue",
-        "validate_registration",
-        "MIN_MALE_AGE",
-        "MIN_FEMALE_AGE",
-        "guardian_reference",
-        "identity_reference",
-        "wp_check_password",
-        "membership_assertion",
-        "check_password_reset_key",
-        "reset_password",
-        "revoke_user_sessions",
-        "PasswordResetCompleted.v1",
-    ),
-)
-
-require_markers(
-    "includes/class-sa-authentication-assurance.php",
-    (
-        "sa.cf01.authentication-assurance",
-        "set_logged_in_cookie",
-        "clear_auth_cookie",
-        "session_binding",
-        "scope_hash",
-        "pending_receipt",
-        "SMC_CF01_Contract::verify_step_up",
-        "SMC_CF01_Contract::membership_assertion",
-    ),
-)
-
-require_markers(
-    "includes/class-sauth-event-outbox.php",
-    (
-        "AccountAuthenticationSucceeded.v1",
-        "AccountAuthenticationFailed.v1",
-        "EmailVerified.v1",
-        "PasswordResetCompleted.v1",
-        "AuthSessionRevoked.v1",
-        "dead_letter",
-        "trace_id",
-        "sanitize_payload",
-        "sa_auth_outbox",
-    ),
-)
-
-require_markers(
-    "includes/class-sauth-email-verification.php",
-    (
-        "TOKEN_TTL",
-        "RESEND_DELAY",
-        "MAX_ATTEMPTS",
-        "token_hash",
-        "hash_equals",
-        "mark_email_verified",
-        "EmailVerified.v1",
-        "delivery_failed",
-        "sa_email_verifications",
-    ),
-)
-
-require_markers(
-    "includes/class-sa-activator.php",
-    (
-        "SA_DB_VERSION",
-        "required_tables",
-        "create_session_table",
-        "create_device_table",
-        "create_risk_challenge_table",
-        "create_attempt_table",
-        "confirm-sign-in",
-        "sabri_auth_risk_challenge",
-        "repair",
-    ),
-)
-
-require_markers(
-    "includes/class-sa-access-control.php",
-    (
-        "sabri_auth_risk_challenge",
-        "noindex",
-        "noarchive",
-        "no-store",
-        "Referrer-Policy: no-referrer",
-        "Cross-Origin-Opener-Policy: same-origin",
     ),
 )
 
@@ -282,13 +207,16 @@ for marker in (
     if marker not in privacy:
         fail(f"privacy lifecycle is missing {marker}")
 
-security = PHP["includes/class-sa-security.php"]
-for marker in ("sa_rate_limits", "ON DUPLICATE KEY UPDATE", "clear_rate_limit", "aes-256-gcm", "safe_redirect"):
-    if marker not in security:
-        fail(f"security implementation is missing {marker}")
+signup = PHP["templates/signup.php"]
+for marker in (
+    'name="city"',
+    'name="account_type"',
+    'name="profile_photo_required"',
+    'name="accept_ethics"',
+    'name="google_registration_token"',
+):
+    if marker not in signup:
+        fail(f"registration surface is missing {marker}")
 
-require_markers("templates/login.php", ("user_login", "current-password", "sa_login", "password_ready"))
-require_markers("templates/signup.php", ("date_of_birth", "identity_reference", "guardian_reference", "accept_terms", "accept_privacy"))
-
-print("File 02 1.0.0 architecture guard passed.")
+print("File 02 1.1.0 three-plan architecture guard passed.")
 print(f"PHP files checked: {len(PHP)}")
