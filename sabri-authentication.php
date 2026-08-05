@@ -41,6 +41,7 @@ require_once SA_DIR . 'includes/class-sa-google-oauth.php';
 require_once SA_DIR . 'includes/class-sa-access-control.php';
 require_once SA_DIR . 'includes/class-sa-privacy.php';
 require_once SA_DIR . 'includes/class-sauth-operations.php';
+require_once SA_DIR . 'includes/class-sauth-provider-http-guard.php';
 require_once SA_DIR . 'includes/class-sa-plugin.php';
 
 register_activation_hook( SA_FILE, array( 'SA_Activator', 'activate' ) );
@@ -48,6 +49,7 @@ register_deactivation_hook( SA_FILE, array( 'SA_Activator', 'deactivate' ) );
 
 function sa_start_plugin() {
 	SAUTH_Provider_Health::init();
+	SAUTH_Provider_HTTP_Guard::init();
 	SAUTH_Event_Outbox::init();
 	SAUTH_Email_Verification::init();
 	SA_Authentication_Assurance::init();
