@@ -3,19 +3,21 @@
 defined( 'ABSPATH' ) || exit;
 
 /**
- * File 02 authentication assurance for CF-01 and other approved consumers.
+ * Session-, purpose- and scope-bound authentication assurance.
  *
- * File 00 verifies its own second factor. File 02 binds successful evidence to
- * the current WordPress authentication session, purpose, opaque scope and TTL.
- * Neither service grants clinical object, field or relationship authorization.
+ * File 00 performs canonical second-factor verification. File 02 stores only a
+ * short-lived receipt bound to the current browser fingerprint and WordPress
+ * session. A login-risk receipt uses the distinct local purpose
+ * `authentication_sign_in`; it can never be consumed as clinical assurance.
  */
 final class SA_Authentication_Assurance {
-	const CONTRACT_NAME    = 'sa.cf01.authentication-assurance';
-	const CONTRACT_VERSION = '1.0.0';
-	const PROVIDER_VERSION = '1.0.0';
-	const PENDING_TTL      = 300;
+	const CONTRACT_NAME     = 'sa.cf01.authentication-assurance';
+	const CONTRACT_VERSION  = '1.0.0';
+	const PROVIDER_VERSION  = '1.0.0';
+	const PENDING_INDEX_TTL = 900;
 
 	private static $purposes = array(
+		'authentication_sign_in',
 		'clinical_sign_in',
 		'authentication_link',
 		'authentication_unlink',
@@ -29,237 +31,225 @@ final class SA_Authentication_Assurance {
 
 	public static function init() {
 		add_action( 'set_logged_in_cookie', array( __CLASS__, 'promote_pending_for_cookie' ), 20, 6 );
-		add_action( 'clear_auth_cookie', array( __CLASS__, 'clear_current_session' ), 5 );
-	}
-
-	/**
-	 * Ask File 00 to verify its second factor and bind accepted evidence.
-	 *
-	 * @param int    $user_id Subject WordPress user ID.
-	 * @param string $code File 00-owned TOTP or recovery code.
-	 * @param array  $context Purpose, opaque scope and trace context.
-	 * @return array<string,mixed>
-	 */
-	public static function verify_and_record( $user_id, $code, $context = array() ) {
-		$user_id = absint( $user_id );
-		$context = is_array( $context ) ? $context : array();
-		$purpose = sanitize_key( $context['purpose'] ?? '' );
-		$scope   = trim( (string) ( $context['scope'] ?? '' ) );
-		$trace   = self::trace_id( $context['trace_id'] ?? '' );
-		$result  = self::empty_assertion( $purpose, $scope, $trace );
-
-		if ( ! self::provider_available() ) {
-			$result['reason_code'] = 'provider_unavailable';
-			return $result;
-		}
-		if ( ! $user_id || ! get_userdata( $user_id ) ) {
-			$result['reason_code'] = 'subject_unavailable';
-			return $result;
-		}
-		if ( ! in_array( $purpose, self::$purposes, true ) || '' === $scope ) {
-			$result['reason_code'] = 'unsupported_purpose_or_scope';
-			return $result;
-		}
-
-		$scope_hash = self::scope_hash( $scope );
-		if ( '' === $scope_hash ) {
-			$result['reason_code'] = 'scope_hash_unavailable';
-			return $result;
-		}
-
-		$provider = SMC_CF01_Contract::verify_step_up(
-			$user_id,
-			(string) $code,
-			array(
-				'purpose'  => self::provider_purpose( $purpose ),
-				'scope'    => $scope,
-				'trace_id' => $trace,
-			)
-		);
-		if ( ! self::valid_provider_result( $provider ) ) {
-			$result['reason_code'] = 'provider_contract_invalid';
-			return $result;
-		}
-		if ( 'allow' !== $provider['result'] ) {
-			$result['result'] = 'deny' === $provider['result'] ? 'invalid' : 'unknown';
-			$result['reason_code'] = 'provider_' . sanitize_key( $provider['reason_code'] ?? 'unknown' );
-			return $result;
-		}
-
-		$receipt = array(
-			'contract'            => self::CONTRACT_NAME,
-			'contract_version'    => self::CONTRACT_VERSION,
-			'provider_contract'   => (string) $provider['contract'],
-			'provider_version'    => (string) $provider['contract_version'],
-			'producer_version'    => defined( 'SA_VERSION' ) ? SA_VERSION : '',
-			'subject_uuid'        => (string) $provider['subject_uuid'],
-			'purpose'             => $purpose,
-			'scope_hash'          => $scope_hash,
-			'provider_scope_hash' => (string) $provider['scope_hash'],
-			'method'              => sanitize_key( $provider['method'] ),
-			'assurance_level'     => 'aal2',
-			'verified_at'         => (string) $provider['verified_at'],
-			'expires_at'          => gmdate( 'c', time() + self::ttl_for_purpose( $purpose ) ),
-			'trace_id'            => $trace,
-			'fingerprint'         => SA_Security::client_fingerprint(),
-			'session_binding'     => '',
-		);
-
-		$token = self::current_subject_session_token( $user_id );
-		if ( '' !== $token ) {
-			if ( ! self::store_session_receipt( $user_id, $token, $receipt ) ) {
-				$result['result'] = 'invalid';
-				$result['reason_code'] = 'session_receipt_store_failed';
-				return $result;
-			}
-			return self::public_receipt( $receipt, 'valid', 'authentication_verified' );
-		}
-
-		if ( 'clinical_sign_in' !== $purpose ) {
-			$result['result'] = 'invalid';
-			$result['reason_code'] = 'authenticated_session_required';
-			return $result;
-		}
-		if ( ! self::store_pending_receipt( $user_id, $receipt ) ) {
-			$result['result'] = 'invalid';
-			$result['reason_code'] = 'pending_receipt_store_failed';
-			return $result;
-		}
-		return self::public_receipt( $receipt, 'valid', 'authentication_verified_pending_session' );
-	}
-
-	/**
-	 * Return current session-bound assurance for a purpose and opaque scope.
-	 *
-	 * @param int    $user_id Subject WordPress user ID.
-	 * @param string $purpose Approved purpose.
-	 * @param string $scope Opaque action/object scope.
-	 * @return array<string,mixed>
-	 */
-	public static function assertion( $user_id, $purpose, $scope ) {
-		$user_id = absint( $user_id );
-		$purpose = sanitize_key( $purpose );
-		$scope   = trim( (string) $scope );
-		$result  = self::empty_assertion( $purpose, $scope, self::trace_id( '' ) );
-
-		if ( ! self::provider_available() ) {
-			$result['reason_code'] = 'provider_unavailable';
-			return $result;
-		}
-		if ( ! in_array( $purpose, self::$purposes, true ) || '' === $scope ) {
-			$result['reason_code'] = 'unsupported_purpose_or_scope';
-			return $result;
-		}
-		$token = self::current_subject_session_token( $user_id );
-		if ( '' === $token ) {
-			$result['result'] = 'invalid';
-			$result['reason_code'] = 'current_session_unavailable';
-			return $result;
-		}
-		$scope_hash = self::scope_hash( $scope );
-		$key = self::session_receipt_key( $user_id, $token, $purpose, $scope_hash );
-		$receipt = get_transient( $key );
-		if ( ! self::valid_receipt( $receipt, $user_id, $token, $purpose, $scope_hash ) ) {
-			delete_transient( $key );
-			$result['result'] = 'invalid';
-			$result['reason_code'] = 'assurance_missing_expired_or_mismatched';
-			return $result;
-		}
-		return self::public_receipt( $receipt, 'valid', 'session_assurance_valid' );
-	}
-
-	/**
-	 * Promote pre-login assurance when WordPress creates the authenticated token.
-	 */
-	public static function promote_pending_for_cookie( $cookie, $expire, $expiration, $user_id, $scheme, $token ) {
-		$user_id = absint( $user_id );
-		$token   = (string) $token;
-		if ( ! $user_id || '' === $token || ! self::provider_available() ) {
-			return;
-		}
-		$index_key = self::pending_index_key( $user_id );
-		$keys = get_transient( $index_key );
-		$keys = is_array( $keys ) ? array_values( array_unique( array_filter( array_map( 'sanitize_key', $keys ) ) ) ) : array();
-		foreach ( $keys as $key ) {
-			$receipt = get_transient( $key );
-			if ( ! is_array( $receipt )
-				|| ! hash_equals( (string) ( $receipt['fingerprint'] ?? '' ), SA_Security::client_fingerprint() )
-				|| self::expired( $receipt['expires_at'] ?? '' )
-				|| ! self::subject_matches( $user_id, $receipt['subject_uuid'] ?? '', $receipt['purpose'] ?? '' ) ) {
-				delete_transient( $key );
-				continue;
-			}
-			self::store_session_receipt( $user_id, $token, $receipt );
-			delete_transient( $key );
-		}
-		delete_transient( $index_key );
-	}
-
-	public static function clear_current_session() {
-		$token = wp_get_session_token();
-		if ( '' === (string) $token ) {
-			return;
-		}
-		$binding = self::session_binding( (string) $token );
-		$index_key = 'sa_cf01_session_index_' . substr( $binding, 0, 40 );
-		$keys = get_transient( $index_key );
-		if ( is_array( $keys ) ) {
-			foreach ( $keys as $key ) {
-				delete_transient( sanitize_key( $key ) );
-			}
-		}
-		delete_transient( $index_key );
+		add_action( 'clear_auth_cookie', array( __CLASS__, 'clear_current_session' ), 1 );
 	}
 
 	public static function provider_available() {
-		return defined( 'SMC_VERSION' )
-			&& version_compare( (string) SMC_VERSION, '1.2.7', '>=' )
-			&& class_exists( 'SMC_CF01_Contract' )
+		return class_exists( 'SMC_CF01_Contract' )
 			&& defined( 'SMC_CF01_CONTRACT_VERSION' )
 			&& version_compare( (string) SMC_CF01_CONTRACT_VERSION, self::PROVIDER_VERSION, '>=' )
 			&& is_callable( array( 'SMC_CF01_Contract', 'verify_step_up' ) )
 			&& is_callable( array( 'SMC_CF01_Contract', 'membership_assertion' ) );
 	}
 
-	private static function store_pending_receipt( $user_id, $receipt ) {
-		$ttl = min( self::PENDING_TTL, self::seconds_until( $receipt['expires_at'] ) );
-		if ( $ttl < 1 ) {
-			return false;
+	/**
+	 * Verify a File 00-owned second factor and record a bounded local receipt.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function verify_and_record( $user_id, $code, array $context = array() ) {
+		$user_id = absint( $user_id );
+		$purpose = sanitize_key( (string) ( $context['purpose'] ?? '' ) );
+		$scope   = trim( (string) ( $context['scope'] ?? '' ) );
+		$trace   = self::trace_id( $context['trace_id'] ?? '' );
+		$result  = self::empty_assertion( $purpose, $scope, $trace );
+
+		if ( ! $user_id || ! get_userdata( $user_id ) ) {
+			$result['result']      = 'invalid';
+			$result['reason_code'] = 'subject_invalid';
+			return $result;
 		}
-		$key = self::pending_receipt_key( $user_id, $receipt['purpose'], $receipt['scope_hash'] );
-		if ( ! self::write_transient_verified( $key, $receipt, $ttl ) ) {
-			return false;
+		if ( ! in_array( $purpose, self::$purposes, true ) || '' === $scope ) {
+			$result['result']      = 'invalid';
+			$result['reason_code'] = 'purpose_or_scope_invalid';
+			return $result;
 		}
-		$index_key = self::pending_index_key( $user_id );
-		$keys = get_transient( $index_key );
-		$keys = is_array( $keys ) ? $keys : array();
-		$keys[] = $key;
-		$keys = array_slice( array_values( array_unique( $keys ) ), -5 );
-		if ( ! self::write_transient_verified( $index_key, $keys, self::PENDING_TTL ) ) {
-			delete_transient( $key );
-			return false;
+		$code = trim( (string) $code );
+		if ( '' === $code || strlen( $code ) > 128 ) {
+			$result['result']      = 'invalid';
+			$result['reason_code'] = 'second_factor_invalid';
+			return $result;
 		}
-		return true;
+		if ( ! self::provider_available() ) {
+			$result['reason_code'] = 'provider_unavailable';
+			return $result;
+		}
+
+		$token = self::current_subject_session_token( $user_id );
+		$pre_session_allowed = in_array( $purpose, array( 'authentication_sign_in', 'clinical_sign_in' ), true );
+		if ( '' === $token && ! $pre_session_allowed ) {
+			$result['result']      = 'invalid';
+			$result['reason_code'] = 'authenticated_session_required';
+			return $result;
+		}
+
+		$provider = SMC_CF01_Contract::verify_step_up(
+			$user_id,
+			$code,
+			array(
+				'purpose'  => self::provider_purpose( $purpose ),
+				'scope'    => $scope,
+				'trace_id' => $trace,
+			)
+		);
+		$code = '';
+		if ( ! self::valid_provider_result( $provider ) ) {
+			$result['reason_code'] = 'provider_contract_invalid';
+			return $result;
+		}
+		if ( 'unknown' === $provider['result'] ) {
+			$result['reason_code'] = sanitize_key( (string) $provider['reason_code'] );
+			return $result;
+		}
+		if ( 'deny' === $provider['result'] ) {
+			$result['result']      = 'invalid';
+			$result['reason_code'] = sanitize_key( (string) $provider['reason_code'] );
+			return $result;
+		}
+		if ( ! self::subject_matches( $user_id, $provider['subject_uuid'], $purpose ) ) {
+			$result['reason_code'] = 'provider_subject_mismatch';
+			return $result;
+		}
+
+		$ttl        = self::ttl_for_purpose( $purpose );
+		$scope_hash = self::scope_hash( $scope );
+		$receipt    = array(
+			'contract'         => self::CONTRACT_NAME,
+			'contract_version' => self::CONTRACT_VERSION,
+			'provider_version' => (string) $provider['contract_version'],
+			'subject_uuid'     => (string) $provider['subject_uuid'],
+			'purpose'          => $purpose,
+			'scope_hash'       => $scope_hash,
+			'method'           => (string) $provider['method'],
+			'assurance_level'  => 'aal2',
+			'verified_at'      => (string) $provider['verified_at'],
+			'expires_at'       => gmdate( 'c', time() + $ttl ),
+			'trace_id'         => $trace,
+			'fingerprint'      => SA_Security::client_fingerprint(),
+			'session_binding'  => '',
+		);
+
+		if ( '' === $token ) {
+			$key = self::pending_receipt_key( $user_id, $purpose, $scope_hash );
+			if ( ! self::write_transient_verified( $key, $receipt, $ttl ) || ! self::index_pending( $user_id, $key ) ) {
+				$result['reason_code'] = 'assurance_store_failed';
+				return $result;
+			}
+			$result = self::public_receipt( $receipt, 'valid', 'authentication_verified_pending_session' );
+			return $result;
+		}
+
+		$receipt['session_binding'] = self::session_binding( $token );
+		$key = self::session_receipt_key( $user_id, $token, $purpose, $scope_hash );
+		if ( ! self::write_transient_verified( $key, $receipt, $ttl ) || ! self::index_session( $user_id, $token, $key, $ttl ) ) {
+			$result['reason_code'] = 'assurance_store_failed';
+			return $result;
+		}
+		return self::public_receipt( $receipt, 'valid', 'authentication_verified' );
 	}
 
-	private static function store_session_receipt( $user_id, $token, $receipt ) {
-		$binding = self::session_binding( $token );
-		$receipt['session_binding'] = $binding;
-		$key = self::session_receipt_key( $user_id, $token, $receipt['purpose'], $receipt['scope_hash'] );
-		$ttl = self::seconds_until( $receipt['expires_at'] );
-		if ( $ttl < 1 || ! self::write_transient_verified( $key, $receipt, $ttl ) ) {
-			return false;
+	/**
+	 * Return a current session-bound assurance projection.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function assertion( $user_id, $purpose, $scope ) {
+		$user_id = absint( $user_id );
+		$purpose = sanitize_key( (string) $purpose );
+		$scope   = trim( (string) $scope );
+		$result  = self::empty_assertion( $purpose, $scope, self::trace_id( '' ) );
+		if ( ! $user_id || ! in_array( $purpose, self::$purposes, true ) || '' === $scope ) {
+			$result['result']      = 'invalid';
+			$result['reason_code'] = 'purpose_or_scope_invalid';
+			return $result;
 		}
-		$index_key = 'sa_cf01_session_index_' . substr( $binding, 0, 40 );
-		$keys = get_transient( $index_key );
-		$keys = is_array( $keys ) ? $keys : array();
-		$keys[] = $key;
-		$keys = array_slice( array_values( array_unique( $keys ) ), -20 );
-		if ( ! self::write_transient_verified( $index_key, $keys, max( $ttl, 60 ) ) ) {
-			delete_transient( $key );
-			return false;
+		$token = self::current_subject_session_token( $user_id );
+		if ( '' === $token ) {
+			$result['result']      = 'invalid';
+			$result['reason_code'] = 'authenticated_session_required';
+			return $result;
 		}
-		return true;
+		$scope_hash = self::scope_hash( $scope );
+		$receipt    = get_transient( self::session_receipt_key( $user_id, $token, $purpose, $scope_hash ) );
+		if ( ! self::valid_receipt( $receipt, $user_id, $token, $purpose, $scope_hash ) ) {
+			$result['result']      = 'invalid';
+			$result['reason_code'] = 'assurance_missing_expired_or_mismatched';
+			return $result;
+		}
+		return self::public_receipt( $receipt, 'valid', 'authentication_assurance_valid' );
+	}
+
+	/**
+	 * Promote pre-login receipts only after WordPress creates the exact session.
+	 */
+	public static function promote_pending_for_cookie( $cookie, $expire, $expiration, $user_id, $scheme, $token ) {
+		$user_id = absint( $user_id );
+		$token   = (string) $token;
+		if ( ! $user_id || 'logged_in' !== $scheme || '' === $token ) {
+			return;
+		}
+		$index_key = self::pending_index_key( $user_id );
+		$keys      = get_transient( $index_key );
+		if ( ! is_array( $keys ) ) {
+			return;
+		}
+		foreach ( array_values( array_unique( array_filter( array_map( 'strval', $keys ) ) ) ) as $pending_key ) {
+			$receipt = get_transient( $pending_key );
+			if ( ! is_array( $receipt ) || self::expired( $receipt['expires_at'] ?? '' ) ) {
+				delete_transient( $pending_key );
+				continue;
+			}
+			if ( ! in_array( $receipt['purpose'] ?? '', array( 'authentication_sign_in', 'clinical_sign_in' ), true )
+				|| ! hash_equals( (string) ( $receipt['fingerprint'] ?? '' ), SA_Security::client_fingerprint() ) ) {
+				delete_transient( $pending_key );
+				continue;
+			}
+			$receipt['session_binding'] = self::session_binding( $token );
+			$ttl = self::seconds_until( $receipt['expires_at'] ?? '' );
+			$key = self::session_receipt_key( $user_id, $token, (string) $receipt['purpose'], (string) $receipt['scope_hash'] );
+			if ( $ttl > 0 && self::write_transient_verified( $key, $receipt, $ttl ) ) {
+				self::index_session( $user_id, $token, $key, $ttl );
+			}
+			delete_transient( $pending_key );
+		}
+		delete_transient( $index_key );
+	}
+
+	/**
+	 * Remove every assurance receipt associated with the current session.
+	 */
+	public static function clear_current_session() {
+		$user_id = get_current_user_id();
+		$token   = (string) wp_get_session_token();
+		if ( ! $user_id || '' === $token ) {
+			return;
+		}
+		$index_key = self::session_index_key( $user_id, $token );
+		$keys      = get_transient( $index_key );
+		if ( is_array( $keys ) ) {
+			foreach ( array_values( array_unique( array_filter( array_map( 'strval', $keys ) ) ) ) as $key ) {
+				delete_transient( $key );
+			}
+		}
+		delete_transient( $index_key );
+	}
+
+	private static function index_pending( $user_id, $key ) {
+		$index_key = self::pending_index_key( $user_id );
+		$keys      = get_transient( $index_key );
+		$keys      = is_array( $keys ) ? $keys : array();
+		$keys[]    = (string) $key;
+		$keys      = array_slice( array_values( array_unique( $keys ) ), -20 );
+		return self::write_transient_verified( $index_key, $keys, self::PENDING_INDEX_TTL );
+	}
+
+	private static function index_session( $user_id, $token, $key, $ttl ) {
+		$index_key = self::session_index_key( $user_id, $token );
+		$keys      = get_transient( $index_key );
+		$keys      = is_array( $keys ) ? $keys : array();
+		$keys[]    = (string) $key;
+		$keys      = array_slice( array_values( array_unique( $keys ) ), -30 );
+		return self::write_transient_verified( $index_key, $keys, max( 1, absint( $ttl ) ) );
 	}
 
 	private static function write_transient_verified( $key, $value, $ttl ) {
@@ -316,7 +306,10 @@ final class SA_Authentication_Assurance {
 	}
 
 	private static function subject_matches( $user_id, $subject_uuid, $purpose ) {
-		$membership = SMC_CF01_Contract::membership_assertion( $user_id, array( 'action' => 'clinical_identity_link', 'purpose' => sanitize_key( $purpose ) ) );
+		$membership = SMC_CF01_Contract::membership_assertion(
+			$user_id,
+			array( 'action' => 'clinical_identity_link', 'purpose' => sanitize_key( $purpose ) )
+		);
 		return is_array( $membership )
 			&& in_array( $membership['result'] ?? '', array( 'allow', 'deny' ), true )
 			&& isset( $membership['subject']['platform_uuid'] )
@@ -368,20 +361,21 @@ final class SA_Authentication_Assurance {
 	}
 
 	private static function provider_purpose( $purpose ) {
-		return in_array( $purpose, array( 'authentication_link', 'authentication_unlink' ), true ) ? 'clinical_sign_in' : $purpose;
+		return in_array( $purpose, array( 'authentication_sign_in', 'authentication_link', 'authentication_unlink' ), true ) ? 'clinical_sign_in' : $purpose;
 	}
 
 	private static function ttl_for_purpose( $purpose ) {
 		$map = array(
-			'clinical_sign_in'      => 900,
-			'authentication_link'   => 300,
-			'authentication_unlink' => 300,
-			'prescription_sign'     => 300,
-			'clinical_export'       => 300,
-			'clinical_transfer'     => 300,
-			'break_glass'           => 120,
-			'guardian_sensitive'    => 300,
-			'key_recovery'          => 120,
+			'authentication_sign_in' => 300,
+			'clinical_sign_in'       => 900,
+			'authentication_link'    => 300,
+			'authentication_unlink'  => 300,
+			'prescription_sign'      => 300,
+			'clinical_export'        => 300,
+			'clinical_transfer'      => 300,
+			'break_glass'            => 120,
+			'guardian_sensitive'     => 300,
+			'key_recovery'           => 120,
 		);
 		return isset( $map[ $purpose ] ) ? (int) $map[ $purpose ] : 120;
 	}
@@ -392,6 +386,10 @@ final class SA_Authentication_Assurance {
 
 	private static function pending_receipt_key( $user_id, $purpose, $scope_hash ) {
 		return 'sa_cf01_pending_' . substr( hash_hmac( 'sha256', absint( $user_id ) . '|' . SA_Security::client_fingerprint() . '|' . $purpose . '|' . $scope_hash, wp_salt( 'nonce' ) ), 0, 40 );
+	}
+
+	private static function session_index_key( $user_id, $token ) {
+		return 'sa_cf01_session_index_' . substr( hash_hmac( 'sha256', absint( $user_id ) . '|' . self::session_binding( $token ), wp_salt( 'nonce' ) ), 0, 40 );
 	}
 
 	private static function session_receipt_key( $user_id, $token, $purpose, $scope_hash ) {
@@ -419,10 +417,7 @@ final class SA_Authentication_Assurance {
 
 	private static function trace_id( $value ) {
 		$value = strtolower( trim( (string) $value ) );
-		if ( self::valid_uuid( $value ) ) {
-			return $value;
-		}
-		return strtolower( wp_generate_uuid4() );
+		return self::valid_uuid( $value ) ? $value : strtolower( wp_generate_uuid4() );
 	}
 
 	private static function valid_uuid( $value ) {
