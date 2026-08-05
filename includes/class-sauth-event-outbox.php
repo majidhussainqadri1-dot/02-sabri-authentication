@@ -24,20 +24,18 @@ final class SAUTH_Event_Outbox {
 		'GoogleAccountUnlinked.v1',
 	);
 
-	private static $sensitive_keys = array(
+	private static $sensitive_key_fragments = array(
 		'password',
-		'pass',
+		'passwd',
 		'secret',
 		'token',
-		'access_token',
-		'refresh_token',
-		'id_token',
-		'authorization_code',
 		'totp',
 		'recovery_code',
 		'second_factor',
-		'session_token',
+		'authorization_code',
 		'cookie',
+		'session_verifier',
+		'credential',
 	);
 
 	public static function init() {
@@ -68,17 +66,17 @@ final class SAUTH_Event_Outbox {
 		}
 
 		return array(
-			'event_id'        => self::uuid(),
-			'event_name'      => $event_name,
-			'schema_version'  => self::SCHEMA_VERSION,
-			'producer'        => 'file-02-authentication',
-			'producer_version'=> defined( 'SA_VERSION' ) ? SA_VERSION : '',
-			'actor_user_id'   => absint( $actor_user_id ),
-			'subject_user_id' => absint( $subject_user_id ),
-			'privacy_class'   => $privacy_class,
-			'trace_id'        => self::trace_id( $trace_id ),
-			'occurred_at'     => gmdate( 'c' ),
-			'payload'         => self::sanitize_payload( $payload ),
+			'event_id'         => self::uuid(),
+			'event_name'       => $event_name,
+			'schema_version'   => self::SCHEMA_VERSION,
+			'producer'         => 'file-02-authentication',
+			'producer_version' => defined( 'SA_VERSION' ) ? SA_VERSION : '',
+			'actor_user_id'    => absint( $actor_user_id ),
+			'subject_user_id'  => absint( $subject_user_id ),
+			'privacy_class'    => $privacy_class,
+			'trace_id'         => self::trace_id( $trace_id ),
+			'occurred_at'      => gmdate( 'c' ),
+			'payload'          => self::sanitize_payload( $payload ),
 		);
 	}
 
@@ -94,23 +92,28 @@ final class SAUTH_Event_Outbox {
 			return $event;
 		}
 
+		$payload_json = wp_json_encode( $event['payload'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+		if ( false === $payload_json ) {
+			return new WP_Error( 'sauth_event_encoding_failed', 'Authentication event could not be encoded.' );
+		}
+
 		$table = $wpdb->prefix . 'sa_auth_outbox';
 		$stored = $wpdb->insert(
 			$table,
 			array(
-				'event_id'       => $event['event_id'],
-				'event_name'     => $event['event_name'],
-				'schema_version' => $event['schema_version'],
-				'privacy_class'  => $event['privacy_class'],
-				'actor_user_id'  => $event['actor_user_id'],
-				'subject_user_id'=> $event['subject_user_id'],
-				'trace_id'       => $event['trace_id'],
-				'payload_json'   => wp_json_encode( $event['payload'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ),
-				'status'         => 'pending',
-				'attempts'       => 0,
-				'available_at'   => current_time( 'mysql', true ),
-				'created_at'     => current_time( 'mysql', true ),
-				'updated_at'     => current_time( 'mysql', true ),
+				'event_id'        => $event['event_id'],
+				'event_name'      => $event['event_name'],
+				'schema_version'  => $event['schema_version'],
+				'privacy_class'   => $event['privacy_class'],
+				'actor_user_id'   => $event['actor_user_id'],
+				'subject_user_id' => $event['subject_user_id'],
+				'trace_id'        => $event['trace_id'],
+				'payload_json'    => $payload_json,
+				'status'          => 'pending',
+				'attempts'        => 0,
+				'available_at'    => current_time( 'mysql', true ),
+				'created_at'      => current_time( 'mysql', true ),
+				'updated_at'      => current_time( 'mysql', true ),
 			),
 			array( '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%s', '%s', '%d', '%s', '%s', '%s' )
 		);
@@ -166,17 +169,18 @@ final class SAUTH_Event_Outbox {
 			return;
 		}
 
-		$event = array(
-			'event_id'        => (string) $row['event_id'],
-			'event_name'      => (string) $row['event_name'],
-			'schema_version'  => (string) $row['schema_version'],
-			'producer'        => 'file-02-authentication',
-			'producer_version'=> defined( 'SA_VERSION' ) ? SA_VERSION : '',
-			'actor_user_id'   => absint( $row['actor_user_id'] ),
-			'subject_user_id' => absint( $row['subject_user_id'] ),
-			'privacy_class'   => sanitize_key( (string) $row['privacy_class'] ),
-			'trace_id'        => sanitize_text_field( (string) $row['trace_id'] ),
-			'payload'         => json_decode( (string) $row['payload_json'], true ),
+		$decoded = json_decode( (string) $row['payload_json'], true );
+		$event   = array(
+			'event_id'         => (string) $row['event_id'],
+			'event_name'       => (string) $row['event_name'],
+			'schema_version'   => (string) $row['schema_version'],
+			'producer'         => 'file-02-authentication',
+			'producer_version' => defined( 'SA_VERSION' ) ? SA_VERSION : '',
+			'actor_user_id'    => absint( $row['actor_user_id'] ),
+			'subject_user_id'  => absint( $row['subject_user_id'] ),
+			'privacy_class'    => sanitize_key( (string) $row['privacy_class'] ),
+			'trace_id'         => sanitize_text_field( (string) $row['trace_id'] ),
+			'payload'          => is_array( $decoded ) ? $decoded : array(),
 		);
 
 		try {
@@ -217,7 +221,7 @@ final class SAUTH_Event_Outbox {
 		$output = array();
 		foreach ( $payload as $key => $value ) {
 			$clean_key = sanitize_key( (string) $key );
-			if ( '' === $clean_key || in_array( $clean_key, self::$sensitive_keys, true ) ) {
+			if ( '' === $clean_key || self::is_sensitive_key( $clean_key ) ) {
 				continue;
 			}
 			if ( is_array( $value ) ) {
@@ -233,6 +237,16 @@ final class SAUTH_Event_Outbox {
 		return $output;
 	}
 
+	private static function is_sensitive_key( $key ) {
+		$key = sanitize_key( (string) $key );
+		foreach ( self::$sensitive_key_fragments as $fragment ) {
+			if ( false !== strpos( $key, $fragment ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	private static function trace_id( $candidate ) {
 		$candidate = strtolower( preg_replace( '/[^a-f0-9-]/i', '', (string) $candidate ) );
 		return strlen( $candidate ) >= 16 && strlen( $candidate ) <= 64 ? $candidate : self::uuid();
@@ -242,9 +256,14 @@ final class SAUTH_Event_Outbox {
 		if ( function_exists( 'wp_generate_uuid4' ) ) {
 			return wp_generate_uuid4();
 		}
-		$data = random_bytes( 16 );
-		$data[6] = chr( ( ord( $data[6] ) & 0x0f ) | 0x40 );
-		$data[8] = chr( ( ord( $data[8] ) & 0x3f ) | 0x80 );
-		return vsprintf( '%s%s-%s-%s-%s-%s%s%s', str_split( bin2hex( $data ), 4 ) );
+		try {
+			$data = random_bytes( 16 );
+			$data[6] = chr( ( ord( $data[6] ) & 0x0f ) | 0x40 );
+			$data[8] = chr( ( ord( $data[8] ) & 0x3f ) | 0x80 );
+			return vsprintf( '%s%s-%s-%s-%s-%s%s%s', str_split( bin2hex( $data ), 4 ) );
+		} catch ( Exception $error ) {
+			$entropy = hash( 'sha256', uniqid( 'sauth-', true ) . '|' . microtime( true ) );
+			return substr( $entropy, 0, 8 ) . '-' . substr( $entropy, 8, 4 ) . '-4' . substr( $entropy, 13, 3 ) . '-8' . substr( $entropy, 17, 3 ) . '-' . substr( $entropy, 20, 12 );
+		}
 	}
 }
