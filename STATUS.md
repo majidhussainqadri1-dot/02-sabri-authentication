@@ -1,64 +1,62 @@
-# File 02 Status
+# File 02 Status — Version 1.1.0
 
-## Current state
+## Current candidate
 
-**Version 0.4.0 full-plan harmonization is in progress on `codex/file02-full-plan-harmonization-0.4.0`.**
+- Branch: `codex/file02-three-plan-completion-1.1.0`
+- Version/schema: `1.1.0 / 1.1.0`
+- Governing plans: Definitive Master Plan v3.0, `SSH-F02-PLAN-2026-v1.0`, Consolidated All-Chats Directives v2.1
+- Canonical repository name: `02-sabri-authentication-and-accounts`
+- Current transport repository: `02-sabri-authentication`
+- Required File 00 provider: `smc.authentication-account 1.1.0`
 
-This branch reconciles the implementation with `SSH-F02-PLAN-2026-v1.0`. It remains a source-development candidate only and is not authorized for merge, staging installation or production deployment.
+## Source coding completed
 
-## Completed source work
+- Full password and Google-first registration orchestration.
+- Mandatory city, account type, profile-photograph completion, separate Ethical Conduct consent and every prior identity/guardian field.
+- Google state, nonce, PKCE, issuer/audience/azp/time/email verification and one-time completion context.
+- File 00 v1.1 account-contract consumer with fail-closed compatibility checks.
+- Password login, signed email verification, recovery/reset, session registry and revocation.
+- New-device/network/recent-failure challenge with File 00-owned step-up.
+- Loop-safe completion resolver and canonical `/account/sessions/` route.
+- Canonical `SAUTH_` public constants/classes/hooks/options with bounded legacy aliases.
+- Versioned event outbox, provider circuits, privacy lifecycle, System Check, Safe Mode and repair.
+- File 01/File 20 manifests, migration/rollback/backup/incident documentation and deterministic packaging.
 
-- Created a versioned, fail-closed File 00 account-orchestration consumer boundary.
-- Preserved File 00 as the sole identity, membership, guardian, role, verification and MFA-policy owner.
-- Added a full File 02 registration surface for name, email, phone, password, age/sex, address, country, identity-reference, guardian-reference and consent handoff.
-- Added registration rate limits, idempotency and generic duplicate/provider-failure handling without parallel user or role creation.
-- Added signed one-time email verification with 30-minute expiry, HMAC-only local token storage, resend throttle, explicit user confirmation, canonical-email binding, provider handoff, idempotency and concurrent replay protection.
-- Added native File 02 email/username and password authentication using WordPress password APIs, unknown-account dummy hashing, generic errors, brute-force controls and File 00 membership/completion rechecks before session creation.
-- Added a privacy-minimized versioned authentication-event outbox with retry and dead-letter states.
-- Added canonical password-reset completion with password validation, event/audit evidence and all-session revocation.
-- Added authenticated session summary, generalized device/network presentation, revoke-other-sessions and sign-out-everywhere controls.
-- Added canonical `/login`, `/register`, `/verify-email`, `/forgot-password`, `/reset-password` and `/account-sessions` managed-page specifications.
-- Added privacy export/erasure coverage for the local email-verification challenge without exposing token hashes.
-- Applied the platform green primary identity, logical responsive CSS, focus-visible styling and reduced-motion handling.
-- Added `PLAN-TRACEABILITY.md`, architecture guards and no-network policy tests for registration, email verification and password authentication.
+## Defects corrected in this cycle
 
-## Fresh review-and-fix evidence for this batch
+1. Missing city field.
+2. Missing declared account type and adult-professional restriction.
+3. Missing profile-photograph completion gate.
+4. Missing separate Ethical Conduct consent.
+5. Missing Google-first registration journey.
+6. Non-canonical `/account-sessions/` route.
+7. Incomplete `SAUTH_` public naming constitution.
+8. Stale 0.2.0/0.4.0 status and release documentation.
+9. Missing retained CI package artifact.
+10. File 00 account contract lacking the additional parent-plan fields.
 
-The post-implementation adversarial review found and corrected:
+## Seven separate completion gates
 
-- a verification-delivery mismatch risk between submitted email and the canonical File 00/WordPress account email;
-- a concurrent verification replay path that could emit duplicate completion evidence;
-- disabled native form validation on the registration surface;
-- stale architecture-guard expectations from the former File 00-delegated login/registration design;
-- incomplete privacy export/erasure coverage for the new verification challenge;
-- inconsistent authentication-route ownership and the obsolete orange primary visual token.
+| Gate | Status | Evidence boundary |
+|---|---|---|
+| Specified | Complete | Three governing plans traced |
+| Source coding | Complete candidate | Reviewable branch source |
+| Packaged | Pending current CI | Deterministic builder plus retained artifact |
+| Automated-QA | Pending current exact head | PHP 7.4/8.3, architecture, policy, packaging |
+| Staging-Accepted | No | Hostinger/provider/browser evidence absent |
+| Live-Deployed | No | No production authorization |
+| Operational | No | Monitoring/support/restore evidence absent |
 
-## Automated evidence
+## External owner and environment gates
 
-The branch workflow verifies source/architecture/public-safety integrity and PHP 7.4/8.3 lint/runtime suites on every branch update. The PR description records the latest exact head and run identifier; a head is acceptable only when all three jobs are successful.
+- Rename the GitHub repository to `02-sabri-authentication-and-accounts` through repository administration.
+- Accept/merge the paired File 00 v1.1 provider candidate.
+- Hostinger fresh install, upgrade, deactivate/reactivate and non-destructive uninstall.
+- Real SMTP, Google provider, File 01/File 20/File 03/File 24/theme/LiteSpeed integration.
+- Security/privacy/IDOR/replay/race testing with real roles.
+- Urdu RTL, English LTR, keyboard, screen reader, zoom, mobile and browser acceptance.
+- Performance/load/provider-outage drills.
+- Database/files/keys restore and rollback rehearsal.
+- Founder staging acceptance and controlled production authorization.
 
-## Still required
-
-- Accepted and staging-tested File 00 account-orchestration provider implementation.
-- Safe opaque per-session registry for individual session revocation.
-- New-device/location/risk challenge policy and File 00/File 24 step-up integration for password sign-in.
-- Formally loop-safe account-completion resolver and state-transition tests.
-- File 19/provider delivery integration and provider circuit breakers.
-- File 01 route registry and File 20 placement contracts.
-- System Check, outbox inspection, metrics, alerts and guarded repair.
-- Complete migration/rollback, privacy/retention, authorization/IDOR, accessibility/RTL, browser/device, load and restore evidence.
-- Two fresh review/fix rounds after the final implementation change.
-- Deterministic installable package, SBOM, manifest, checksums and source/package parity.
-- Hostinger staging with real File 00, Google OAuth and email-provider integration.
-- Founder acceptance and controlled production deployment.
-
-## Authorization
-
-- Specified: **Complete in governing plan**
-- Coded: **Substantial partial 0.4.0 candidate; remaining Must scope listed above**
-- Packaged: **No**
-- Automated QA: **Required green on the current exact head; see PR evidence**
-- Staging accepted: **No**
-- Live deployed: **No**
-- Operational: **No**
-- Merge authorized: **No**
+No source/package/staging/live/operational status may be inferred from another gate.
