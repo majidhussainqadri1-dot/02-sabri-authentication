@@ -1,0 +1,101 @@
+{
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "spdxVersion": "SPDX-2.3",
+  "dataLicense": "CC0-1.0",
+  "name": "Sabri Authentication and Accounts 1.0.0 SBOM",
+  "documentNamespace": "https://sabrihomeopathy.com/spdx/file02-authentication/1.0.0/source-candidate",
+  "creationInfo": {
+    "created": "2026-08-06T00:00:00Z",
+    "creators": [
+      "Organization: Sabri Social Homeopathy Platform",
+      "Tool: deterministic repository inventory"
+    ]
+  },
+  "packages": [
+    {
+      "SPDXID": "SPDXRef-Package-File02",
+      "name": "sabri-authentication",
+      "versionInfo": "1.0.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "GPL-2.0-or-later",
+      "licenseDeclared": "GPL-2.0-or-later",
+      "copyrightText": "NOASSERTION",
+      "supplier": "Organization: Sabri Social Homeopathy Platform",
+      "primaryPackagePurpose": "APPLICATION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:wordpress-plugin/sabri-authentication@1.0.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-WordPress",
+      "name": "WordPress",
+      "versionInfo": ">=6.0",
+      "downloadLocation": "https://wordpress.org/",
+      "filesAnalyzed": false,
+      "licenseConcluded": "GPL-2.0-or-later",
+      "licenseDeclared": "GPL-2.0-or-later",
+      "copyrightText": "NOASSERTION",
+      "supplier": "Organization: WordPress.org",
+      "primaryPackagePurpose": "FRAMEWORK"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-PHP",
+      "name": "PHP Runtime",
+      "versionInfo": ">=7.4",
+      "downloadLocation": "https://www.php.net/",
+      "filesAnalyzed": false,
+      "licenseConcluded": "PHP-3.01",
+      "licenseDeclared": "PHP-3.01",
+      "copyrightText": "NOASSERTION",
+      "supplier": "Organization: The PHP Group",
+      "primaryPackagePurpose": "RUNTIME"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-File00",
+      "name": "Sabri Membership Core",
+      "versionInfo": ">=1.2.7 with smc.authentication-account 1.0.0 and smc.cf01.membership-assurance 1.0.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "GPL-2.0-or-later",
+      "licenseDeclared": "GPL-2.0-or-later",
+      "copyrightText": "NOASSERTION",
+      "supplier": "Organization: Sabri Social Homeopathy Platform",
+      "primaryPackagePurpose": "LIBRARY"
+    }
+  ],
+  "relationships": [
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-Package-File02"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-File02",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-WordPress"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-File02",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-PHP"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-File02",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-File00"
+    }
+  ],
+  "annotations": [
+    {
+      "annotationDate": "2026-08-06T00:00:00Z",
+      "annotationType": "OTHER",
+      "annotator": "Organization: Sabri Social Homeopathy Platform",
+      "comment": "No third-party PHP or JavaScript library is bundled by File 02. Google OAuth and email systems are external runtime providers and are recorded in operational provider registers rather than as bundled software packages."
+    }
+  ]
+}
