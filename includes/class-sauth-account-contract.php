@@ -4,10 +4,6 @@ defined( 'ABSPATH' ) || exit;
 
 /**
  * File 02 consumer boundary for File 00 account and identity orchestration.
- *
- * File 02 owns authentication surfaces and orchestration. File 00 remains the
- * sole owner of platform UUID, membership eligibility, account class, roles,
- * guardian state, verification and institutional authority.
  */
 final class SAUTH_Account_Contract {
 	const CONTRACT_NAME        = 'sauth.account-orchestration';
@@ -15,20 +11,24 @@ final class SAUTH_Account_Contract {
 	const PROVIDER_NAME        = 'smc.authentication-account';
 	const PROVIDER_MIN_VERSION = '1.1.0';
 
-	private static $required_provider_methods = array(
-		'register_account',
-		'mark_email_verified',
-		'get_completion_state',
-	);
+	private static $required_provider_methods = array( 'register_account', 'mark_email_verified', 'get_completion_state' );
+
+	private static function provider_class() {
+		if ( class_exists( 'SMC_Authentication_Contract_V11' )
+			&& defined( 'SMC_AUTHENTICATION_CONTRACT_V11_VERSION' )
+			&& version_compare( (string) SMC_AUTHENTICATION_CONTRACT_V11_VERSION, self::PROVIDER_MIN_VERSION, '>=' ) ) {
+			return 'SMC_Authentication_Contract_V11';
+		}
+		return '';
+	}
 
 	public static function provider_available() {
-		if ( ! class_exists( 'SMC_Authentication_Contract' )
-			|| ! defined( 'SMC_AUTHENTICATION_CONTRACT_VERSION' )
-			|| ! version_compare( (string) SMC_AUTHENTICATION_CONTRACT_VERSION, self::PROVIDER_MIN_VERSION, '>=' ) ) {
+		$provider = self::provider_class();
+		if ( '' === $provider ) {
 			return false;
 		}
 		foreach ( self::$required_provider_methods as $method ) {
-			if ( ! is_callable( array( 'SMC_Authentication_Contract', $method ) ) ) {
+			if ( ! is_callable( array( $provider, $method ) ) ) {
 				return false;
 			}
 		}
@@ -36,10 +36,12 @@ final class SAUTH_Account_Contract {
 	}
 
 	public static function register_account( array $payload, array $context = array() ) {
-		if ( ! self::provider_available() ) {
+		$provider = self::provider_class();
+		if ( '' === $provider ) {
 			return self::unknown( 'provider_unavailable' );
 		}
-		$result = SMC_Authentication_Contract::register_account(
+		$result = call_user_func(
+			array( $provider, 'register_account' ),
 			self::registration_payload( $payload ),
 			self::context( $context )
 		);
@@ -47,10 +49,12 @@ final class SAUTH_Account_Contract {
 	}
 
 	public static function mark_email_verified( $user_id, $email, array $context = array() ) {
-		if ( ! self::provider_available() ) {
+		$provider = self::provider_class();
+		if ( '' === $provider ) {
 			return self::unknown( 'provider_unavailable' );
 		}
-		$result = SMC_Authentication_Contract::mark_email_verified(
+		$result = call_user_func(
+			array( $provider, 'mark_email_verified' ),
 			absint( $user_id ),
 			sanitize_email( (string) $email ),
 			self::context( $context )
@@ -59,10 +63,12 @@ final class SAUTH_Account_Contract {
 	}
 
 	public static function completion_state( $user_id, array $context = array() ) {
-		if ( ! self::provider_available() ) {
+		$provider = self::provider_class();
+		if ( '' === $provider ) {
 			return self::completion_unknown( 'provider_unavailable' );
 		}
-		$result = SMC_Authentication_Contract::get_completion_state(
+		$result = call_user_func(
+			array( $provider, 'get_completion_state' ),
 			absint( $user_id ),
 			self::context( $context )
 		);
@@ -91,28 +97,28 @@ final class SAUTH_Account_Contract {
 
 	private static function registration_payload( array $payload ) {
 		return array(
-			'name'                      => sanitize_text_field( (string) ( $payload['name'] ?? '' ) ),
-			'email'                     => sanitize_email( (string) ( $payload['email'] ?? '' ) ),
-			'phone'                     => sanitize_text_field( (string) ( $payload['phone'] ?? '' ) ),
-			'password'                  => (string) ( $payload['password'] ?? '' ),
-			'password_confirm'          => (string) ( $payload['password_confirm'] ?? '' ),
-			'authentication_method'     => sanitize_key( (string) ( $payload['authentication_method'] ?? 'password' ) ),
-			'google_subject'            => sanitize_text_field( (string) ( $payload['google_subject'] ?? '' ) ),
-			'google_email_verified'     => ! empty( $payload['google_email_verified'] ),
-			'google_picture_candidate'  => esc_url_raw( (string) ( $payload['google_picture_candidate'] ?? '' ) ),
-			'sex'                       => sanitize_key( (string) ( $payload['sex'] ?? '' ) ),
-			'date_of_birth'             => sanitize_text_field( (string) ( $payload['date_of_birth'] ?? '' ) ),
-			'address'                   => sanitize_textarea_field( (string) ( $payload['address'] ?? '' ) ),
-			'city'                      => sanitize_text_field( (string) ( $payload['city'] ?? '' ) ),
-			'country'                   => sanitize_text_field( (string) ( $payload['country'] ?? '' ) ),
-			'account_type'              => sanitize_key( (string) ( $payload['account_type'] ?? '' ) ),
-			'identity_type'             => sanitize_key( (string) ( $payload['identity_type'] ?? '' ) ),
-			'identity_reference'        => sanitize_text_field( (string) ( $payload['identity_reference'] ?? '' ) ),
-			'guardian_reference'        => sanitize_text_field( (string) ( $payload['guardian_reference'] ?? '' ) ),
-			'profile_photo_required'    => ! empty( $payload['profile_photo_required'] ),
-			'terms_version'             => sanitize_text_field( (string) ( $payload['terms_version'] ?? '' ) ),
-			'privacy_version'           => sanitize_text_field( (string) ( $payload['privacy_version'] ?? '' ) ),
-			'ethical_conduct_version'   => sanitize_text_field( (string) ( $payload['ethical_conduct_version'] ?? '' ) ),
+			'name'                     => sanitize_text_field( (string) ( $payload['name'] ?? '' ) ),
+			'email'                    => sanitize_email( (string) ( $payload['email'] ?? '' ) ),
+			'phone'                    => sanitize_text_field( (string) ( $payload['phone'] ?? '' ) ),
+			'password'                 => (string) ( $payload['password'] ?? '' ),
+			'password_confirm'         => (string) ( $payload['password_confirm'] ?? '' ),
+			'authentication_method'    => sanitize_key( (string) ( $payload['authentication_method'] ?? 'password' ) ),
+			'google_subject'           => sanitize_text_field( (string) ( $payload['google_subject'] ?? '' ) ),
+			'google_email_verified'    => ! empty( $payload['google_email_verified'] ),
+			'google_picture_candidate' => esc_url_raw( (string) ( $payload['google_picture_candidate'] ?? '' ) ),
+			'sex'                      => sanitize_key( (string) ( $payload['sex'] ?? '' ) ),
+			'date_of_birth'            => sanitize_text_field( (string) ( $payload['date_of_birth'] ?? '' ) ),
+			'address'                  => sanitize_textarea_field( (string) ( $payload['address'] ?? '' ) ),
+			'city'                     => sanitize_text_field( (string) ( $payload['city'] ?? '' ) ),
+			'country'                  => sanitize_text_field( (string) ( $payload['country'] ?? '' ) ),
+			'account_type'             => sanitize_key( (string) ( $payload['account_type'] ?? '' ) ),
+			'identity_type'            => sanitize_key( (string) ( $payload['identity_type'] ?? '' ) ),
+			'identity_reference'       => sanitize_text_field( (string) ( $payload['identity_reference'] ?? '' ) ),
+			'guardian_reference'       => sanitize_text_field( (string) ( $payload['guardian_reference'] ?? '' ) ),
+			'profile_photo_required'   => ! empty( $payload['profile_photo_required'] ),
+			'terms_version'            => sanitize_text_field( (string) ( $payload['terms_version'] ?? '' ) ),
+			'privacy_version'          => sanitize_text_field( (string) ( $payload['privacy_version'] ?? '' ) ),
+			'ethical_conduct_version'  => sanitize_text_field( (string) ( $payload['ethical_conduct_version'] ?? '' ) ),
 		);
 	}
 
