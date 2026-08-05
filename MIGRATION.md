@@ -5,7 +5,7 @@
 All File 02 changes are additive, idempotent and non-destructive. `SAUTH_Activator::repair()`:
 
 1. creates/reconciles seven canonical `sauth_*` tables through WordPress `dbDelta`;
-2. copies pre-1.1 `sa_*` rows through bounded `INSERT IGNORE` operations;
+2. invokes `SAUTH_Activator::migrate_legacy_tables()` to copy pre-1.1 `sa_*` rows through bounded `INSERT IGNORE` operations;
 3. preserves legacy tables as rollback evidence;
 4. routes retained compatibility SQL to canonical storage through `SAUTH_Storage_Router`;
 5. reconciles managed pages and canonical option mirrors;
