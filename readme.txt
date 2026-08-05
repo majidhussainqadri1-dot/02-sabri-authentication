@@ -1,73 +1,69 @@
 === Sabri Authentication and Accounts ===
 Contributors: sabrihomeopathy
-Tags: authentication, google login, accounts, step-up assurance, homeopathy
+Tags: authentication, google login, accounts, recovery, sessions
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 0.3.0
+Stable tag: 0.4.0
 License: GPLv2 or later
 
-Google authentication, account-recovery, and session-bound authentication-assurance integration for the Sabri Social Homeopathy Platform.
+Authentication surfaces and orchestration for the Sabri Social Homeopathy Platform. File 00 — Sabri Membership Core remains the exclusive identity, membership, guardian, role, verification and MFA-policy authority.
+
+== Current truthful status ==
+
+Version 0.4.0 is a plan-harmonization development candidate. It is not staging-accepted, live-deployed or operationally approved. See PLAN-TRACEABILITY.md for requirement-by-requirement status.
 
 == Required dependency ==
 
-File 00 — Sabri Membership Core 1.2.7 or later is mandatory and remains the exclusive authority for registration, identity evidence, member profiles, account types, WordPress roles, institutional verification, password/TOTP login, recovery codes, guardian state, and approval status.
+File 00 — Sabri Membership Core 1.2.7 or later with the approved assurance contract is mandatory.
 
-File 02 does not create users, roles, verification status, parallel profile records, clinical records, or clinical authorization. It does not read File 00 private TOTP or recovery storage.
+The new File 00 account-orchestration provider contract `smc.authentication-account` version 1.0.0 is required before File 02 registration, email-verification and completion-state orchestration can be accepted. When that contract is unavailable, those operations fail closed rather than creating a second identity authority.
 
-== Authentication assurance ==
+== Implemented source capabilities ==
 
-Contract `sa.cf01.authentication-assurance` version `1.0.0` consumes the versioned File 00 provider contract, then binds accepted second-factor evidence to the authenticated WordPress session, approved purpose, opaque scope, client fingerprint, method, assurance level, trace ID, and short expiry.
+* Hardened Google OAuth using state, OpenID nonce, PKCE, issuer/audience/authorized-party/time checks and minimal scopes.
+* Explicit same-email Google account linking; no Google-based automatic WordPress account creation.
+* File 00-owned second-factor verification for Google login, link and unlink.
+* Session-bound authentication assurance contracts for CF-01 and professional verification workflows.
+* Versioned File 00 account-orchestration consumer boundary for registration, email verification and completion state.
+* Privacy-minimized authentication event outbox with trace IDs, retries and dead-letter state.
+* Non-enumerating password-recovery request and canonical reset completion with all-session revocation.
+* Authenticated session summary, generalized device/network presentation, revoke-other-sessions and sign-out-everywhere controls.
+* Atomic fixed-window rate limiting, safe redirects, noindex/noarchive/no-store account pages, privacy export/erasure and encrypted Google Client Secret storage.
 
-A File 02 assurance is authentication evidence only. CF-01 and every other native owner must separately recheck membership, treating relationship, consent/guardian, practitioner eligibility, object, field, purpose, record version, and other action-time authorization.
+== Still required for plan completion ==
 
-No raw session token, TOTP code, recovery code, provider secret, Google token, patient data, or clinical content is returned in the public assertion.
-
-== Installation ==
-
-1. Install and activate Sabri Membership Core 1.2.7 or later first.
-2. Upload and activate Sabri Authentication and Accounts.
-3. Open Sabri Shell > Authentication, or Settings > Authentication when the unified shell is unavailable.
-4. Configure the Google Web OAuth Client ID, encrypted Client Secret, and exact HTTPS redirect URI.
-5. Complete Google consent-screen, Privacy Policy, Terms, and staging validation before enabling Google sign-in.
-
-== Google account flow ==
-
-1. A user first creates and completes a verified Membership Core account.
-2. The account must be approved or verified and have Membership Core two-factor authentication enabled.
-3. The signed-in user explicitly links a Google account with the exact same verified email.
-4. Linking, unlinking, and every Google sign-in require the current Membership Core Authenticator or one-time recovery code through the File 00 provider contract.
-5. Login evidence is temporarily pending until the generated WordPress session token exists, then it is promoted and bound to that exact session.
-6. New WordPress users are never auto-created from Google claims.
-7. Google access and refresh tokens are not retained.
+* Full File 02 registration form and accepted File 00 registration transaction contract.
+* Signed email-verification challenge issuance, resend throttling and idempotent consumption.
+* Native File 02 password authentication with generic errors and risk challenges.
+* Safe opaque per-session registry for individual session revocation.
+* Account-completion redirect resolver with loop prevention.
+* Complete event coverage, provider circuit breakers, System Check, repair and observability.
+* File 01 route registry and File 20 layout-placement contracts.
+* Full automated QA, two fresh review/fix rounds, deterministic package/SBOM and Hostinger staging.
 
 == Security ==
 
-The module uses OAuth state, OpenID nonce, PKCE, issuer/audience/authorized-party/time checks, nonce-protected explicit account linking, a concurrency lock, versioned Membership Core assertions, per-user fixed-window atomic rate limits, purpose/scope/session/fingerprint-bound assurance receipts, no-cache/noindex/no-referrer account pages, safe redirects, authenticated Google Client Secret encryption, privacy export/erasure, session receipt revocation on logout, other-session revocation on unlink, and auditable link/login/unlink events.
+Passwords, reset keys, OAuth tokens, TOTP/recovery codes, raw session tokens and provider secrets are never included in authentication events. Authentication success never grants membership, professional, clinical, publishing or financial authorization; native owners must revalidate every protected action.
 
 == Changelog ==
 
+= 0.4.0 =
+* Started full reconciliation with SSH-F02-PLAN-2026-v1.0.
+* Added versioned File 00 account-orchestration consumer boundary.
+* Added privacy-safe authentication event outbox with retry/dead-letter state.
+* Added canonical password reset completion and all-session revocation.
+* Added session presentation, revoke-other-sessions and sign-out-everywhere controls.
+* Added plan-to-code traceability and truthful remaining-gate register.
+
 = 0.3.0 =
 * Removed direct reads of File 00 private two-factor metadata and secrets.
-* Requires the versioned File 00 CF-01 membership and step-up provider contract.
-* Added `sa.cf01.authentication-assurance` version 1.0.0 with valid/invalid/unknown results.
-* Binds accepted evidence to the exact WordPress session, purpose, opaque scope, client fingerprint, method, trace, and expiry.
-* Added pre-login pending evidence promotion through the WordPress logged-in-cookie token event.
-* Added fail-closed provider schema/version/time validation, verified transient writes, rollback on index failure, session-token rotation invalidation, and logout cleanup.
-* Added Google login/link/unlink purpose and scope binding without converting authentication into clinical authorization.
-* Added architecture and runtime adversarial tests.
+* Added session/purpose/scope-bound authentication assurance contracts.
+* Added professional reauthentication bridge and adversarial contract tests.
 
 = 0.2.0 =
-* Made Sabri Membership Core a mandatory dependency and removed fallback role/profile ownership.
-* Removed direct File 02 registration, user creation, password login, and role mutation.
-* Added explicit Google linking for existing approved Membership Core accounts only.
-* Required Membership Core Authenticator or recovery code after Google identity verification.
-* Added consistent Google link metadata, nonce-protected and concurrency-locked linking, and a 2FA-protected unlink flow that revokes other sessions.
-* Added atomic fixed-window database rate limiting, a fixed-window fallback, per-user 2FA limits, and success resets.
-* Added noindex, noarchive, no-store/private, no-referrer, frame, content-type, and permissions headers for private account pages.
-* Completed File 02 privacy export and erasure coverage, including legacy metadata and the legacy WordPress biography.
-* Moved admin integration to the Unified Application Shell when available.
-* Added controlled page ownership, dependency failure handling, pinned CI actions, and architecture checks.
+* Made File 00 mandatory and removed parallel role/profile ownership.
+* Hardened Google linking, privacy, rate limiting and account-page headers.
 
 = 0.1.0 =
 * Initial authentication and account foundation.
