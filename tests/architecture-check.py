@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail-fast architecture guard for the File 02 1.1.0 source candidate."""
+"""Fail-fast architecture guard for the File 02 1.2.0 four-plan source candidate."""
 from __future__ import annotations
 
 import pathlib
@@ -40,6 +40,7 @@ required_files = {
     "includes/class-sauth-operations.php",
     "includes/class-sauth-google-registration.php",
     "includes/class-sauth-canonical-routes.php",
+    "includes/class-sauth-passkeys.php",
     "templates/login.php",
     "templates/signup.php",
     "templates/google-account.php",
@@ -48,18 +49,21 @@ required_files = {
 }
 missing = sorted(required_files - set(PHP))
 if missing:
-    fail("missing 1.1.0 source files: " + ", ".join(missing))
+    fail("missing 1.2.0 source files: " + ", ".join(missing))
 
 main = PHP["sabri-authentication.php"]
 for marker in (
-    "Version: 1.1.0",
-    "define( 'SAUTH_VERSION', '1.1.0' );",
-    "define( 'SAUTH_DB_VERSION', '1.1.0' );",
+    "Version: 1.2.0",
+    "define( 'SAUTH_VERSION', '1.2.0' );",
+    "define( 'SAUTH_DB_VERSION', '1.2.0' );",
     "define( 'SAUTH_ACCOUNT_CONTRACT_VERSION', '1.1.0' );",
+    "define( 'SAUTH_PASSKEY_CONTRACT_VERSION', '1.0.0' );",
     "class-sauth-google-registration.php",
     "class-sauth-canonical-routes.php",
+    "class-sauth-passkeys.php",
     "SAUTH_Google_Registration::init()",
     "SAUTH_Canonical_Routes::init()",
+    "SAUTH_Passkeys::init()",
 ):
     if marker not in main:
         fail(f"main plugin bootstrap is missing {marker}")
@@ -182,6 +186,35 @@ require_markers(
 if "'session_token' =>" in PHP["includes/class-sauth-session-manager.php"]:
     fail("session manager may expose raw session material")
 
+passkeys = PHP["includes/class-sauth-passkeys.php"]
+for marker in (
+    "CONTRACT_VERSION      = '1.0.0'",
+    "smc_file02_authentication_assurance_v1",
+    "webauthn.create",
+    "webauthn.get",
+    "parse_attestation_object",
+    "cose_public_key_to_pem",
+    "attestation_format_not_allowed",
+    "credential_public_key",
+    "add_option( self::challenge_claim_key",
+    "userVerification' => 'required",
+    "residentKey' => 'required",
+    "hash( 'sha256', (string) $raw_id )",
+    "hardware_backed' => false",
+    "PasskeyRegistered.v1",
+    "PasskeyAuthenticated.v1",
+    "PasskeyRevoked.v1",
+):
+    if marker not in passkeys:
+        fail(f"passkey/WebAuthn source is missing {marker}")
+if "public_key' )" in passkeys or "getPublicKey" in (ROOT / "assets/js/authentication.js").read_text(encoding="utf-8"):
+    fail("registration may not trust a client-supplied WebAuthn public key")
+
+outbox = PHP["includes/class-sauth-event-outbox.php"]
+for event in ("PasskeyRegistered.v1", "PasskeyAuthenticated.v1", "PasskeyRevoked.v1"):
+    if event not in outbox:
+        fail(f"event outbox is missing {event}")
+
 require_markers(
     "includes/class-sauth-operations.php",
     (
@@ -218,5 +251,9 @@ for marker in (
     if marker not in signup:
         fail(f"registration surface is missing {marker}")
 
-print("File 02 1.1.0 three-plan architecture guard passed.")
+login = PHP["templates/login.php"]
+if "data-sauth-passkey-login" not in login:
+    fail("login surface does not expose passkey authentication")
+
+print("File 02 1.2.0 four-plan architecture guard passed.")
 print(f"PHP files checked: {len(PHP)}")
