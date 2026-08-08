@@ -8,7 +8,7 @@ All notable changes to Sabri Authentication and Accounts are recorded here.
 
 - File 02-owned WebAuthn/passkey registration, usernameless authentication and credential revocation for the later CV-005 strong-login requirement.
 - Required resident credentials and user verification with exact canonical RP ID/origin/challenge binding.
-- Server-side `attestationObject` CBOR decoding, authenticator-data parsing and COSE EC2/RSA public-key extraction.
+- The server-side `attestationObject` CBOR decoder, authenticator-data parser and COSE EC2/RSA public-key extractor establish registration key trust.
 - ES256 P-256 and RS256 verification using PHP OpenSSL; a browser-supplied public key is never trusted.
 - Atomic one-time challenge claim to close concurrent replay, five-minute challenge expiry and privacy-minimized client-fingerprint binding.
 - Stable SHA-256 credential-ID lookup across WordPress salt rotation plus encrypted credential-ID presentation copy.
@@ -24,7 +24,7 @@ All notable changes to Sabri Authentication and Accounts are recorded here.
 - Rejected an initial design that could have trusted browser-extracted public-key material; registration now trusts only the server-parsed authenticator public key.
 - Closed transient-only challenge replay race with an atomic unique option claim.
 - Replaced salt-dependent credential lookup with stable SHA-256 over random WebAuthn credential IDs.
-- Replaced salt-derived user handle with a random opaque File 02 user handle.
+- Replaced salt-derived user handles with random opaque handles.
 - Removed false `hardware_backed` inference under `attestation=none`; hardware provenance remains false unless independently proven.
 - Prevented password-only passkey management when File 00 two-factor protection is enabled; current passkey or File 00 step-up is required.
 - Added passkey events to the bounded authentication event allowlist and passkey schema to System Check/repair.
