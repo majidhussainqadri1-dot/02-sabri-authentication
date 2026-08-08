@@ -96,6 +96,8 @@ function sauth_validate_activation_dependencies() {
 }
 register_activation_hook( SAUTH_FILE, 'sauth_validate_activation_dependencies' );
 register_activation_hook( SAUTH_FILE, array( 'SAUTH_Activator', 'activate' ) );
+register_activation_hook( SAUTH_FILE, array( 'SAUTH_Passkeys', 'maybe_install' ) );
+register_deactivation_hook( SAUTH_FILE, array( 'SAUTH_Passkeys', 'deactivate' ) );
 register_deactivation_hook( SAUTH_FILE, array( 'SAUTH_Activator', 'deactivate' ) );
 
 function sauth_start_plugin() {
