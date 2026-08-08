@@ -2,8 +2,7 @@
   'use strict';
 
   function setPasskeyStatus(message, isError) {
-    var nodes = document.querySelectorAll('[data-sauth-passkey-status]');
-    nodes.forEach(function (node) {
+    document.querySelectorAll('[data-sauth-passkey-status]').forEach(function (node) {
       node.textContent = message || '';
       node.classList.toggle('sa-notice-error', !!isError);
     });
@@ -67,8 +66,7 @@
       throw new Error('passkey_response_invalid');
     }
     if (!response.ok || !payload || payload.success !== true) {
-      var code = payload && payload.data && payload.data.code ? payload.data.code : 'passkey_request_failed';
-      throw new Error(code);
+      throw new Error(payload && payload.data && payload.data.code ? payload.data.code : 'passkey_request_failed');
     }
     return payload.data || {};
   }
@@ -109,7 +107,7 @@
       return 'This authenticator already has a matching passkey for the account.';
     }
     if (error && error.message === 'fresh_reauthentication_required') {
-      return 'Enter your current password or a current Authenticator/recovery code before changing passkeys.';
+      return 'Enter the stronger account verification requested on this page before changing passkeys.';
     }
     if (error && error.message === 'rate_limited') {
       return 'Too many passkey attempts were made. Wait before trying again.';
@@ -132,7 +130,7 @@
         redirect_to: redirectField ? redirectField.value : window.location.href
       });
       var credential = await navigator.credentials.get({ publicKey: normalizeRequestOptions(begin) });
-      if (!credential || !credential.response) {
+      if (!credential || credential.type !== 'public-key' || !credential.response) {
         throw new Error('passkey_assertion_missing');
       }
       var finish = await post('sauth_passkey_finish_authentication', {
@@ -177,24 +175,16 @@
       }
       setPasskeyStatus('Use your device or security key to create the passkey…', false);
       var credential = await navigator.credentials.create({ publicKey: normalizeCreationOptions(begin) });
-      if (!credential || !credential.response || typeof credential.response.getPublicKey !== 'function' || typeof credential.response.getAuthenticatorData !== 'function') {
-        throw new Error('passkey_public_key_unavailable');
-      }
-      var publicKey = credential.response.getPublicKey();
-      var authData = credential.response.getAuthenticatorData();
-      if (!publicKey || !authData) {
-        throw new Error('passkey_public_key_unavailable');
+      if (!credential || credential.type !== 'public-key' || !credential.response || !credential.response.attestationObject) {
+        throw new Error('passkey_attestation_unavailable');
       }
       var transports = typeof credential.response.getTransports === 'function' ? credential.response.getTransports() : [];
-      var algorithm = typeof credential.response.getPublicKeyAlgorithm === 'function' ? credential.response.getPublicKeyAlgorithm() : 0;
       var finish = await post('sauth_passkey_finish_registration', {
         nonce: cfg.nonce || '',
         challenge_id: begin.challengeId,
         raw_id: bufferToBase64url(credential.rawId),
         client_data_json: bufferToBase64url(credential.response.clientDataJSON),
-        authenticator_data: bufferToBase64url(authData),
-        public_key: bufferToBase64url(publicKey),
-        algorithm: algorithm,
+        attestation_object: bufferToBase64url(credential.response.attestationObject),
         attachment: credential.authenticatorAttachment || '',
         transports: transports.join(','),
         nickname: nickname ? nickname.value : ''
