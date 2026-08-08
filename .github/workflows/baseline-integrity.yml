@@ -1,4 +1,4 @@
-name: File 02 Three-Plan Integrity
+name: File 02 Four-Plan Integrity
 
 on:
   pull_request:
@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   contract-integrity:
-    name: 1.1.0 source, plans, architecture and public-safety integrity
+    name: 1.2.0 source, plans, WebAuthn architecture and public-safety integrity
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -86,22 +86,27 @@ jobs:
 
           main = (root / 'sabri-authentication.php').read_text(encoding='utf-8')
           readme = (root / 'readme.txt').read_text(encoding='utf-8')
-          if 'Version: 1.1.0' not in main or "define( 'SAUTH_VERSION', '1.1.0' );" not in main:
-              fail('plugin header or SAUTH_VERSION is not 1.1.0')
-          if "define( 'SAUTH_DB_VERSION', '1.1.0' );" not in main:
-              fail('SAUTH_DB_VERSION is not 1.1.0')
-          if 'Stable tag: 1.1.0' not in readme:
-              fail('readme stable tag is not 1.1.0')
+          if 'Version: 1.2.0' not in main or "define( 'SAUTH_VERSION', '1.2.0' );" not in main:
+              fail('plugin header or SAUTH_VERSION is not 1.2.0')
+          if "define( 'SAUTH_DB_VERSION', '1.2.0' );" not in main:
+              fail('SAUTH_DB_VERSION is not 1.2.0')
+          if "define( 'SAUTH_PASSKEY_CONTRACT_VERSION', '1.0.0' );" not in main:
+              fail('passkey contract constant is missing')
+          if 'Stable tag: 1.2.0' not in readme:
+              fail('readme stable tag is not 1.2.0')
 
           lock = json.loads((root / 'RELEASE-LOCK.json').read_text(encoding='utf-8'))
           expected = {
-              'release_version': '1.1.0',
-              'database_version': '1.1.0',
+              'release_version': '1.2.0',
+              'database_version': '1.2.0',
+              'passkey_schema_version': '1.0.0',
               'canonical_repository': '02-sabri-authentication-and-accounts',
               'package_folder': '02-sabri-authentication',
               'php_prefix': 'SAUTH_',
               'canonical_sessions_route': '/account/sessions/',
               'minimum_account_contract_version': '1.1.0',
+              'passkey_assurance_contract_version': '1.0.0',
+              'passkey_assurance_owner': 'file02',
           }
           for key, value in expected.items():
               if lock.get(key) != value:
@@ -121,11 +126,13 @@ jobs:
               'includes/class-sauth-operations.php',
               'includes/class-sauth-google-registration.php',
               'includes/class-sauth-canonical-routes.php',
+              'includes/class-sauth-passkeys.php',
               'templates/login.php', 'templates/signup.php', 'templates/reset-password.php',
               'tests/complete-plan-unit.php',
               'tests/registration-authentication-unit.php',
               'tests/plan-harmonization-unit.php',
               'tests/three-plan-completion-unit.php',
+              'tests/passkey-webauthn-unit.php',
               'tests/cf01-assurance-unit.php',
               'tests/professional-reauthentication-unit.php',
               'tests/architecture-check.py', 'tests/security-unit.php',
@@ -133,7 +140,7 @@ jobs:
           present = {p.as_posix() for p in all_files}
           missing = sorted(required - present)
           if missing:
-              fail('missing 1.1.0 evidence: ' + ', '.join(missing))
+              fail('missing 1.2.0 evidence: ' + ', '.join(missing))
 
           trace = (root / 'PLAN-TRACEABILITY.md').read_text(encoding='utf-8')
           for requirement in [f'F02-FR-{n:03d}' for n in range(1, 13)]:
@@ -142,16 +149,9 @@ jobs:
           for requirement in [f'F02-NFR-{n:03d}' for n in range(1, 11)]:
               if requirement not in trace:
                   fail(f'missing non-functional traceability: {requirement}')
-
-          stale = {
-              'README.md': ('Version: `0.2.0`', 'audit/file-02-source-review'),
-              'STATUS.md': ('Version 0.4.0', 'Substantial partial'),
-          }
-          for filename, markers in stale.items():
-              text = (root / filename).read_text(encoding='utf-8')
-              for marker in markers:
-                  if marker in text:
-                      fail(f'stale status marker in {filename}: {marker}')
+          for marker in ('CV-005', 'CV-006', 'CV-010', 'smc_file02_authentication_assurance_v1', 'server parses attestationObject CBOR'):
+              if marker not in trace:
+                  fail(f'missing fourth-plan traceability: {marker}')
 
           source_paths = sorted(
               p for p in all_files
@@ -163,7 +163,7 @@ jobs:
               data = path.read_bytes()
               canonical.append(f"{hashlib.sha256(data).hexdigest()}  {len(data)}  {path.as_posix()}")
           tree_text = '\n'.join(canonical) + '\n'
-          print('File 02 1.1.0 dynamic source-tree SHA-256:', hashlib.sha256(tree_text.encode()).hexdigest())
+          print('File 02 1.2.0 dynamic source-tree SHA-256:', hashlib.sha256(tree_text.encode()).hexdigest())
           print('Source files:', len(source_paths))
           print('Source bytes:', sum(p.stat().st_size for p in source_paths))
           subprocess.run([sys.executable, 'tests/architecture-check.py'], check=True)
@@ -180,11 +180,14 @@ jobs:
               raise SystemExit('CSS brace mismatch')
           if 'orange' in css.lower() or '#f97316' in css.lower():
               raise SystemExit('superseded orange-primary token found')
-          print('JavaScript syntax and CSS structural checks passed.')
+          js = pathlib.Path('assets/js/authentication.js').read_text(encoding='utf-8')
+          if 'attestation_object' not in js or 'getPublicKey(' in js:
+              raise SystemExit('WebAuthn registration must send attestationObject and must not trust getPublicKey()')
+          print('JavaScript syntax, WebAuthn boundary and CSS structural checks passed.')
           PY
 
   php-lint-and-runtime:
-    name: PHP ${{ matrix.php }} lint and runtime suites
+    name: PHP ${{ matrix.php }} lint and no-network runtime suites
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
@@ -206,12 +209,13 @@ jobs:
           php-version: ${{ matrix.php }}
           coverage: none
           tools: none
+          extensions: openssl
 
       - name: Lint every PHP file and run no-network suites
         run: |
           set -euo pipefail
           mapfile -t php_files < <(find . -type f -name '*.php' -not -path './.git/*' -print | sort)
-          test "${#php_files[@]}" -ge 39
+          test "${#php_files[@]}" -ge 40
           for file in "${php_files[@]}"; do
             php -l "$file"
           done
@@ -221,10 +225,11 @@ jobs:
           php tests/plan-harmonization-unit.php
           php tests/registration-authentication-unit.php
           php tests/complete-plan-unit.php
+          php tests/passkey-webauthn-unit.php
           php tests/three-plan-completion-unit.php
 
   deterministic-package:
-    name: Deterministic 1.1.0 package, clean-extract parity and retained artifact
+    name: Deterministic 1.2.0 package, clean-extract parity and retained artifact
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -240,6 +245,7 @@ jobs:
           php-version: '8.3'
           coverage: none
           tools: none
+          extensions: openssl
 
       - name: Build twice, compare and lint clean extraction
         run: |
@@ -248,16 +254,17 @@ jobs:
           bash tools/build-package.sh "$RUNNER_TEMP/build-a"
           bash tools/build-package.sh "$RUNNER_TEMP/build-b"
 
-          archive_a="$RUNNER_TEMP/build-a/02-sabri-authentication-1.1.0-SOURCE-CANDIDATE.zip"
-          archive_b="$RUNNER_TEMP/build-b/02-sabri-authentication-1.1.0-SOURCE-CANDIDATE.zip"
-          manifest_a="$RUNNER_TEMP/build-a/02-sabri-authentication-1.1.0-MANIFEST.json"
-          manifest_b="$RUNNER_TEMP/build-b/02-sabri-authentication-1.1.0-MANIFEST.json"
+          archive_a="$RUNNER_TEMP/build-a/02-sabri-authentication-1.2.0-SOURCE-CANDIDATE.zip"
+          archive_b="$RUNNER_TEMP/build-b/02-sabri-authentication-1.2.0-SOURCE-CANDIDATE.zip"
+          manifest_a="$RUNNER_TEMP/build-a/02-sabri-authentication-1.2.0-MANIFEST.json"
+          manifest_b="$RUNNER_TEMP/build-b/02-sabri-authentication-1.2.0-MANIFEST.json"
           test -f "$archive_a" && test -f "$archive_b" && test -f "$manifest_a" && test -f "$manifest_b"
           cmp --silent "$archive_a" "$archive_b"
           cmp --silent "$manifest_a" "$manifest_b"
 
           unzip -q "$archive_a" -d "$RUNNER_TEMP/extract"
           test -f "$RUNNER_TEMP/extract/02-sabri-authentication/sabri-authentication.php"
+          test -f "$RUNNER_TEMP/extract/02-sabri-authentication/includes/class-sauth-passkeys.php"
           test -f "$RUNNER_TEMP/extract/02-sabri-authentication/PACKAGE-MANIFEST.json"
           test "$(find "$RUNNER_TEMP/extract" -mindepth 1 -maxdepth 1 -type d | wc -l)" -eq 1
           while IFS= read -r file; do php -l "$file"; done < <(find "$RUNNER_TEMP/extract" -type f -name '*.php' | sort)
@@ -289,11 +296,11 @@ jobs:
       - name: Retain exact-head source candidate
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: file02-authentication-and-accounts-1.1.0-${{ github.event.pull_request.head.sha || github.sha }}
+          name: file02-authentication-and-accounts-1.2.0-${{ github.event.pull_request.head.sha || github.sha }}
           if-no-files-found: error
           retention-days: 30
           path: |
-            ${{ runner.temp }}/build-a/02-sabri-authentication-1.1.0-SOURCE-CANDIDATE.zip
-            ${{ runner.temp }}/build-a/02-sabri-authentication-1.1.0-MANIFEST.json
+            ${{ runner.temp }}/build-a/02-sabri-authentication-1.2.0-SOURCE-CANDIDATE.zip
+            ${{ runner.temp }}/build-a/02-sabri-authentication-1.2.0-MANIFEST.json
             ${{ runner.temp }}/build-a/CHECKSUMS.sha256
             ${{ runner.temp }}/build-a/EXACT-HEAD-CHECKSUMS.sha256
