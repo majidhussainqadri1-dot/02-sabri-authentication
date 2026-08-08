@@ -1,17 +1,17 @@
 === Sabri Authentication and Accounts ===
 Contributors: sabrihomeopathy
-Tags: authentication, google login, registration, accounts, recovery, sessions, security
+Tags: authentication, passkeys, webauthn, google login, registration, accounts, recovery, sessions, security
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.1.0
+Stable tag: 1.2.0
 License: GPLv2 or later
 
-Complete authentication and account-entry orchestration for the Sabri Social Homeopathy Platform. File 00 — Sabri Membership Core remains the exclusive identity, membership, account-class, guardian, role, verification and MFA-policy authority.
+Complete authentication and account-entry orchestration for the Sabri Social Homeopathy Platform. File 00 — Sabri Membership Core remains the exclusive identity, membership, account-class, guardian, role, verification and MFA-policy authority; File 02 owns password, Google OAuth and WebAuthn/passkey authentication ceremonies.
 
 == Truthful release status ==
 
-Version 1.1.0 is the three-plan-complete source candidate for SSH-F02-PLAN-2026-v1.0, the Definitive Master Plan v3.0 and the Consolidated All-Chats Directives v2.1. Source completion and automated QA do not by themselves prove Hostinger staging acceptance, live deployment or operational acceptance.
+Version 1.2.0 is the four-plan source candidate reconciling SSH-F02-PLAN-2026-v1.0, the Definitive Master Plan v3.0, Consolidated All-Chats Directives v2.1, the Continuous-Value/Top-20 Superset plan and the later File 00 Advanced Trust boundary. Source completion and automated QA do not by themselves prove Hostinger staging acceptance, live deployment or operational acceptance.
 
 == Canonical constitution ==
 
@@ -20,13 +20,15 @@ Version 1.1.0 is the three-plan-complete source candidate for SSH-F02-PLAN-2026-
 * Package folder and WordPress slug: `02-sabri-authentication` / `sabri-authentication`.
 * Canonical PHP prefix: `SAUTH_`; pre-1.1 `SA_` classes/constants remain compatibility aliases only.
 * Canonical session route: `/account/sessions/`; the old `/account-sessions/` page redirects permanently.
+* Passkey management route is a private, noindex/no-store File 02 managed page.
 
 == Required dependency ==
 
-File 00 — Sabri Membership Core 1.3.0 or later with:
+File 00 — Sabri Membership Core with:
 
-* `smc.cf01.membership-assurance` 1.0.0 or later; and
-* `smc.authentication-account` 1.1.0 or later.
+* `smc.cf01.membership-assurance` 1.0.0 or later;
+* `smc.authentication-account` 1.1.0 or later; and
+* for Advanced Trust elevation, File 00 Advanced Trust consumer support for `smc_file02_authentication_assurance_v1` 1.0.0.
 
 If a required contract is missing, malformed or circuit-open, protected mutations fail closed. Public reading remains available.
 
@@ -39,30 +41,52 @@ If a required contract is missing, malformed or circuit-open, protected mutation
 * Signed one-time email verification with expiry, HMAC-only token storage, canonical-email binding, resend throttle, replay/concurrency protection and audit/event evidence.
 * Password authentication using WordPress APIs, dummy hashing for unknown accounts, generic errors, rate controls and File 00 eligibility/completion rechecks.
 * Google OAuth state, nonce, PKCE, issuer/audience/authorized-party/time validation, explicit same-email linking and collision protection.
+* WebAuthn/passkey usernameless sign-in and passkey enrollment/revocation with required user verification, discoverable credentials, RP-ID/origin binding, one-time challenge replay claims, server-side CBOR/COSE parsing, ES256/RS256 verification, signature-counter checks and privacy-minimized metadata.
+* Passkey registration accepts only the COSE public key embedded in authenticatorData inside an `attestation=none` attestation object; a browser-supplied public key is never trusted.
+* Fresh passkey assurance is session-bound and projected to File 00 as owner=`file02`, contract `1.0.0`, level 3, `passkey_asserted=true`; hardware-backed status is not claimed when attestation provenance is intentionally unavailable.
+* Passkey enrollment/revocation requires fresh reauthentication. If File 00 two-factor protection is enabled, password-only management is rejected and File 00 step-up is required.
 * New-device/network/recent-failure risk scoring with File 00-owned step-up.
 * Loop-safe account-completion resolution including profile photograph, city, account type, ethical consent, phone, identity, guardian and MFA steps.
 * Opaque per-session registry, current marker, generalized device/network presentation, individual revoke, revoke others and sign out everywhere.
 * Password recovery/reset and all-session revocation.
-* Versioned privacy-minimized event outbox, provider circuit breakers, bounded HTTP controls, Safe Mode, System Check and guarded repair.
+* Versioned privacy-minimized event outbox including passkey registered/authenticated/revoked facts, provider circuit breakers, bounded HTTP controls, Safe Mode, System Check and guarded repair.
 * File 01 module manifest and File 20 route/layout manifest with the canonical nested session route.
 * Privacy export/erasure/anonymization, additive migration, non-destructive uninstall, deterministic package, manifest, checksums and SBOM.
 * Green primary identity, logical responsive CSS, keyboard focus, reduced motion and RTL-ready structure.
 
+== Passkey security and privacy boundaries ==
+
+* HTTPS is mandatory except standards-permitted localhost development.
+* Registration requests `attestation: none`; no attestation certificate chain or biometric information is retained.
+* Credential IDs are opaque random identifiers; an encrypted copy supports exclusion UI while a stable SHA-256 lookup prevents WordPress salt rotation from breaking credential lookup.
+* User handles are random opaque File 02 values and are erased with File 02 passkey data.
+* Challenge completion uses an atomic WordPress option claim plus expiring challenge state so concurrent replay attempts cannot both succeed.
+* Synchronized passkeys may legitimately use a zero signature counter; non-zero counter regression is treated as compromise and the credential is disabled.
+* Authentication is not authorization. Every post-authentication protected action remains subject to File 00 claims and the native domain owner's object/state checks.
+
 == External acceptance gates ==
 
 * Owner-level GitHub repository rename to the canonical repository name.
-* Compatible File 00 v1.1 account-contract branch acceptance/merge.
-* Hostinger staging fresh install, upgrades, real MySQL/dbDelta, SMTP and Google OAuth.
-* File 01/File 20/File 03/File 24/theme/LiteSpeed integration.
+* Hostinger staging fresh install and supported upgrades with real MySQL/dbDelta, SMTP, Google OAuth and real WebAuthn authenticators on the production RP ID/origin.
+* File 00 Advanced Trust, File 01, File 20, File 03, File 24, theme and LiteSpeed integration.
 * Real Founder/member/minor/guardian/suspended/security-operator journeys.
 * IDOR/CSRF/replay/race/privacy, browser/mobile/RTL/WCAG, performance/load, backup/restore and rollback acceptance.
 * Founder approval, controlled production deployment and monitored rollback window.
 
 == Security ==
 
-Passwords, reset keys, verification tokens, OAuth tokens, TOTP/recovery codes, raw session tokens, full IP addresses and provider secrets are excluded from events and public diagnostics. Authentication success is never authorization.
+Passwords, reset keys, verification tokens, OAuth tokens, TOTP/recovery codes, passkey private keys, biometric templates, raw session tokens, full IP addresses and provider secrets are excluded from events and public diagnostics. Authentication success is never authorization.
 
 == Changelog ==
+
+= 1.2.0 =
+* Added File 02-owned WebAuthn/passkey registration, authentication, management and privacy lifecycle for CV-005.
+* Added server-side attestation-object CBOR parsing and COSE ES256/RS256 public-key extraction; removed any trust in a browser-supplied public key.
+* Added atomic challenge replay claims, RP-ID/origin/user-verification binding, discoverable credentials, signature verification and counter-regression containment.
+* Added versioned five-minute session-bound passkey assurance consumed by File 00 Advanced Trust without moving identity/MFA policy ownership out of File 00.
+* Added conservative hardware-provenance semantics: attestation=none never claims `hardware_backed=true`.
+* Integrated passkey events, privacy export/erasure, registration/revocation reauthentication, activation/deactivation lifecycle and no-network WebAuthn QA.
+* Preserved all previous File 02 FR/NFR functionality and canonical `/account/sessions/` device/session center.
 
 = 1.1.0 =
 * Added all missing Definitive Master Plan registration fields: city, declared account type, profile-photo completion and separate Ethical Conduct consent.
