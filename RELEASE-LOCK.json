@@ -1,11 +1,12 @@
 {
-  "schema": 2,
+  "schema": 3,
   "file_number": "02",
   "module": "Sabri Authentication and Accounts",
   "plan_id": "SSH-F02-PLAN-2026-v1.0",
-  "release_version": "1.1.0",
-  "database_version": "1.1.0",
-  "candidate_branch": "codex/file02-three-plan-completion-1.1.0",
+  "release_version": "1.2.0",
+  "database_version": "1.2.0",
+  "passkey_schema_version": "1.0.0",
+  "candidate_branch": "codex/file02-four-plan-passkey-completion-1.2.0",
   "canonical_repository": "02-sabri-authentication-and-accounts",
   "transport_repository": "02-sabri-authentication",
   "package_folder": "02-sabri-authentication",
@@ -13,14 +14,16 @@
   "php_prefix": "SAUTH_",
   "canonical_sessions_route": "/account/sessions/",
   "membership_authority": "File 00 — Sabri Membership Core",
-  "minimum_membership_version": "1.3.0",
+  "authentication_ceremony_authority": "File 02 — Sabri Authentication and Accounts",
   "account_contract": "smc.authentication-account",
   "minimum_account_contract_version": "1.1.0",
-  "package_name": "02-sabri-authentication-1.1.0-SOURCE-CANDIDATE.zip",
-  "manifest_name": "02-sabri-authentication-1.1.0-MANIFEST.json",
+  "passkey_assurance_contract_version": "1.0.0",
+  "passkey_assurance_owner": "file02",
+  "package_name": "02-sabri-authentication-1.2.0-SOURCE-CANDIDATE.zip",
+  "manifest_name": "02-sabri-authentication-1.2.0-MANIFEST.json",
   "checksums_name": "CHECKSUMS.sha256",
   "sbom_name": "SBOM.spdx.json",
-  "artifact_policy": "Current exact-head CI must build, compare, clean-extract, lint and retain the package artifact.",
+  "artifact_policy": "Current exact-head CI must lint, test WebAuthn parsing/signatures, build twice, byte-compare, clean-extract, path-safety check and retain the exact package artifact.",
   "status": {
     "specified": "complete",
     "coded": "candidate_complete",
@@ -30,8 +33,13 @@
     "live_deployed": false,
     "operational": false
   },
-  "owner_actions_pending": [
-    "Rename the GitHub repository to 02-sabri-authentication-and-accounts",
-    "Accept the paired File 00 account-contract candidate"
+  "external_gates": [
+    "Owner-level repository rename",
+    "Hostinger fresh install and supported upgrades",
+    "Real production-domain WebAuthn authenticators and browser/device acceptance",
+    "Real Google/SMTP and File 00 Advanced Trust integration",
+    "Security/privacy/IDOR/replay/race/accessibility/performance acceptance",
+    "Backup/restore and rollback rehearsal",
+    "Founder staging and production authorization"
   ]
 }
