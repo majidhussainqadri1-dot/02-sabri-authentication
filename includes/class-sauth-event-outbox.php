@@ -6,7 +6,8 @@ defined( 'ABSPATH' ) || exit;
  * Reliable, privacy-minimized authentication event outbox.
  *
  * Events are past-tense facts. They never grant authorization and contain no
- * password, reset token, OAuth token, TOTP, recovery code or raw session token.
+ * password, reset token, OAuth token, TOTP, recovery code, passkey credential
+ * identifier or raw session token.
  */
 final class SAUTH_Event_Outbox {
 	const SCHEMA_VERSION = '1.0.0';
@@ -22,6 +23,9 @@ final class SAUTH_Event_Outbox {
 		'AuthSessionRevoked.v1',
 		'GoogleAccountLinked.v1',
 		'GoogleAccountUnlinked.v1',
+		'PasskeyRegistered.v1',
+		'PasskeyAuthenticated.v1',
+		'PasskeyRevoked.v1',
 	);
 
 	private static $sensitive_key_fragments = array(
