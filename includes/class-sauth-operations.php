@@ -46,7 +46,7 @@ final class SAUTH_Operations {
 		?>
 		<div class="wrap">
 			<h1>Sabri Authentication — System Check</h1>
-			<p>This report is privacy-minimized. It never exposes passwords, reset keys, OAuth tokens, raw session tokens, full IP addresses, database credentials or private File 00 evidence.</p>
+			<p>This report is privacy-minimized. It never exposes passwords, reset keys, OAuth tokens, passkey credential IDs, raw session tokens, full IP addresses, database credentials or private File 00 evidence.</p>
 			<p><strong>Overall state:</strong> <?php echo esc_html( strtoupper( $report['overall'] ) ); ?></p>
 			<table class="widefat striped">
 				<thead><tr><th>Check</th><th>Status</th><th>Reason</th></tr></thead>
@@ -62,7 +62,7 @@ final class SAUTH_Operations {
 			</table>
 
 			<h2>Safe Mode</h2>
-			<p>Safe Mode disables registration, provider linking and other high-risk authentication mutations while preserving public reading and safe local account recovery where WordPress can perform it correctly.</p>
+			<p>Safe Mode disables registration, provider linking, passkey enrollment/sign-in and other high-risk authentication mutations while preserving public reading and safe local account recovery where WordPress can perform it correctly.</p>
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 				<input type="hidden" name="action" value="sauth_toggle_safe_mode">
 				<input type="hidden" name="enabled" value="<?php echo self::safe_mode() ? '0' : '1'; ?>">
@@ -71,7 +71,7 @@ final class SAUTH_Operations {
 			</form>
 
 			<h2>Guarded Repair</h2>
-			<p>The repair is idempotent and limited to File 02 tables, managed pages, expired local challenges, stale session projections and provider-health counters. It never edits File 00 membership, roles, guardian, verification or identity records.</p>
+			<p>The repair is idempotent and limited to File 02 tables, managed pages, passkey schema, expired local challenges, stale session projections and provider-health counters. It never edits File 00 membership, roles, guardian, verification or identity records.</p>
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 				<input type="hidden" name="action" value="sauth_run_repair">
 				<?php wp_nonce_field( 'sauth_run_repair', 'sauth_nonce' ); ?>
@@ -89,21 +89,30 @@ final class SAUTH_Operations {
 		global $wpdb;
 		$checks = array();
 		$checks[] = self::check( 'plugin_version', 'Plugin and database version', defined( 'SA_VERSION' ) && SA_VERSION === (string) get_option( 'sa_version', '' ) && defined( 'SA_DB_VERSION' ) && SA_DB_VERSION === (string) get_option( 'sa_db_version', '' ), 'Runtime and stored versions match.', 'Run guarded repair after verifying the deployed package.' );
-		$checks[] = self::check( 'membership', 'File 00 membership dependency', SA_Membership_Adapter::available(), 'Required File 00 assurance contract is available.', 'File 00 1.2.7+ with the approved assurance contract is unavailable or incompatible.' );
+		$checks[] = self::check( 'membership', 'File 00 membership dependency', SA_Membership_Adapter::available(), 'Required File 00 assurance contract is available.', 'Required File 00 assurance contract is unavailable or incompatible.' );
 		$checks[] = self::check( 'account_contract', 'File 00 account-orchestration contract', SAUTH_Account_Contract::provider_available(), 'Registration, email completion and completion-state contract is available.', 'The smc.authentication-account provider contract is unavailable or incompatible.' );
-		$checks[] = self::check( 'assurance', 'Step-up assurance contract', SA_Authentication_Assurance::provider_available(), 'File 00 step-up verification is available.', 'Risk challenges and provider linking will fail closed.' );
+		$checks[] = self::check( 'assurance', 'File 00 step-up assurance contract', SA_Authentication_Assurance::provider_available(), 'File 00 step-up verification is available.', 'Risk challenges, passkey management and provider linking will fail closed where step-up is required.' );
 		$checks[] = self::check( 'https', 'HTTPS', is_ssl(), 'HTTPS is active for this request.', 'Authentication providers and sensitive account surfaces require HTTPS.' );
+		$checks[] = self::check( 'passkey_crypto', 'Passkey/WebAuthn cryptography', function_exists( 'openssl_verify' ) && function_exists( 'openssl_pkey_get_public' ), 'OpenSSL verification support is available.', 'Passkey authentication is unavailable without OpenSSL verification support.', function_exists( 'openssl_verify' ) ? 'pass' : 'warning' );
+		$home_scheme = strtolower( (string) wp_parse_url( home_url( '/' ), PHP_URL_SCHEME ) );
+		$checks[] = self::check( 'passkey_origin', 'Passkey canonical origin', 'https' === $home_scheme, 'Canonical home origin is HTTPS.', 'Production WebAuthn requires an HTTPS canonical home origin.', 'https' === $home_scheme ? 'pass' : 'warning' );
 		$checks[] = self::check( 'safe_mode', 'Safe Mode', ! self::safe_mode(), 'Normal high-risk actions are enabled.', 'Safe Mode is active; high-risk mutations are intentionally disabled.', self::safe_mode() ? 'warning' : 'pass' );
 
 		foreach ( SA_Activator::required_tables() as $label => $table ) {
 			$exists = $table === $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) );
 			$checks[] = self::check( 'table_' . sanitize_key( $label ), 'Database table: ' . $label, $exists, 'Present.', 'Missing; run guarded repair.' );
 		}
+		$passkey_table = $wpdb->prefix . 'sauth_passkeys';
+		$passkey_table_exists = $passkey_table === $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $passkey_table ) ) );
+		$checks[] = self::check( 'table_passkeys', 'Database table: passkeys', $passkey_table_exists, 'Present.', 'Missing; run guarded repair.' );
 
 		$page_map = (array) get_option( 'sa_page_map', array() );
+		$canonical_page_map = (array) get_option( 'sauth_page_map', array() );
+		$page_map = array_merge( $page_map, $canonical_page_map );
 		$required_pages = array_keys( SA_Activator::page_specs() );
+		$required_pages[] = 'passkeys';
 		$missing_pages = array();
-		foreach ( $required_pages as $key ) {
+		foreach ( array_values( array_unique( $required_pages ) ) as $key ) {
 			$page_id = isset( $page_map[ $key ] ) ? absint( $page_map[ $key ] ) : 0;
 			if ( ! $page_id || 'publish' !== get_post_status( $page_id ) ) {
 				$missing_pages[] = $key;
@@ -114,6 +123,7 @@ final class SAUTH_Operations {
 		$scheduled = array(
 			SAUTH_Event_Outbox::CRON_HOOK,
 			SAUTH_Email_Verification::CLEANUP_HOOK,
+			SAUTH_Passkeys::CLEANUP_HOOK,
 			'sauth_login_risk_cleanup',
 			'sauth_session_registry_cleanup',
 			'sauth_provider_health_cleanup',
@@ -148,7 +158,7 @@ final class SAUTH_Operations {
 		}
 		return array(
 			'contract'         => 'sauth.system-check',
-			'contract_version' => '1.0.0',
+			'contract_version' => '1.1.0',
 			'generated_at'     => gmdate( 'c' ),
 			'overall'          => $overall,
 			'checks'           => $checks,
@@ -165,13 +175,17 @@ final class SAUTH_Operations {
 			exit;
 		}
 		SA_Activator::repair();
+		/* Force idempotent passkey schema/page reconciliation even if its version option is stale. */
+		delete_option( SAUTH_Passkeys::OPTION_SCHEMA_VERSION );
+		SAUTH_Passkeys::maybe_install();
 		SAUTH_Email_Verification::cleanup();
 		SAUTH_Login_Risk::cleanup();
 		SAUTH_Session_Manager::cleanup();
+		SAUTH_Passkeys::cleanup();
 		foreach ( array_keys( SAUTH_Provider_Health::all() ) as $provider ) {
 			SAUTH_Provider_Health::reset( $provider );
 		}
-		SA_Membership_Adapter::audit( 'authentication_guarded_repair_completed', get_current_user_id() );
+		SA_Membership_Adapter::audit( 'authentication_guarded_repair_completed', get_current_user_id(), array( 'passkey_schema' => SAUTH_Passkeys::SCHEMA_VERSION ) );
 		wp_safe_redirect( add_query_arg( array( 'page' => 'sabri-authentication-health', 'repair' => 'complete' ), admin_url( 'options-general.php' ) ) );
 		exit;
 	}
@@ -205,13 +219,13 @@ final class SAUTH_Operations {
 	public static function shell_manifest( $manifests ) {
 		$manifests = is_array( $manifests ) ? $manifests : array();
 		$manifests['file02-authentication'] = array(
-			'owner'       => 'File 02',
-			'version'     => SA_VERSION,
-			'layout'      => 'single-column-account',
-			'cache'       => 'private-no-store',
-			'routes'      => self::route_manifest(),
-			'safe_mode'   => self::safe_mode(),
-			'health_url'  => admin_url( 'options-general.php?page=sabri-authentication-health' ),
+			'owner'      => 'File 02',
+			'version'    => SA_VERSION,
+			'layout'     => 'single-column-account',
+			'cache'      => 'private-no-store',
+			'routes'     => self::route_manifest(),
+			'safe_mode'  => self::safe_mode(),
+			'health_url' => admin_url( 'options-general.php?page=sabri-authentication-health' ),
 		);
 		return $manifests;
 	}
@@ -231,13 +245,14 @@ final class SAUTH_Operations {
 			'contracts'        => array(
 				'consumer' => array( SAUTH_Account_Contract::CONTRACT_NAME => SAUTH_Account_Contract::CONTRACT_VERSION ),
 				'producer' => array(
-					'sauth.system-check' => '1.0.0',
+					'sauth.system-check' => '1.1.0',
 					'sauth.account-completion-resolver' => '1.0.0',
 					'sa.cf01.authentication-assurance' => SA_Authentication_Assurance::CONTRACT_VERSION,
+					'file02.passkey-assurance' => SAUTH_Passkeys::CONTRACT_VERSION,
 				),
 			),
-			'routes'           => self::route_manifest(),
-			'safe_mode'        => self::safe_mode(),
+			'routes'    => self::route_manifest(),
+			'safe_mode' => self::safe_mode(),
 		);
 	}
 
@@ -254,6 +269,15 @@ final class SAUTH_Operations {
 				'shortcode' => $spec['shortcode'],
 			);
 		}
+		$output['passkeys'] = array(
+			'owner'     => 'File 02',
+			'route'     => '/account-passkeys/',
+			'access'    => 'authenticated',
+			'index'     => 'noindex',
+			'cache'     => 'no-store',
+			'layout'    => 'single-column-account',
+			'shortcode' => '[sabri_auth_passkeys]',
+		);
 		return $output;
 	}
 
