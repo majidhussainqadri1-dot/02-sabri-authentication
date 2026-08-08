@@ -200,15 +200,18 @@ for marker in (
     "userVerification' => 'required",
     "residentKey' => 'required",
     "hash( 'sha256', (string) $raw_id )",
-    "hardware_backed' => false",
+    "$hardware_backed = false;",
     "PasskeyRegistered.v1",
     "PasskeyAuthenticated.v1",
     "PasskeyRevoked.v1",
 ):
     if marker not in passkeys:
         fail(f"passkey/WebAuthn source is missing {marker}")
-if "public_key' )" in passkeys or "getPublicKey" in (ROOT / "assets/js/authentication.js").read_text(encoding="utf-8"):
+js = (ROOT / "assets/js/authentication.js").read_text(encoding="utf-8")
+if "getPublicKey(" in js:
     fail("registration may not trust a client-supplied WebAuthn public key")
+if "attestation_object" not in js:
+    fail("browser must return attestationObject to the server for key extraction")
 
 outbox = PHP["includes/class-sauth-event-outbox.php"]
 for event in ("PasskeyRegistered.v1", "PasskeyAuthenticated.v1", "PasskeyRevoked.v1"):
