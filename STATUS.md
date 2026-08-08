@@ -1,62 +1,63 @@
-# File 02 Status — Version 1.1.0
+# File 02 Status — Version 1.2.0
 
 ## Current candidate
 
-- Branch: `codex/file02-three-plan-completion-1.1.0`
-- Version/schema: `1.1.0 / 1.1.0`
-- Governing plans: Definitive Master Plan v3.0, `SSH-F02-PLAN-2026-v1.0`, Consolidated All-Chats Directives v2.1
+- Branch: `codex/file02-four-plan-passkey-completion-1.2.0`
+- Version/schema: `1.2.0 / 1.2.0`; passkey table schema `1.0.0`
+- Governing corpus: Definitive Master Plan v3.0; `SSH-F02-PLAN-2026-v1.0`; Consolidated All-Chats Directives v2.1; Continuous-Value/Top-20 Superset plan; later File 00 Advanced Trust boundary for File 02 passkey/WebAuthn ceremony
 - Canonical repository name: `02-sabri-authentication-and-accounts`
 - Current transport repository: `02-sabri-authentication`
-- Required File 00 provider: `smc.authentication-account 1.1.0`
+- Required account provider: `smc.authentication-account 1.1.0`
+- Advanced Trust producer: File 02 `smc_file02_authentication_assurance_v1` / contract `1.0.0`
 
 ## Source coding completed
 
-- Full password and Google-first registration orchestration.
-- Mandatory city, account type, profile-photograph completion, separate Ethical Conduct consent and every prior identity/guardian field.
-- Google state, nonce, PKCE, issuer/audience/azp/time/email verification and one-time completion context.
-- File 00 v1.1 account-contract consumer with fail-closed compatibility checks.
-- Password login, signed email verification, recovery/reset, session registry and revocation.
-- New-device/network/recent-failure challenge with File 00-owned step-up.
-- Loop-safe completion resolver and canonical `/account/sessions/` route.
-- Canonical `SAUTH_` public constants/classes/hooks/options with bounded legacy aliases.
-- Versioned event outbox, provider circuits, privacy lifecycle, System Check, Safe Mode and repair.
-- File 01/File 20 manifests, migration/rollback/backup/incident documentation and deterministic packaging.
+- Full password and Google-first registration orchestration plus all mandatory identity/guardian/completion fields.
+- Password login, signed email verification, recovery/reset, Google OAuth/link/unlink, provider circuits, Safe Mode and fail-closed membership checks.
+- Device/session registry, generalized device/network display, individual revoke, revoke others and sign out everywhere (CV-006 source scope).
+- New-device/network/recent-failure challenge with File 00-owned MFA/step-up policy.
+- WebAuthn/passkey registration and usernameless authentication (CV-005) with HTTPS/RP ID/origin binding, required user verification and discoverable credentials.
+- Server-side attestation-object CBOR parsing and COSE ES256/RS256 public-key extraction; client-supplied public keys are not trusted.
+- Atomic one-time challenge replay claim, credential collision protection, signature verification, signature-counter regression containment and revoked/compromised states.
+- Fresh passkey assurance projected to File 00 as `owner=file02`, `contract_version=1.0.0`, `level=3`, session/fingerprint-bound and five-minute limited.
+- Conservative provenance: `attestation=none` never fabricates `hardware_backed=true`; File 00 may therefore keep stronger hardware-backed-only actions closed until separately proven.
+- Passkey management page with fresh reauthentication; when File 00 two-factor protection is enabled, password-only passkey changes fail closed.
+- Privacy export/erasure for passkeys, opaque random user handles, no biometric/private-key retention, privacy-minimized passkey events and bounded revoked-credential cleanup.
+- Loop-safe completion resolver, canonical `/account/sessions/` route, canonical `SAUTH_` identifiers and bounded legacy aliases.
+- File 01/File 20 manifests, migration/rollback/backup/incident documentation and deterministic packaging pipeline.
 
-## Defects corrected in this cycle
+## Fresh defects corrected during the 1.2.0 completion
 
-1. Missing city field.
-2. Missing declared account type and adult-professional restriction.
-3. Missing profile-photograph completion gate.
-4. Missing separate Ethical Conduct consent.
-5. Missing Google-first registration journey.
-6. Non-canonical `/account-sessions/` route.
-7. Incomplete `SAUTH_` public naming constitution.
-8. Stale 0.2.0/0.4.0 status and release documentation.
-9. Missing retained CI package artifact.
-10. File 00 account contract lacking the additional parent-plan fields.
+1. Missing WebAuthn/passkey ceremony required by the later central/Advanced Trust scope.
+2. Initial client-side public-key extraction design was rejected; registration now derives the COSE public key only from server-parsed authenticatorData.
+3. Initial transient-only challenge consumption had a concurrency replay race; an atomic `add_option` claim now makes completion single-use.
+4. Initial credential lookup used a WordPress-salt HMAC and would break on salt rotation; lookup now uses stable SHA-256 over opaque credential IDs.
+5. Initial deterministic user handle depended on WordPress salts; user handles are now random opaque File 02 values with privacy erasure.
+6. Initial hardware-backed inference could overclaim provenance under `attestation=none`; hardware-backed is now conservatively false without attested proof.
+7. Passkey domain events were initially absent from the event allowlist; registered/authenticated/revoked facts are now first-class privacy-minimized events.
+8. Passkey activation/deactivation lifecycle and no-network WebAuthn regression suite were added.
 
 ## Seven separate completion gates
 
 | Gate | Status | Evidence boundary |
 |---|---|---|
-| Specified | Complete | Three governing plans traced |
-| Source coding | Complete candidate | Reviewable branch source |
-| Packaged | Pending current CI | Deterministic builder plus retained artifact |
-| Automated-QA | Pending current exact head | PHP 7.4/8.3, architecture, policy, packaging |
-| Staging-Accepted | No | Hostinger/provider/browser evidence absent |
+| Specified | Complete | Governing File 02 + central/Continuous-Value + Advanced Trust ownership traced |
+| Source coding | **Complete candidate** | Reviewable 1.2.0 branch source including Passkey/WebAuthn |
+| Packaged | Pending current exact-head CI | Deterministic builder must produce byte-identical 1.2.0 package |
+| Automated-QA | Pending current exact-head CI | PHP 7.4/8.3, JS, architecture, WebAuthn, policy, packaging |
+| Staging-Accepted | No | Real Hostinger/WebAuthn/provider/browser evidence absent |
 | Live-Deployed | No | No production authorization |
 | Operational | No | Monitoring/support/restore evidence absent |
 
 ## External owner and environment gates
 
-- Rename the GitHub repository to `02-sabri-authentication-and-accounts` through repository administration.
-- Accept/merge the paired File 00 v1.1 provider candidate.
-- Hostinger fresh install, upgrade, deactivate/reactivate and non-destructive uninstall.
-- Real SMTP, Google provider, File 01/File 20/File 03/File 24/theme/LiteSpeed integration.
-- Security/privacy/IDOR/replay/race testing with real roles.
-- Urdu RTL, English LTR, keyboard, screen reader, zoom, mobile and browser acceptance.
-- Performance/load/provider-outage drills.
-- Database/files/keys restore and rollback rehearsal.
+- Rename GitHub repository to `02-sabri-authentication-and-accounts` through repository administration.
+- Hostinger fresh install and supported upgrade tests, including `dbDelta` creation of the passkey table and private manager page.
+- Real production-domain WebAuthn tests with platform authenticators, synced passkeys and cross-platform security keys; real Google and SMTP providers.
+- Accepted File 00 Advanced Trust consumer behavior plus File 01/File 20/File 03/File 24/theme/LiteSpeed integrations.
+- Real-role IDOR/CSRF/replay/race/privacy tests and privilege-loss/session-revocation tests.
+- Urdu RTL, English LTR, keyboard, screen reader, 200–400% zoom, mobile and cross-browser acceptance.
+- Performance/load/provider-outage tests, backup/restore and rollback rehearsal.
 - Founder staging acceptance and controlled production authorization.
 
-No source/package/staging/live/operational status may be inferred from another gate.
+No source/package/staging/live/operational status may be inferred from another gate. Source coding is complete only at the candidate level until exact-head QA closes; staging and production claims remain explicitly prohibited without their own evidence.
