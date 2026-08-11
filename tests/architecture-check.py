@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail-fast architecture guard for File 02 corrective release."""
+"""Fail-fast architecture guard for the File 02 1.2.0 four-plan source candidate."""
 from __future__ import annotations
 
 import pathlib
@@ -8,7 +8,8 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 PHP = {p.relative_to(ROOT).as_posix(): p.read_text(encoding="utf-8") for p in ROOT.rglob("*.php")}
-ALL = "\n".join(PHP.values())
+SOURCE_PHP = {path: text for path, text in PHP.items() if not path.startswith("tests/")}
+ALL = "\n".join(SOURCE_PHP.values())
 
 
 def fail(message: str) -> None:
@@ -16,20 +17,56 @@ def fail(message: str) -> None:
     raise SystemExit(1)
 
 
+def require_markers(path: str, markers: tuple[str, ...]) -> None:
+    if path not in PHP:
+        fail(f"missing required PHP file: {path}")
+    for marker in markers:
+        if marker not in PHP[path]:
+            fail(f"{path} is missing {marker}")
+
+
 required_files = {
+    "includes/class-sa-security.php",
     "includes/class-sa-membership-adapter.php",
+    "includes/class-sa-authentication-assurance.php",
+    "includes/class-sauth-account-contract.php",
+    "includes/class-sauth-completion-resolver.php",
+    "includes/class-sauth-event-outbox.php",
+    "includes/class-sauth-email-verification.php",
+    "includes/class-sauth-login-risk.php",
+    "includes/class-sauth-provider-health.php",
+    "includes/class-sauth-provider-http-guard.php",
+    "includes/class-sauth-session-manager.php",
+    "includes/class-sauth-operations.php",
+    "includes/class-sauth-google-registration.php",
+    "includes/class-sauth-canonical-routes.php",
+    "includes/class-sauth-passkeys.php",
+    "templates/login.php",
+    "templates/signup.php",
     "templates/google-account.php",
     "templates/google-verify.php",
+    "templates/reset-password.php",
 }
 missing = sorted(required_files - set(PHP))
 if missing:
-    fail("missing corrective files: " + ", ".join(missing))
+    fail("missing 1.2.0 source files: " + ", ".join(missing))
 
 main = PHP["sabri-authentication.php"]
-if "Version: 0.2.0" not in main or "define( 'SA_VERSION', '0.2.0' );" not in main:
-    fail("plugin version is not consistently 0.2.0")
-if "class-sa-membership-adapter.php" not in main:
-    fail("Membership Core adapter is not loaded")
+for marker in (
+    "Version: 1.2.0",
+    "define( 'SAUTH_VERSION', '1.2.0' );",
+    "define( 'SAUTH_DB_VERSION', '1.2.0' );",
+    "define( 'SAUTH_ACCOUNT_CONTRACT_VERSION', '1.1.0' );",
+    "define( 'SAUTH_PASSKEY_CONTRACT_VERSION', '1.0.0' );",
+    "class-sauth-google-registration.php",
+    "class-sauth-canonical-routes.php",
+    "class-sauth-passkeys.php",
+    "SAUTH_Google_Registration::init()",
+    "SAUTH_Canonical_Routes::init()",
+    "SAUTH_Passkeys::init()",
+):
+    if marker not in main:
+        fail(f"main plugin bootstrap is missing {marker}")
 
 forbidden = {
     "role creation": r"\badd_role\s*\(",
@@ -37,64 +74,189 @@ forbidden = {
     "role mutation": r"->\s*set_role\s*\(",
     "capability mutation": r"->\s*(?:add_cap|remove_cap)\s*\(",
     "parallel user creation": r"\b(?:wp_insert_user|wp_create_user)\s*\(",
-    "parallel password login": r"\bwp_signon\s*\(",
+    "opaque wp_signon bypass": r"\bwp_signon\s*\(",
+    "File 00 private 2FA flag": r"_smc_2fa_enabled",
+    "File 00 private TOTP storage": r"_smc_totp_secret(?:_enc)?",
+    "direct File 00 recovery-code mutation": r"SMC_Security::consume_recovery_code",
+    "direct File 00 TOTP verification": r"SMC_Security::verify_(?:totp|setup_code|two_factor_challenge)",
 }
 for label, pattern in forbidden.items():
     if re.search(pattern, ALL):
         fail(f"forbidden {label} found")
 
-adapter = PHP["includes/class-sa-membership-adapter.php"]
-for marker in ("SMC_VERSION", "MIN_VERSION", "version_compare", "smc_page_url", "smc_user_status", "SMC_Security"):
-    if marker not in adapter:
-        fail(f"Membership Core adapter is missing {marker}")
+require_markers(
+    "includes/class-sauth-account-contract.php",
+    (
+        "sauth.account-orchestration",
+        "smc.authentication-account",
+        "PROVIDER_MIN_VERSION = '1.1.0'",
+        "SMC_Authentication_Contract_V11",
+        "register_account",
+        "mark_email_verified",
+        "get_completion_state",
+        "ethical_conduct_version",
+        "profile_photo_required",
+        "account_type",
+        "city",
+    ),
+)
 
-registration = PHP["includes/class-sa-registration.php"]
-if "SA_Membership_Adapter::register_url" not in registration or "SA_Membership_Adapter::login_url" not in registration:
-    fail("legacy login/registration routes do not delegate to Membership Core")
+require_markers(
+    "includes/class-sauth-google-registration.php",
+    (
+        "code_challenge_method",
+        "S256",
+        "nonce",
+        "email_verified",
+        "hash_equals",
+        "finalize_link",
+        "get_users",
+        "google_registration_context",
+    ),
+)
 
-profile = PHP["includes/class-sa-profile.php"]
-if "SA_Membership_Adapter::profile_url" not in profile:
-    fail("legacy profile route does not delegate to Membership Core")
+require_markers(
+    "includes/class-sauth-canonical-routes.php",
+    (
+        "^account/sessions/?$",
+        "/account/sessions/",
+        "02-sabri-authentication-and-accounts",
+        "SAUTH_",
+        "sabri_shell_route_manifests",
+        "spf_module_manifests",
+    ),
+)
 
-access = PHP["includes/class-sa-access-control.php"]
-for marker in ("privacy_hooks", "noindex", "noarchive", "nocache_headers", "no-store", "X-Robots-Tag", "Referrer-Policy: no-referrer", "X-Frame-Options"):
-    if marker not in access:
-        fail(f"private-page response protection is missing {marker}")
+require_markers(
+    "includes/class-sa-registration.php",
+    (
+        "SAUTH_Google_Registration::context",
+        "SAUTH_Google_Registration::finalize_link",
+        "authentication_method",
+        "account_type",
+        "ethical_conduct_version",
+        "profile_photo_required",
+        "city",
+        "MIN_MALE_AGE",
+        "MIN_FEMALE_AGE",
+        "guardian_reference",
+        "wp_check_password",
+        "membership_assertion",
+        "check_password_reset_key",
+        "revoke_user_sessions",
+    ),
+)
 
-google = PHP["includes/class-sa-google-oauth.php"]
+require_markers(
+    "includes/class-sauth-completion-resolver.php",
+    (
+        "completion_loop_prevented",
+        "canonical_completion_route",
+        "MAX_REPEAT_VISITS",
+        "wp_validate_redirect",
+        "missing_steps",
+    ),
+)
+
+require_markers(
+    "includes/class-sauth-login-risk.php",
+    (
+        "new_device",
+        "new_network",
+        "recent_failures",
+        "SA_Authentication_Assurance::verify_and_record",
+        "SAUTH_Completion_Resolver::resolve",
+        "step_up_verified",
+    ),
+)
+
+require_markers(
+    "includes/class-sauth-session-manager.php",
+    (
+        "token_hash",
+        "public_id",
+        "deny_revoked_session",
+        "revoke_one",
+        "revoke_others",
+        "revoke_user_sessions",
+        "destroy_others",
+        "destroy_all",
+    ),
+)
+if "'session_token' =>" in PHP["includes/class-sauth-session-manager.php"]:
+    fail("session manager may expose raw session material")
+
+passkeys = PHP["includes/class-sauth-passkeys.php"]
 for marker in (
-    "_sa_google_link_version",
-    "SA_Membership_Adapter::verify_second_factor",
-    "SA_Membership_Adapter::can_use_google",
-    "The Google email must exactly match",
-    "This Google account is not linked",
+    "CONTRACT_VERSION      = '1.0.0'",
+    "smc_file02_authentication_assurance_v1",
+    "webauthn.create",
+    "webauthn.get",
+    "parse_attestation_object",
+    "cose_public_key_to_pem",
+    "attestation_format_not_allowed",
+    "credential_public_key",
+    "add_option( self::challenge_claim_key",
+    "userVerification' => 'required",
+    "residentKey' => 'required",
+    "hash( 'sha256', (string) $raw_id )",
+    "$hardware_backed = false;",
+    "PasskeyRegistered.v1",
+    "PasskeyAuthenticated.v1",
+    "PasskeyRevoked.v1",
 ):
-    if marker not in google:
-        fail(f"Google flow is missing security marker: {marker}")
-if "find_or_create_user" in google:
-    fail("legacy Google auto-create path remains")
+    if marker not in passkeys:
+        fail(f"passkey/WebAuthn source is missing {marker}")
+js = (ROOT / "assets/js/authentication.js").read_text(encoding="utf-8")
+if "getPublicKey(" in js:
+    fail("registration may not trust a client-supplied WebAuthn public key")
+if "attestation_object" not in js:
+    fail("browser must return attestationObject to the server for key extraction")
+
+outbox = PHP["includes/class-sauth-event-outbox.php"]
+for event in ("PasskeyRegistered.v1", "PasskeyAuthenticated.v1", "PasskeyRevoked.v1"):
+    if event not in outbox:
+        fail(f"event outbox is missing {event}")
+
+require_markers(
+    "includes/class-sauth-operations.php",
+    (
+        "sauth.system-check",
+        "SAFE_MODE_OPTION",
+        "system_check",
+        "handle_repair",
+        "foundation_manifest",
+        "shell_manifest",
+        "route_manifest",
+    ),
+)
 
 privacy = PHP["includes/class-sa-privacy.php"]
-for key in (
-    "_sa_account_type",
-    "_sa_profile_complete",
-    "_sa_terms_accepted_at",
-    "_sa_privacy_accepted_at",
-    "_sa_google_sub",
-    "_sa_google_link_version",
+for marker in (
+    "sa_email_verifications",
+    "sa_auth_sessions",
+    "sa_auth_devices",
+    "sa_auth_risk_challenges",
+    "sa_auth_attempts",
+    "privacy_anonymized",
 ):
-    if key not in privacy:
-        fail(f"privacy coverage is missing {key}")
+    if marker not in privacy:
+        fail(f"privacy lifecycle is missing {marker}")
 
-security = PHP["includes/class-sa-security.php"]
-for marker in ("sa_rate_limits", "ON DUPLICATE KEY UPDATE", "clear_rate_limit", "aes-256-gcm", "state['expires']"):
-    if marker not in security:
-        fail(f"security implementation is missing {marker}")
+signup = PHP["templates/signup.php"]
+for marker in (
+    'name="city"',
+    'name="account_type"',
+    'name="profile_photo_required"',
+    'name="accept_ethics"',
+    'name="google_registration_token"',
+):
+    if marker not in signup:
+        fail(f"registration surface is missing {marker}")
 
-activator = PHP["includes/class-sa-activator.php"]
-for marker in ("sa_page_map", "_sa_managed_page", "exact_shortcode_page", "known_id"):
-    if marker not in activator:
-        fail(f"managed-page idempotency is missing {marker}")
+login = PHP["templates/login.php"]
+if "data-sauth-passkey-login" not in login:
+    fail("login surface does not expose passkey authentication")
 
-print("File 02 architecture guard passed.")
+print("File 02 1.2.0 four-plan architecture guard passed.")
 print(f"PHP files checked: {len(PHP)}")

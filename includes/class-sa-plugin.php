@@ -20,46 +20,43 @@ final class SA_Plugin {
 	public function run() {
 		$this->privacy->hooks();
 		$this->access->privacy_hooks();
+		$this->registration->hooks();
+		$this->profile->hooks();
+		$this->access->hooks();
 
 		add_action( 'admin_menu', array( $this, 'admin_menu' ), 30 );
 		add_action( 'admin_post_sa_save_auth_settings', array( $this, 'save_settings' ) );
+		add_action( 'admin_post_sauth_save_auth_settings', array( $this, 'save_settings' ) );
 		add_action( 'admin_notices', array( $this, 'activation_notice' ) );
+
+		add_shortcode( 'sabri_auth_login', array( $this, 'login_shortcode' ) );
+		add_shortcode( 'sabri_auth_signup', array( $this, 'signup_shortcode' ) );
+		add_shortcode( 'sabri_auth_verify_email', array( 'SAUTH_Email_Verification', 'render' ) );
+		add_shortcode( 'sabri_auth_risk_challenge', array( 'SAUTH_Login_Risk', 'render' ) );
+		add_shortcode( 'sabri_auth_complete_profile', array( $this, 'profile_shortcode' ) );
+		add_shortcode( 'sabri_auth_forgot_password', array( $this, 'forgot_shortcode' ) );
+		add_shortcode( 'sabri_auth_reset_password', array( $this, 'reset_shortcode' ) );
+		add_shortcode( 'sabri_auth_sessions', array( 'SAUTH_Session_Manager', 'render' ) );
+		add_shortcode( 'sabri_auth_access_required', array( $this, 'access_shortcode' ) );
+		add_shortcode( 'sabri_auth_google_account', array( $this, 'google_account_shortcode' ) );
+		add_shortcode( 'sabri_auth_google_verify', array( $this, 'google_verify_shortcode' ) );
+		add_action( 'wp_enqueue_scripts', array( $this, 'assets' ) );
 
 		if ( ! SA_Membership_Adapter::available() ) {
 			add_action( 'admin_notices', array( $this, 'dependency_notice' ) );
 			return;
 		}
-
 		SA_Activator::maybe_upgrade();
-		$this->registration->hooks();
-		$this->profile->hooks();
 		$this->google->hooks();
-		$this->access->hooks();
-
-		add_shortcode( 'sabri_auth_login', array( $this, 'login_shortcode' ) );
-		add_shortcode( 'sabri_auth_signup', array( $this, 'signup_shortcode' ) );
-		add_shortcode( 'sabri_auth_complete_profile', array( $this, 'profile_shortcode' ) );
-		add_shortcode( 'sabri_auth_forgot_password', array( $this, 'forgot_shortcode' ) );
-		add_shortcode( 'sabri_auth_access_required', array( $this, 'access_shortcode' ) );
-		add_shortcode( 'sabri_auth_google_account', array( $this, 'google_account_shortcode' ) );
-		add_shortcode( 'sabri_auth_google_verify', array( $this, 'google_verify_shortcode' ) );
-		add_action( 'wp_enqueue_scripts', array( $this, 'assets' ) );
 	}
 
 	public function assets() {
 		if ( ! SA_Access_Control::is_file02_page() ) {
 			return;
 		}
-		wp_enqueue_style( 'sa-authentication', SA_URL . 'assets/css/authentication.css', array(), SA_VERSION );
-		wp_enqueue_script( 'sa-authentication', SA_URL . 'assets/js/authentication.js', array(), SA_VERSION, true );
-		wp_localize_script(
-			'sa-authentication',
-			'SabriAuth',
-			array(
-				'loggedIn' => is_user_logged_in(),
-				'loginUrl' => SA_Membership_Adapter::login_url( self::current_url() ),
-			)
-		);
+		wp_enqueue_style( 'sauth-authentication', SAUTH_URL . 'assets/css/authentication.css', array(), SAUTH_VERSION );
+		wp_enqueue_script( 'sauth-authentication', SAUTH_URL . 'assets/js/authentication.js', array(), SAUTH_VERSION, true );
+		wp_localize_script( 'sauth-authentication', 'SabriAuth', array( 'loggedIn' => is_user_logged_in(), 'loginUrl' => SA_Security::page_url( 'login', wp_login_url() ) ) );
 	}
 
 	public function login_shortcode() {
@@ -70,9 +67,12 @@ final class SA_Plugin {
 		return $this->template(
 			'login',
 			array(
-				'google_ready' => SA_Google_OAuth::configured(),
-				'redirect_to'  => $redirect,
-				'member_login' => SA_Membership_Adapter::login_url( $redirect ),
+				'google_ready'   => ! SAUTH_Operations::safe_mode() && SAUTH_Provider_Health::allow_request( 'google' ) && SA_Google_OAuth::configured(),
+				'password_ready' => SA_Membership_Adapter::available() && SAUTH_Account_Contract::provider_available(),
+				'redirect_to'    => $redirect,
+				'form_action'     => admin_url( 'admin-post.php' ),
+				'forgot_url'      => SA_Security::page_url( 'forgot', wp_lostpassword_url() ),
+				'signup_url'      => SA_Security::page_url( 'signup', wp_registration_url() ),
 			)
 		);
 	}
@@ -81,11 +81,22 @@ final class SA_Plugin {
 		if ( is_user_logged_in() ) {
 			return $this->signed_in_card();
 		}
+		$google_token   = isset( $_GET['google_registration'] ) ? sanitize_text_field( wp_unslash( $_GET['google_registration'] ) ) : '';
+		$google_context = '' !== $google_token ? SAUTH_Google_Registration::context( $google_token ) : array();
+		if ( '' !== $google_token && empty( $google_context ) ) {
+			$google_token = '';
+		}
 		return $this->template(
 			'signup',
 			array(
-				'register_url' => SA_Membership_Adapter::register_url(),
-				'login_url'    => SA_Membership_Adapter::login_url(),
+				'form_action'             => admin_url( 'admin-post.php' ),
+				'login_url'               => SA_Security::page_url( 'login', wp_login_url() ),
+				'account_contract_ready'  => ! SAUTH_Operations::safe_mode() && SA_Membership_Adapter::available() && SAUTH_Account_Contract::provider_available(),
+				'google_ready'            => SAUTH_Google_Registration::available(),
+				'google_registration_url' => SAUTH_Google_Registration::start_url(),
+				'google_token'            => $google_token,
+				'google_context'          => $google_context,
+				'account_types'           => SA_Registration::account_types(),
 			)
 		);
 	}
@@ -94,17 +105,20 @@ final class SA_Plugin {
 		if ( ! is_user_logged_in() ) {
 			return $this->template( 'access-required', array() );
 		}
-		return $this->template(
-			'complete-profile',
-			array(
-				'profile_url'      => SA_Membership_Adapter::profile_url(),
-				'verification_url' => SA_Membership_Adapter::verification_url(),
-			)
-		);
+		return $this->template( 'complete-profile', array( 'profile_url' => SA_Membership_Adapter::profile_url(), 'verification_url' => SA_Membership_Adapter::verification_url() ) );
 	}
 
 	public function forgot_shortcode() {
 		return is_user_logged_in() ? $this->signed_in_card() : $this->template( 'forgot-password', array() );
+	}
+
+	public function reset_shortcode() {
+		if ( is_user_logged_in() ) {
+			return $this->signed_in_card();
+		}
+		$key   = isset( $_GET['key'] ) ? sanitize_text_field( wp_unslash( $_GET['key'] ) ) : '';
+		$login = isset( $_GET['login'] ) ? sanitize_user( wp_unslash( $_GET['login'] ) ) : '';
+		return $this->template( 'reset-password', array( 'key' => $key, 'login' => $login ) );
 	}
 
 	public function access_shortcode() {
@@ -119,37 +133,31 @@ final class SA_Plugin {
 		return $this->template(
 			'google-account',
 			array(
-				'user'          => $user,
-				'linked'        => SA_Google_OAuth::explicitly_linked( $user->ID ),
-				'google_email'  => (string) get_user_meta( $user->ID, '_sa_google_email', true ),
-				'linked_at'     => (string) get_user_meta( $user->ID, '_sa_google_linked_at', true ),
-				'google_ready'  => SA_Google_OAuth::configured(),
-				'eligible'      => SA_Membership_Adapter::can_use_google( $user->ID ),
-				'security_url'  => SA_Membership_Adapter::security_url(),
-				'verify_url'    => SA_Membership_Adapter::verification_url(),
+				'user'         => $user,
+				'linked'       => SA_Google_OAuth::explicitly_linked( $user->ID ),
+				'google_email' => (string) get_user_meta( $user->ID, '_sa_google_email', true ),
+				'linked_at'    => (string) get_user_meta( $user->ID, '_sa_google_linked_at', true ),
+				'google_ready' => ! SAUTH_Operations::safe_mode() && SAUTH_Provider_Health::allow_request( 'google' ) && SA_Google_OAuth::configured(),
+				'eligible'     => SA_Membership_Adapter::can_use_google( $user->ID ),
+				'security_url' => SA_Membership_Adapter::security_url(),
+				'verify_url'   => SA_Membership_Adapter::verification_url(),
 			)
 		);
 	}
 
 	public function google_verify_shortcode() {
 		$token = isset( $_GET['challenge'] ) ? sanitize_text_field( wp_unslash( $_GET['challenge'] ) ) : '';
-		$data  = SA_Google_OAuth::challenge( $token );
-		return $this->template(
-			'google-verify',
-			array(
-				'challenge' => $token,
-				'data'      => $data,
-			)
-		);
+		return $this->template( 'google-verify', array( 'challenge' => $token, 'data' => SA_Google_OAuth::challenge( $token ) ) );
 	}
 
 	private function signed_in_card() {
-		$user = wp_get_current_user();
-		return '<div class="sa-auth-shell"><div class="sa-auth-card sa-signed-in"><h2>' . esc_html__( 'You are signed in', 'sabri-authentication' ) . '</h2><p>' . esc_html( $user->display_name ) . '</p><a class="sa-primary-button" href="' . esc_url( SA_Membership_Adapter::profile_url() ) . '">Membership Profile</a><a class="sa-secondary-button" href="' . esc_url( SA_Security::page_url( 'google_account' ) ) . '">Google Account Security</a><a class="sa-text-link" href="' . esc_url( wp_logout_url( home_url( '/' ) ) ) . '">Log Out</a></div></div>';
+		$user       = wp_get_current_user();
+		$logout_url = wp_logout_url( home_url( '/' ) );
+		return '<div class="sa-auth-shell"><div class="sa-auth-card sa-signed-in"><h2>' . esc_html__( 'You are signed in', 'sabri-authentication' ) . '</h2><p>' . esc_html( $user->display_name ) . '</p><a class="sa-primary-button" href="' . esc_url( SA_Membership_Adapter::profile_url() ) . '">Membership Profile</a><a class="sa-secondary-button" href="' . esc_url( SA_Security::page_url( 'sessions' ) ) . '">Active Sessions</a><a class="sa-secondary-button" href="' . esc_url( SA_Security::page_url( 'google_account', SA_Membership_Adapter::profile_url() ) ) . '">Google Account Security</a><a class="sa-text-link" href="' . esc_url( $logout_url ) . '">Log Out</a></div></div>';
 	}
 
 	private function template( $name, array $vars ) {
-		$path = SA_DIR . 'templates/' . sanitize_file_name( $name ) . '.php';
+		$path = SAUTH_DIR . 'templates/' . sanitize_file_name( $name ) . '.php';
 		if ( ! file_exists( $path ) ) {
 			return '';
 		}
@@ -168,10 +176,11 @@ final class SA_Plugin {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return;
 		}
-		$counts           = count_users();
-		$dependency_ready = SA_Membership_Adapter::available();
-		$legacy_roles     = SA_Membership_Adapter::legacy_role_count();
-		include SA_DIR . 'admin/account-settings.php';
+		$counts                 = count_users();
+		$dependency_ready       = SA_Membership_Adapter::available();
+		$account_contract_ready = SAUTH_Account_Contract::provider_available();
+		$legacy_roles           = SA_Membership_Adapter::legacy_role_count();
+		include SAUTH_DIR . 'admin/account-settings.php';
 	}
 
 	public function save_settings() {
@@ -179,59 +188,60 @@ final class SA_Plugin {
 			wp_die( esc_html__( 'Access denied.', 'sabri-authentication' ) );
 		}
 		check_admin_referer( 'sa_save_auth_settings', 'sa_nonce' );
-
 		$client_id = isset( $_POST['google_client_id'] ) ? sanitize_text_field( wp_unslash( $_POST['google_client_id'] ) ) : '';
 		if ( '' !== $client_id && ! preg_match( '/^[0-9A-Za-z._-]+\.apps\.googleusercontent\.com$/', $client_id ) ) {
 			wp_safe_redirect( add_query_arg( 'error', 'invalid_client_id', self::settings_url() ) );
 			exit;
 		}
+		update_option( 'sauth_google_client_id', $client_id, false );
 		update_option( 'sa_google_client_id', $client_id, false );
 
 		if ( ! empty( $_POST['clear_google_client_secret'] ) ) {
+			delete_option( 'sauth_google_client_secret' );
 			delete_option( 'sa_google_client_secret' );
 		} elseif ( isset( $_POST['google_client_secret'] ) && '' !== trim( (string) wp_unslash( $_POST['google_client_secret'] ) ) ) {
 			$secret    = trim( sanitize_text_field( wp_unslash( $_POST['google_client_secret'] ) ) );
 			$encrypted = SA_Security::encrypt( $secret );
+			$secret = '';
+			unset( $_POST['google_client_secret'] );
 			if ( '' === $encrypted ) {
 				wp_safe_redirect( add_query_arg( 'error', 'encryption_failed', self::settings_url() ) );
 				exit;
 			}
+			update_option( 'sauth_google_client_secret', $encrypted, false );
 			update_option( 'sa_google_client_secret', $encrypted, false );
 		}
 
 		$enable = ! empty( $_POST['google_enabled'] );
-		if ( $enable && ( ! SA_Membership_Adapter::available() || ! is_ssl() || '' === $client_id || '' === SA_Security::decrypt( (string) get_option( 'sa_google_client_secret', '' ) ) ) ) {
+		if ( $enable && ( SAUTH_Operations::safe_mode() || ! SA_Membership_Adapter::available() || ! is_ssl() || '' === $client_id || '' === SA_Security::decrypt( (string) get_option( 'sauth_google_client_secret', get_option( 'sa_google_client_secret', '' ) ) ) ) ) {
+			update_option( 'sauth_google_enabled', '0', false );
 			update_option( 'sa_google_enabled', '0', false );
 			wp_safe_redirect( add_query_arg( 'error', 'not_ready', self::settings_url() ) );
 			exit;
 		}
+		update_option( 'sauth_google_enabled', $enable ? '1' : '0', false );
 		update_option( 'sa_google_enabled', $enable ? '1' : '0', false );
-
+		SAUTH_Provider_Health::reset( 'google' );
 		wp_safe_redirect( add_query_arg( 'updated', '1', self::settings_url() ) );
 		exit;
 	}
 
 	public function activation_notice() {
-		if ( ! current_user_can( 'manage_options' ) || ! get_transient( 'sa_activation_notice' ) ) {
+		if ( ! current_user_can( 'manage_options' ) || ! get_transient( 'sauth_activation_notice' ) ) {
 			return;
 		}
-		delete_transient( 'sa_activation_notice' );
-		echo '<div class="notice notice-success is-dismissible"><p><strong>Sabri Authentication activated.</strong> File 00 remains the exclusive membership, role, profile, verification, and two-factor authority. Configure optional Google linking under Authentication.</p></div>';
+		delete_transient( 'sauth_activation_notice' );
+		echo '<div class="notice notice-success is-dismissible"><p><strong>Sabri Authentication and Accounts 1.1.0 activated.</strong> File 00 remains the exclusive identity, membership, account-class, guardian, role, verification and MFA-policy authority. File 02 supplies complete password and Google-first registration, authentication orchestration, risk challenge, signed email verification, session controls, event outbox and redacted operations.</p></div>';
 	}
 
 	public function dependency_notice() {
 		if ( current_user_can( 'activate_plugins' ) ) {
-			echo '<div class="notice notice-error"><p><strong>Sabri Authentication is inactive at runtime:</strong> File 00 — Sabri Membership Core 1.0.1 or later is required and must load correctly. No fallback roles, registration, or profile system has been started.</p></div>';
+			echo '<div class="notice notice-error"><p><strong>Sabri Authentication is in safe degraded mode:</strong> File 00 — Sabri Membership Core with the approved assurance contract and smc.authentication-account 1.1.0 is required. Public reading remains available; registration and protected sign-in actions fail closed.</p></div>';
 		}
 	}
 
 	private static function settings_url() {
 		$base = defined( 'SABRI_SHELL_VERSION' ) ? admin_url( 'admin.php' ) : admin_url( 'options-general.php' );
 		return add_query_arg( 'page', 'sabri-authentication', $base );
-	}
-
-	private static function current_url() {
-		$uri = isset( $_SERVER['REQUEST_URI'] ) ? (string) wp_unslash( $_SERVER['REQUEST_URI'] ) : '/';
-		return SA_Security::safe_redirect( home_url( $uri ) );
 	}
 }

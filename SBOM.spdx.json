@@ -1,0 +1,95 @@
+{
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "spdxVersion": "SPDX-2.3",
+  "dataLicense": "CC0-1.0",
+  "name": "Sabri Authentication and Accounts 1.2.0 SBOM",
+  "documentNamespace": "https://sabrihomeopathy.com/spdx/file02-authentication-and-accounts/1.2.0/2026-08-08",
+  "creationInfo": {
+    "created": "2026-08-08T04:30:00Z",
+    "creators": [
+      "Organization: Sabri Social Homeopathy Platform",
+      "Person: Dr. Allama Majid Hussain Sabri",
+      "Tool: GitHub Actions deterministic package workflow"
+    ],
+    "licenseListVersion": "3.27.0"
+  },
+  "documentDescribes": [
+    "SPDXRef-Package-File02"
+  ],
+  "packages": [
+    {
+      "SPDXID": "SPDXRef-Package-File02",
+      "name": "Sabri Authentication and Accounts",
+      "versionInfo": "1.2.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "GPL-2.0-or-later",
+      "licenseDeclared": "GPL-2.0-or-later",
+      "copyrightText": "Copyright 2026 Dr. Allama Majid Hussain Sabri",
+      "supplier": "Organization: Sabri Social Homeopathy Platform",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:wordpress/sabri-authentication@1.2.0"
+        }
+      ],
+      "comment": "Runtime includes an internal bounded CBOR/COSE WebAuthn verifier using PHP OpenSSL; no third-party WebAuthn package or biometric component is bundled. The deterministic package manifest supplies the per-file SHA-256 inventory."
+    },
+    {
+      "SPDXID": "SPDXRef-Package-WordPress",
+      "name": "WordPress",
+      "versionInfo": "6.0-or-later; tested through 7.0",
+      "downloadLocation": "https://wordpress.org/download/",
+      "filesAnalyzed": false,
+      "licenseConcluded": "GPL-2.0-or-later",
+      "licenseDeclared": "GPL-2.0-or-later",
+      "copyrightText": "NOASSERTION",
+      "supplier": "Organization: WordPress Foundation"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-File00",
+      "name": "Sabri Membership Core",
+      "versionInfo": "Advanced Trust-capable runtime with smc.authentication-account 1.1.0 and File 02 assurance consumer 1.0.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "GPL-2.0-or-later",
+      "licenseDeclared": "GPL-2.0-or-later",
+      "copyrightText": "Copyright 2026 Dr. Allama Majid Hussain Sabri",
+      "supplier": "Organization: Sabri Social Homeopathy Platform"
+    },
+    {
+      "SPDXID": "SPDXRef-Service-GoogleOIDC",
+      "name": "Google OpenID Connect and OAuth 2.0 service",
+      "versionInfo": "external managed service",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION",
+      "supplier": "Organization: Google LLC"
+    }
+  ],
+  "relationships": [
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-Package-File02"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-File02",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-WordPress"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-File02",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-File00"
+    },
+    {
+      "spdxElementId": "SPDXRef-Service-GoogleOIDC",
+      "relationshipType": "OPTIONAL_DEPENDENCY_OF",
+      "relatedSpdxElement": "SPDXRef-Package-File02"
+    }
+  ]
+}

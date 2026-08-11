@@ -1,35 +1,51 @@
-# File 02 — Sabri Authentication
+# File 02 — Authentication and Accounts
 
-This repository preserves the original File 02 baseline and develops the corrected authentication integration for the Sabri Social Homeopathy Platform.
+**Canonical repository name:** `02-sabri-authentication-and-accounts`  
+**Current historical GitHub transport repository:** `02-sabri-authentication`  
+**Package folder / WordPress slug:** `02-sabri-authentication` / `sabri-authentication`  
+**Source candidate:** `1.2.0`  
+**Governing corpus:** Definitive Master Plan v3.0, `SSH-F02-PLAN-2026-v1.0`, Consolidated All-Chats Directives v2.1, Continuous-Value/Top-20 Superset plan and the later File 00 Advanced Trust ownership boundary.
 
-## Current corrective candidate
+## Canonical ownership
 
-- Version: `0.2.0`
-- Branch: `audit/file-02-source-review`
-- Membership, roles, profiles, identity, verification, and 2FA authority: **File 00 — Sabri Membership Core**
-- File 02 scope: explicit same-email Google link/login/unlink integration, recovery routing, access integration, privacy coverage, and authentication-specific rate limiting
-- Direct File 02 registration or role mutation: **Removed**
-- Original ZIP committed: **No**
-- Production approval: **No**
-- Live installation authorization: **No**
+File 02 owns email/password, Google OAuth and WebAuthn/passkey authentication ceremonies and surfaces, account-entry orchestration, linking/unlinking, recovery, session/device presentation, login-risk challenge and account-completion routing.
 
-## Evidence sets
+File 00 remains the sole owner of platform identity, membership eligibility, declared account class, age/guardian truth, roles/capabilities, verification, suspension, institutional authority and MFA policy. File 24 may contribute risk/assurance policy. Authentication never grants native object authorization.
 
-The original baseline evidence remains in:
+## Version 1.2.0 completion scope
 
-- `BASELINE-LOCK.json`
-- `SOURCE-INVENTORY.tsv`
-- `CHECKSUMS.sha256`
-- `MANIFEST.md`
-- baseline commit `8ce0653b6f1de3beb6899642c4446653c40f0501`
+The candidate implements all prior File 02 requirements plus the later strong-authentication scope:
 
-The corrected release evidence is in:
+- email/password and secure Google-first registration with every approved completion field and consent bridge;
+- signed one-time email verification, password authentication and recovery/reset;
+- Google OAuth state, nonce, PKCE, issuer/audience/azp/time/email validation and explicit same-email link/unlink;
+- WebAuthn/passkey registration, usernameless sign-in and revocation with required user verification, resident credentials, exact origin/RP binding and replay-safe challenges;
+- server-side `attestationObject` CBOR parsing and COSE ES256/RS256 public-key extraction; browser-supplied public keys are never trusted;
+- stable credential lookup across WordPress salt rotation, random opaque user handles, signature verification and counter-regression containment;
+- fresh five-minute passkey assurance projected to File 00 as a versioned `owner=file02` claim without moving identity/MFA policy into File 02;
+- conservative provenance: `attestation=none` never fabricates a hardware-backed assertion;
+- opaque session/device registry, canonical `/account/sessions/`, individual/other/all-session revocation and generalized device/network presentation;
+- suspicious-login risk challenge and File 00-owned step-up;
+- privacy-minimized authentication/passkey events, privacy export/erasure, provider circuits, Safe Mode, System Check and guarded repair;
+- File 01/File 20 manifests, migration/rollback/backup/incident documentation and deterministic packaging;
+- canonical `SAUTH_` public naming with bounded legacy `SA_` compatibility.
 
-- `RELEASE-LOCK.json`
-- `RELEASE-INVENTORY.tsv`
-- `RELEASE-CHECKSUMS.sha256`
-- `RELEASE-MANIFEST.md`
-- `CORRECTIVE-PROVENANCE.md`
-- `CORRECTIVE-REVIEW.md`
+## Required File 00 boundary
 
-Passing CI establishes source integrity, architecture guards, no-network security unit checks, and syntax only. It does not establish Google OAuth production readiness, WordPress runtime compatibility, staging acceptance, privacy/legal approval, or production authorization.
+File 00 must provide `smc.authentication-account 1.1.0` and the existing assurance provider. The later Advanced Trust consumer reads the File 02 passkey projection through `smc_file02_authentication_assurance_v1` contract `1.0.0` and independently validates owner/version/freshness/revalidation before any elevation.
+
+## Truthful status
+
+| Gate | Status |
+|---|---|
+| Specified | Complete |
+| Source coding | **Complete candidate**; current exact-head CI must pass |
+| Packaged | Exact-head deterministic CI gate |
+| Automated QA | Exact-head CI gate |
+| Hostinger staging | Pending |
+| Real WebAuthn/SMTP/Google/browser/RTL/WCAG/load | Pending |
+| Backup/restore and rollback rehearsal | Pending |
+| Founder acceptance | Pending |
+| Live/Operational | Not claimed |
+
+The owner-level repository rename and real-environment acceptance gates are external to source coding and must never be silently represented as completed.

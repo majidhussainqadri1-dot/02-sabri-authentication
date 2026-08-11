@@ -14,19 +14,14 @@ final class SA_Security {
 		return hash_hmac( 'sha256', $material, wp_salt( 'nonce' ) );
 	}
 
-	/**
-	 * Atomically increments a fixed-window counter in a dedicated database table.
-	 */
 	public static function rate_limited( $action, $limit = 6, $window = 900, $subject = '' ) {
 		global $wpdb;
-
 		$limit   = max( 1, absint( $limit ) );
 		$window  = max( 60, absint( $window ) );
 		$bucket  = self::bucket_hash( $action, $subject );
-		$table   = $wpdb->prefix . 'sa_rate_limits';
+		$table   = SAUTH_Activator::table( 'rate_limits' );
 		$now     = gmdate( 'Y-m-d H:i:s' );
 		$expires = gmdate( 'Y-m-d H:i:s', time() + $window );
-
 		$sql = $wpdb->prepare(
 			"INSERT INTO {$table} (bucket_hash, hits, window_started, expires_at, updated_at)
 			 VALUES (%s, 1, %s, %s, %s)
@@ -40,12 +35,10 @@ final class SA_Security {
 			$expires,
 			$now
 		);
-
 		$result = $wpdb->query( $sql );
 		if ( false === $result ) {
-			// Fixed-window fallback: do not extend the expiry on every attempt.
-			$key   = 'sa_fallback_' . substr( $bucket, 0, 32 );
-			$state = get_transient( $key );
+			$key    = 'sauth_fallback_' . substr( $bucket, 0, 32 );
+			$state  = get_transient( $key );
 			$now_ts = time();
 			if ( ! is_array( $state ) || empty( $state['expires'] ) || (int) $state['expires'] <= $now_ts ) {
 				$state = array( 'hits' => 0, 'expires' => $now_ts + $window );
@@ -55,7 +48,6 @@ final class SA_Security {
 			set_transient( $key, $state, $ttl );
 			return $state['hits'] > $limit;
 		}
-
 		$hits = (int) $wpdb->get_var( $wpdb->prepare( "SELECT hits FROM {$table} WHERE bucket_hash = %s", $bucket ) );
 		if ( 1 === wp_rand( 1, 100 ) ) {
 			$wpdb->query( $wpdb->prepare( "DELETE FROM {$table} WHERE expires_at < %s", gmdate( 'Y-m-d H:i:s', time() - DAY_IN_SECONDS ) ) );
@@ -66,19 +58,18 @@ final class SA_Security {
 	public static function clear_rate_limit( $action, $subject = '' ) {
 		global $wpdb;
 		$bucket = self::bucket_hash( $action, $subject );
-		$wpdb->delete( $wpdb->prefix . 'sa_rate_limits', array( 'bucket_hash' => $bucket ), array( '%s' ) );
+		$wpdb->delete( SAUTH_Activator::table( 'rate_limits' ), array( 'bucket_hash' => $bucket ), array( '%s' ) );
+		delete_transient( 'sauth_fallback_' . substr( $bucket, 0, 32 ) );
 		delete_transient( 'sa_fallback_' . substr( $bucket, 0, 32 ) );
 	}
 
-	public static function safe_redirect( $url, $fallback = '' ) {
-		$fallback = $fallback ? $fallback : home_url( '/' );
+	public static function safe_redirect( $url, $fallback = null ) {
+		$fallback = func_num_args() < 2 ? home_url( '/' ) : (string) $fallback;
 		return wp_validate_redirect( (string) $url, $fallback );
 	}
 
 	private static function encryption_key() {
-		$material = defined( 'SA_MASTER_KEY' ) && is_string( SA_MASTER_KEY ) && strlen( SA_MASTER_KEY ) >= 32
-			? SA_MASTER_KEY
-			: wp_salt( 'auth' );
+		$material = defined( 'SA_MASTER_KEY' ) && is_string( SA_MASTER_KEY ) && strlen( SA_MASTER_KEY ) >= 32 ? SA_MASTER_KEY : wp_salt( 'auth' );
 		return hash( 'sha256', 'sabri-authentication|v2|' . $material, true );
 	}
 
@@ -126,7 +117,11 @@ final class SA_Security {
 	}
 
 	public static function page_url( $page_key, $fallback = '' ) {
-		$pages   = (array) get_option( 'sa_page_map', array() );
+		$canonical = apply_filters( 'sauth_canonical_route_url', '', (string) $page_key );
+		if ( is_string( $canonical ) && '' !== $canonical ) {
+			return $canonical;
+		}
+		$pages = (array) get_option( 'sauth_page_map', get_option( 'sa_page_map', array() ) );
 		$page_id = isset( $pages[ $page_key ] ) ? absint( $pages[ $page_key ] ) : 0;
 		if ( $page_id && 'publish' === get_post_status( $page_id ) ) {
 			return get_permalink( $page_id );

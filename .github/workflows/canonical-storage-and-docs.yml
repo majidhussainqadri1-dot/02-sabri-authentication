@@ -1,0 +1,108 @@
+name: File 02 Canonical Storage and Documentation
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - codex/**
+
+permissions:
+  contents: read
+
+jobs:
+  canonical-storage-and-docs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact immutable head
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Set up PHP 8.3
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: none
+          extensions: openssl
+
+      - name: Validate canonical storage migration and passkey schema
+        run: |
+          set -euo pipefail
+          php -l includes/class-sa-activator.php
+          php -l includes/class-sauth-storage-router.php
+          php -l includes/class-sauth-passkeys.php
+          php -l includes/class-sauth-operations.php
+          php -l tests/storage-migration-unit.php
+          php -l tests/passkey-webauthn-unit.php
+          php tests/storage-migration-unit.php
+          php tests/passkey-webauthn-unit.php
+
+          grep -Fq "sauth_rate_limits" includes/class-sa-activator.php
+          grep -Fq "sauth_auth_outbox" includes/class-sa-activator.php
+          grep -Fq "sauth_email_verifications" includes/class-sa-activator.php
+          grep -Fq "sauth_auth_sessions" includes/class-sa-activator.php
+          grep -Fq "sauth_auth_devices" includes/class-sa-activator.php
+          grep -Fq "sauth_auth_risk_challenges" includes/class-sa-activator.php
+          grep -Fq "sauth_auth_attempts" includes/class-sa-activator.php
+          grep -Fq "migrate_legacy_tables" includes/class-sa-activator.php
+          grep -Fq "sauth_passkeys" includes/class-sauth-passkeys.php
+          grep -Fq "sauth_passkey_schema_version" includes/class-sauth-passkeys.php
+          grep -Fq "SAUTH_Passkeys::maybe_install()" includes/class-sauth-operations.php
+          grep -Fq "SAUTH_Storage_Router::init()" sabri-authentication.php
+
+      - name: Validate current release documents and SBOM
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import pathlib
+
+          root = pathlib.Path('.')
+          sbom = json.loads((root / 'SBOM.spdx.json').read_text(encoding='utf-8'))
+          if sbom.get('spdxVersion') != 'SPDX-2.3':
+              raise SystemExit('SBOM SPDX version mismatch')
+          packages = {p.get('SPDXID'): p for p in sbom.get('packages', [])}
+          if packages.get('SPDXRef-Package-File02', {}).get('versionInfo') != '1.2.0':
+              raise SystemExit('SBOM File 02 version mismatch')
+
+          current = {
+              'README.md': ('1.2.0', '02-sabri-authentication-and-accounts', 'WebAuthn', '/account/sessions/'),
+              'STATUS.md': ('Version 1.2.0', 'Passkey', 'Staging-Accepted', 'Operational'),
+              'ARCHITECTURE.md': ('1.2.0', 'sauth_passkeys', 'server decodes the attestation object', 'File 00'),
+              'DATA-DICTIONARY.md': ('Version 1.2.0', 'wp_sauth_passkeys', '_sauth_passkey_user_handle_v1'),
+              'MIGRATION.md': ('1.2.0', 'sauth_passkeys', 'sauth_passkey_schema_version', '/account/sessions/'),
+              'RELEASE-MANIFEST.md': ('1.2.0', 'SOURCE-CANDIDATE.zip', 'WebAuthn', 'retained workflow artifact'),
+              'CONTRACTS.md': ('Version 1.2.0', 'smc_file02_authentication_assurance_v1', 'WebAuthn ceremony contract'),
+              'CHANGELOG.md': ('1.2.0', 'server-side', 'hardware_backed'),
+              'PLAN-TRACEABILITY.md': ('Four-Plan', 'CV-005', 'CV-006', 'CV-010'),
+          }
+          for filename, markers in current.items():
+              text = (root / filename).read_text(encoding='utf-8')
+              for marker in markers:
+                  if marker not in text:
+                      raise SystemExit(f'{filename} missing {marker}')
+
+          stale_root = [
+              'CHECKSUMS.sha256', 'CORRECTIVE-PROVENANCE.md', 'CORRECTIVE-REVIEW.md',
+              'MANIFEST.md', 'RELEASE-CHECKSUMS.sha256', 'RELEASE-INVENTORY.tsv',
+              'SOURCE-INVENTORY.tsv', 'SOURCE-PROVENANCE.md'
+          ]
+          present = [name for name in stale_root if (root / name).exists()]
+          if present:
+              raise SystemExit('obsolete release evidence remains at repository root: ' + ', '.join(present))
+          for name in stale_root:
+              if not (root / 'history' / '0.2.0' / name).exists():
+                  raise SystemExit('historical evidence was not preserved: ' + name)
+
+          print('Current 1.2.0 release documentation and SPDX SBOM checks passed.')
+          PY
+
+      - name: Diff and secret hygiene
+        run: |
+          set -euo pipefail
+          git diff --check
+          ! grep -RIE "(BEGIN .*PRIVATE KEY|AIza[0-9A-Za-z_-]{35}|gh[pousr]_[A-Za-z0-9]{20,})" --exclude-dir=.git --exclude-dir=.github .

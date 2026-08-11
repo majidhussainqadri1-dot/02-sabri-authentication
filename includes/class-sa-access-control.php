@@ -17,26 +17,29 @@ final class SA_Access_Control {
 	}
 
 	public function login_url( $login_url, $redirect, $force_reauth ) {
-		if ( is_admin() || ! SA_Membership_Adapter::available() ) {
+		if ( is_admin() ) {
 			return $login_url;
 		}
-		$url = SA_Membership_Adapter::login_url( $redirect );
+		$url = SA_Security::page_url( 'login', $login_url );
+		if ( $redirect ) {
+			$url = add_query_arg( 'redirect_to', rawurlencode( SA_Security::safe_redirect( $redirect ) ), $url );
+		}
 		return $force_reauth ? add_query_arg( 'reauth', '1', $url ) : $url;
 	}
 
 	public function register_url( $url ) {
-		return SA_Membership_Adapter::available() ? SA_Membership_Adapter::register_url() : $url;
+		return SA_Security::page_url( 'signup', $url );
 	}
 
 	public function logout_url( $url, $redirect ) {
 		$action = wp_nonce_url( admin_url( 'admin-post.php?action=sa_logout' ), 'sa_logout' );
-		return $redirect ? add_query_arg( 'redirect_to', SA_Security::safe_redirect( $redirect ), $action ) : $action;
+		return $redirect ? add_query_arg( 'redirect_to', rawurlencode( SA_Security::safe_redirect( $redirect ) ), $action ) : $action;
 	}
 
 	public function require_login_for_comment() {
 		if ( ! is_user_logged_in() ) {
 			$redirect = wp_get_referer() ? wp_get_referer() : home_url( '/' );
-			wp_safe_redirect( SA_Membership_Adapter::login_url( $redirect ) );
+			wp_safe_redirect( add_query_arg( 'redirect_to', rawurlencode( SA_Security::safe_redirect( $redirect ) ), SA_Security::page_url( 'login', wp_login_url() ) ) );
 			exit;
 		}
 	}
@@ -64,6 +67,7 @@ final class SA_Access_Control {
 			header( 'X-Content-Type-Options: nosniff', true );
 			header( 'X-Frame-Options: SAMEORIGIN', true );
 			header( 'Permissions-Policy: camera=(), microphone=(), geolocation=()', true );
+			header( 'Cross-Origin-Opener-Policy: same-origin', true );
 		}
 	}
 
@@ -109,8 +113,13 @@ final class SA_Access_Control {
 		return array(
 			'sabri_auth_login',
 			'sabri_auth_signup',
+			'sabri_auth_verify_email',
+			'sabri_auth_risk_challenge',
 			'sabri_auth_complete_profile',
 			'sabri_auth_forgot_password',
+			'sabri_auth_reset_password',
+			'sabri_auth_sessions',
+			'sabri_auth_passkeys',
 			'sabri_auth_access_required',
 			'sabri_auth_google_account',
 			'sabri_auth_google_verify',
