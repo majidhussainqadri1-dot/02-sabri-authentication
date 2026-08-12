@@ -1,10 +1,10 @@
 {
   "schema": "sauth.source-lineage-lock.v1",
   "file_number": "02",
-  "recorded_at": "2026-08-12T19:13:00+05:00",
+  "recorded_at": "2026-08-12T21:31:00+05:00",
   "repository_main_head_reviewed": "0f011b1876e217b7ee46f92903e5315538c1025e",
   "repository_main_runtime": "1.2.1",
-  "incident_hardening_runtime": "1.2.3",
+  "incident_hardening_runtime": "1.2.4",
   "incident_hardening_database": "1.2.0",
   "latest_approved_plan_runtime_evidence": "1.3.8",
   "latest_approved_plan_database_evidence": "1.3.0",
@@ -13,12 +13,14 @@
   "latest_approved_plan_source_available_in_current_github_refs": false,
   "known_historical_1_3_8_installable_zip_sha256": "9e93cc0282ec407a7efc5bb37559a6d6e87f9e20c9e9453e33b338e49f494e2f",
   "known_historical_1_3_8_source_review_bundle_sha256": "f284fbe8296f7d3085c5a10f4710c0962b0aff8ba1997667779605ff9d0bff57",
+  "second_cycle_source_patch_sha256": "86dd918948681a541ca4c20526ac0c98694b01b17388b8ccc97635e2142f0397",
+  "second_cycle_source_tree_sha256": "f365bfb34be2af060567025838f3370b3e766dbf3ce6ab16ce8733ac6e720c00",
   "deployment_blocked": true,
   "block_reason": "Current GitHub/runtime incident-hardening source is older than the latest approved File 02 modern-authentication source lineage. Exact 1.3.8 source bytes are not available in the current review workspace or accessible GitHub refs, so reconstructing or deploying an older line would violate evidence-first and no-patch-stacking rules.",
   "unblock_requirements": [
     "Recover the exact reviewed File 02 1.3.8 source bundle or prove a later superseding exact source.",
     "Verify source manifest/checksums and compare against current GitHub history.",
-    "Rebase or reapply the live-crash hardening corrections onto that exact later source without dropping approved X24 scope.",
+    "Reconcile all R1-R40 live-crash hardening corrections onto that exact later source without dropping approved X24 scope.",
     "Run exact-head source, package, WordPress/MariaDB, upgrade, rollback and plan-traceability gates.",
     "Only then consider staging deployment; live remains a separate acceptance gate."
   ]
