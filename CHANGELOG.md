@@ -2,6 +2,20 @@
 
 All notable changes to Sabri Authentication and Accounts are recorded here.
 
+## 1.2.1 — Live-Proven Storage Router Bootstrap Correction
+
+### Corrected
+
+- Added the missing main-bootstrap `require_once` for `includes/class-sauth-storage-router.php` before `sauth_start_plugin()` can invoke `SAUTH_Storage_Router::init()`.
+- Preserved DB schema `1.2.0`, File 00 account-contract minimum `1.1.0`, passkey schema/assurance `1.0.0` and all 1.2.0 authentication behavior.
+- Added permanent source and packaged-bootstrap guards so a runtime class may not be invoked without its source being loaded.
+- Added real WordPress/MariaDB integration against the exact File 00 1.2.43 correction candidate, including activation plus subsequent independent WordPress reloads.
+- Advanced deterministic package, release lock, SBOM and current release identity to `1.2.1` without a schema bump.
+
+### Proven incident boundary
+
+The defect was reproduced by a cross-repository WordPress run after corrected File 00 satisfied `smc.authentication-account 1.1.0`: File 02 1.2.0 activated, then the next request fatally failed because `SAUTH_Storage_Router` had not been loaded. This patch corrects that exact owning source defect; staging/live resolution remains a separate gate.
+
 ## 1.2.0 — Four-Plan Passkey and Advanced Trust Source Candidate
 
 ### Added
