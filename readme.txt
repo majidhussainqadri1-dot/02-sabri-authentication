@@ -4,14 +4,14 @@ Tags: authentication, passkeys, webauthn, google login, registration, accounts, 
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.2.0
+Stable tag: 1.2.1
 License: GPLv2 or later
 
 Complete authentication and account-entry orchestration for the Sabri Social Homeopathy Platform. File 00 — Sabri Membership Core remains the exclusive identity, membership, account-class, guardian, role, verification and MFA-policy authority; File 02 owns password, Google OAuth and WebAuthn/passkey authentication ceremonies.
 
 == Truthful release status ==
 
-Version 1.2.0 is the four-plan source candidate reconciling SSH-F02-PLAN-2026-v1.0, the Definitive Master Plan v3.0, Consolidated All-Chats Directives v2.1, the Continuous-Value/Top-20 Superset plan and the later File 00 Advanced Trust boundary. Source completion and automated QA do not by themselves prove Hostinger staging acceptance, live deployment or operational acceptance.
+Version 1.2.1 is the live-proven bootstrap correction over the four-plan 1.2.0 source candidate. A real File 00/File 02 WordPress integration run proved that 1.2.0 could pass its File 00 dependency activation gate and then fatal on the next request because `SAUTH_Storage_Router::init()` was called without loading `class-sauth-storage-router.php`. Version 1.2.1 corrects that exact bootstrap defect without changing the File 02 DB schema or ownership contracts. Source completion and automated QA do not by themselves prove Hostinger staging acceptance, live deployment or operational acceptance.
 
 == Canonical constitution ==
 
@@ -78,6 +78,12 @@ If a required contract is missing, malformed or circuit-open, protected mutation
 Passwords, reset keys, verification tokens, OAuth tokens, TOTP/recovery codes, passkey private keys, biometric templates, raw session tokens, full IP addresses and provider secrets are excluded from events and public diagnostics. Authentication success is never authorization.
 
 == Changelog ==
+
+= 1.2.1 =
+* Corrects the live-integration-proven bootstrap defect in 1.2.0 by loading `class-sauth-storage-router.php` before `sauth_start_plugin()` invokes `SAUTH_Storage_Router::init()`.
+* Adds a permanent bootstrap/runtime regression so dependency activation success must be followed by a clean subsequent WordPress request with File 02 still active.
+* Preserves DB schema 1.2.0, account contract 1.1.0, passkey assurance 1.0.0 and all File 00/File 02 ownership boundaries.
+* This repository correction is not a live-resolution claim; File 00 compatibility and File 02 live activation must be retested after controlled deployment.
 
 = 1.2.0 =
 * Added File 02-owned WebAuthn/passkey registration, authentication, management and privacy lifecycle for CV-005.
