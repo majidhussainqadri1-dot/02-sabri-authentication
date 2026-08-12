@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail-fast architecture guard for the File 02 1.2.0 four-plan source candidate."""
+"""Fail-fast architecture guard for the File 02 1.2.1 bootstrap-corrected four-plan source candidate."""
 from __future__ import annotations
 
 import pathlib
@@ -37,6 +37,7 @@ required_files = {
     "includes/class-sauth-provider-health.php",
     "includes/class-sauth-provider-http-guard.php",
     "includes/class-sauth-session-manager.php",
+    "includes/class-sauth-storage-router.php",
     "includes/class-sauth-operations.php",
     "includes/class-sauth-google-registration.php",
     "includes/class-sauth-canonical-routes.php",
@@ -49,24 +50,32 @@ required_files = {
 }
 missing = sorted(required_files - set(PHP))
 if missing:
-    fail("missing 1.2.0 source files: " + ", ".join(missing))
+    fail("missing current source files: " + ", ".join(missing))
 
 main = PHP["sabri-authentication.php"]
 for marker in (
-    "Version: 1.2.0",
-    "define( 'SAUTH_VERSION', '1.2.0' );",
+    "Version: 1.2.1",
+    "define( 'SAUTH_VERSION', '1.2.1' );",
     "define( 'SAUTH_DB_VERSION', '1.2.0' );",
     "define( 'SAUTH_ACCOUNT_CONTRACT_VERSION', '1.1.0' );",
     "define( 'SAUTH_PASSKEY_CONTRACT_VERSION', '1.0.0' );",
+    "class-sauth-storage-router.php",
     "class-sauth-google-registration.php",
     "class-sauth-canonical-routes.php",
     "class-sauth-passkeys.php",
+    "SAUTH_Storage_Router::init()",
     "SAUTH_Google_Registration::init()",
     "SAUTH_Canonical_Routes::init()",
     "SAUTH_Passkeys::init()",
 ):
     if marker not in main:
         fail(f"main plugin bootstrap is missing {marker}")
+
+storage_require = "require_once SAUTH_DIR . 'includes/class-sauth-storage-router.php';"
+if storage_require not in main:
+    fail("main plugin bootstrap does not load the storage router")
+if main.index(storage_require) > main.index("function sauth_start_plugin()"):
+    fail("storage router must load before File 02 startup")
 
 forbidden = {
     "role creation": r"\badd_role\s*\(",
@@ -258,5 +267,5 @@ login = PHP["templates/login.php"]
 if "data-sauth-passkey-login" not in login:
     fail("login surface does not expose passkey authentication")
 
-print("File 02 1.2.0 four-plan architecture guard passed.")
+print("File 02 1.2.1 four-plan architecture guard passed.")
 print(f"PHP files checked: {len(PHP)}")
