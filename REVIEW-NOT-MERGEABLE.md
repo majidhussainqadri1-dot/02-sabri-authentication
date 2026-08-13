@@ -1,11 +1,9 @@
 # Review-only branch — do not merge or deploy
 
-This branch records three fresh twenty-round review cycles through **R1–R60**, the source-lineage block, and checksum identities of the locally corrected incident-hardening work. It intentionally does **not** replace `main` runtime source because the governing File 02 corpus records a later approved `1.3.8 / DB 1.3.0 / passkey schema 1.1.0` modern-authentication lineage whose exact source bytes are not currently recovered.
+This branch records the 12–13 August 2026 sequential review evidence through **R1–R100**, source-lineage block, and checksum identities for locally corrected incident-hardening candidates. It intentionally does **not** replace `main` runtime source because the governing File 02 corpus records a later approved `1.3.8 / DB 1.3.0 / passkey schema 1.1.0` modern-authentication lineage whose exact source bytes are not currently recovered.
 
-The third fresh cycle R41–R60 followed strict review-first discipline: each round's full inspection completed before any correction began; all defects from that completed round were then corrected together and retested before the next round.
+The latest local review-only incident-hardening identity is `1.2.7 / DB 1.2.0`; it is not an installable production-complete release. R89 also records an unresolved canonical File 00 account-type/provider taxonomy discrepancy. Merging the older 1.2.x runtime before recovering the later File 02 source and resolving that File 00 contract boundary could silently downgrade approved scope or preserve incompatible identity semantics.
 
-Current local review-only corrective identity: `1.2.5 / DB 1.2.0`; local candidate commit `e0057e42c6bb70a4a67abcdc0f23c46e76031ba1`; R41–R60 patch SHA-256 `fb71757617bef96861e4f310121de487202ea51e678c17ef002e555783dfcc33`.
+Unblock only after exact 1.3.8 (or later superseding) source recovery, checksum/manifest verification, canonical File 00 taxonomy/provider reconciliation, R1–R100 hardening reconciliation, exact-head QA, staging acceptance and separate live authorization/re-test.
 
-Merging older 1.2.x runtime changes before recovering/reconciling the later source would risk a product-scope downgrade and violate the evidence-first/no-patch-stacking rule.
-
-Unblock only after exact 1.3.8 (or later superseding) source recovery, manifest/checksum verification, R1–R60 hardening reconciliation, exact-head QA, staging acceptance and separate live authorization/re-test.
+The reported live outage remains OPEN. **Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔**
