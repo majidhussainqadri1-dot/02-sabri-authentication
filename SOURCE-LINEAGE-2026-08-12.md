@@ -2,7 +2,7 @@
 
 ## Governing finding
 
-The current GitHub `main` reviewed for this incident remains `0f011b1876e217b7ee46f92903e5315538c1025e` / File 02 `1.2.1`. Five review-only incident-hardening cycles now reach a local corrected `1.2.7 / DB 1.2.0` source line without claiming later product-scope completion.
+The current GitHub `main` reviewed for this incident remains `0f011b1876e217b7ee46f92903e5315538c1025e` / File 02 `1.2.1`. Five review-only incident-hardening cycles now reach a **local-only** corrected `1.2.7 / DB 1.2.0` source line without claiming later product-scope completion. The corrected 1.2.7 runtime source is deliberately not applied to this GitHub review branch.
 
 The latest approved File 02 planning/review corpus records a later modern-authentication implementation lineage: runtime candidate `1.3.8`, DB `1.3.0`, passkey schema `1.1.0`, and F02-X24-001..024 architecture. Exact 1.3.8 source bytes are not present in the current review workspace or accessible GitHub refs. A branch name is not source evidence.
 
@@ -23,6 +23,10 @@ The exact 1.3.8 source must be recovered (or a later superseding exact source pr
 - R81–R100 corrective runtime/tests patch SHA-256: `1eb6b35f07c031acc60e4e5a916a3c4d8f8b0d18ff8552397be4223be947e807`
 - R81–R100 corrected PHP/JS tree SHA-256: `c5c25e5f0a18059d91605687fa7bc203dec1dfb08882767dcde654e89fd6dd3b`
 - Fifth-cycle DO-NOT-INSTALL review bundle SHA-256: `6ceba6d137d318bef09431c48bffaa59de32881d6b1373c9fbd0d3514f002db0`
+
+## CI evidence boundary
+
+GitHub Actions that run on this review branch validate only the review-record branch content actually present on GitHub. They do **not** validate the local 1.2.7 runtime source because that source is intentionally absent pending later-lineage recovery/reconciliation.
 
 ## Release law
 
