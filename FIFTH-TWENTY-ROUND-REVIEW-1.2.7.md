@@ -23,7 +23,7 @@
 | R97 | DEFECT | Passkey privacy export was unbounded and over-selected credential columns → 50-row pagination + minimal metadata. |
 | R98 | CLEAN | Passkey erasure/assurance cleanup remained fail-closed and containment-aware. |
 | R99 | DEFECT | Google settings could report success despite provider-health reset persistence failure → explicit failure. |
-| R100 | DEFECT | R81–R99 lacked cumulative regression/report/manifest; current identity/docs/SBOM/lineage were stale at 1.2.6; prior regressions froze that old current version; R89 was not in structured release block → added fifth regression/evidence, advanced review-only identity to 1.2.7, aligned current evidence and recorded R89 blocker. |
+| R100 | DEFECT | R81–R99 lacked cumulative regression/report/manifest; current identity/docs/SBOM/lineage were stale at 1.2.6; prior regressions froze that old current version; R89 was not in structured release block → added fifth regression/evidence, advanced only the local review identity to 1.2.7, aligned local current evidence and recorded R89 blocker. |
 
 ## Accounting
 
@@ -45,6 +45,8 @@
 - Fifth corrective runtime/tests patch SHA-256: `1eb6b35f07c031acc60e4e5a916a3c4d8f8b0d18ff8552397be4223be947e807`.
 - Corrected PHP/JS tree SHA-256: `c5c25e5f0a18059d91605687fa7bc203dec1dfb08882767dcde654e89fd6dd3b`.
 - DO-NOT-INSTALL review bundle SHA-256: `6ceba6d137d318bef09431c48bffaa59de32881d6b1373c9fbd0d3514f002db0`.
+
+These runtime/test results are **local review-workspace evidence**. The corrected 1.2.7 runtime source is deliberately absent from this GitHub PR, so workflow checks on this PR do not validate local 1.2.7.
 
 ## Release truth
 
