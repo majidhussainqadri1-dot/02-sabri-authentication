@@ -21,6 +21,7 @@
   "r81_r100_current_content_tree_excluding_fifth_evidence_sha256": "c39486462ed0cd8c32deb6e285dc21011158dc730a6eb619a1f0ebd042e82e76",
   "review_bundle_sha256": "6ceba6d137d318bef09431c48bffaa59de32881d6b1373c9fbd0d3514f002db0",
   "runtime_source_applied_to_review_branch": false,
+  "runtime_source_ci_validated_on_this_pr": false,
   "reason_runtime_not_applied": "Exact later approved File 02 1.3.8 source lineage is not currently recovered; applying this older 1.2.7 runtime line to GitHub before reconciliation could silently downgrade approved F02-X24 scope.",
   "cross_file_account_taxonomy_blocker": "R89: current File 00 core account-type vocabulary and current File 00 v1.1 authentication-account provider / older File 02 declaration vocabulary are inconsistent; no lossy File 02 remap is authorized.",
   "merge_allowed": false,
