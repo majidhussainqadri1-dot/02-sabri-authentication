@@ -6,6 +6,7 @@
   "repository_main_runtime": "1.2.1",
   "incident_hardening_runtime": "1.2.7",
   "incident_hardening_database": "1.2.0",
+  "incident_hardening_runtime_location": "local_review_workspace_only",
   "latest_approved_plan_runtime_evidence": "1.3.8",
   "latest_approved_plan_database_evidence": "1.3.0",
   "latest_approved_plan_passkey_schema_evidence": "1.1.0",
@@ -23,7 +24,7 @@
     "reason": "Current File 00 core account-type vocabulary and current File 00 v1.1 authentication-account provider / older File 02 declaration vocabulary are inconsistent. No lossy File 02 remap is authorized."
   },
   "deployment_blocked": true,
-  "block_reason": "Current GitHub/runtime incident-hardening source is older than the latest approved File 02 modern-authentication source lineage, and R89 additionally proves an unresolved canonical File 00 account-taxonomy/provider contract discrepancy. Exact 1.3.8 source bytes are not available in the current review workspace or accessible GitHub refs, so reconstructing, merging or deploying the older 1.2.7 line would violate evidence-first and no-patch-stacking rules.",
+  "block_reason": "Current GitHub/runtime incident-hardening source is older than the latest approved File 02 modern-authentication source lineage, and R89 additionally proves an unresolved canonical File 00 account-taxonomy/provider contract discrepancy. Exact 1.3.8 source bytes are not available in the current review workspace or accessible GitHub refs, so reconstructing, merging or deploying the older local 1.2.7 line would violate evidence-first and no-patch-stacking rules.",
   "unblock_requirements": [
     "Recover the exact reviewed File 02 1.3.8 source bundle or prove a later superseding exact source.",
     "Verify source manifest/checksums and compare against current GitHub history.",
