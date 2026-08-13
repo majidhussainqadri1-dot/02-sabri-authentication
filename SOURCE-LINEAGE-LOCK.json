@@ -1,10 +1,10 @@
 {
   "schema": "sauth.source-lineage-lock.v1",
   "file_number": "02",
-  "recorded_at": "2026-08-13T07:50:00+05:00",
+  "recorded_at": "2026-08-13T08:30:00+05:00",
   "repository_main_head_reviewed": "0f011b1876e217b7ee46f92903e5315538c1025e",
   "repository_main_runtime": "1.2.1",
-  "incident_hardening_runtime": "1.2.6",
+  "incident_hardening_runtime": "1.2.7",
   "incident_hardening_database": "1.2.0",
   "latest_approved_plan_runtime_evidence": "1.3.8",
   "latest_approved_plan_database_evidence": "1.3.0",
@@ -13,15 +13,22 @@
   "latest_approved_plan_source_available_in_current_github_refs": false,
   "known_historical_1_3_8_installable_zip_sha256": "9e93cc0282ec407a7efc5bb37559a6d6e87f9e20c9e9453e33b338e49f494e2f",
   "known_historical_1_3_8_source_review_bundle_sha256": "f284fbe8296f7d3085c5a10f4710c0962b0aff8ba1997667779605ff9d0bff57",
-  "r61_r80_source_patch_sha256": "5482740a58943a5fc390efaf0a5f599289736e660c2b1d9d5e10e8b90338880f",
-  "r61_r80_content_tree_sha256": "0a70d11fb940efe64f69026434e682b6055ceef6b92f6e859c17aa250a885d54",
-  "r61_r80_php_js_tree_sha256": "abf86bd7a2e682c85fe0e1a2f1cd5b83a9f7d3449859db9a1a1557c7d7905c46",
+  "r81_r100_runtime_tests_patch_sha256": "1eb6b35f07c031acc60e4e5a916a3c4d8f8b0d18ff8552397be4223be947e807",
+  "r81_r100_php_js_tree_sha256": "c5c25e5f0a18059d91605687fa7bc203dec1dfb08882767dcde654e89fd6dd3b",
+  "review_bundle_sha256": "6ceba6d137d318bef09431c48bffaa59de32881d6b1373c9fbd0d3514f002db0",
+  "cross_file_account_taxonomy_blocker": {
+    "discovered_round": "R89",
+    "status": "open_release_blocker",
+    "canonical_owner": "File 00",
+    "reason": "Current File 00 core account-type vocabulary and current File 00 v1.1 authentication-account provider / older File 02 declaration vocabulary are inconsistent. No lossy File 02 remap is authorized."
+  },
   "deployment_blocked": true,
-  "block_reason": "Current GitHub/runtime incident-hardening source is older than the latest approved File 02 modern-authentication source lineage. Exact 1.3.8 source bytes are not available in the current review workspace or accessible GitHub refs, so reconstructing, merging or deploying the older 1.2.6 line would violate evidence-first and no-patch-stacking rules.",
+  "block_reason": "Current GitHub/runtime incident-hardening source is older than the latest approved File 02 modern-authentication source lineage, and R89 additionally proves an unresolved canonical File 00 account-taxonomy/provider contract discrepancy. Exact 1.3.8 source bytes are not available in the current review workspace or accessible GitHub refs, so reconstructing, merging or deploying the older 1.2.7 line would violate evidence-first and no-patch-stacking rules.",
   "unblock_requirements": [
     "Recover the exact reviewed File 02 1.3.8 source bundle or prove a later superseding exact source.",
     "Verify source manifest/checksums and compare against current GitHub history.",
-    "Reconcile all R1-R80 live-crash hardening corrections onto that exact later source without dropping approved X24 scope.",
+    "Resolve the File 00 canonical account-type/provider taxonomy discrepancy with an approved versioned contract/migration rather than a File 02-local semantic remap.",
+    "Reconcile all R1-R100 live-crash hardening corrections onto that exact later source without dropping approved X24 scope.",
     "Run exact-head source, package, WordPress/MariaDB, upgrade, rollback and plan-traceability gates.",
     "Only then consider staging deployment; live remains a separate acceptance gate."
   ]
