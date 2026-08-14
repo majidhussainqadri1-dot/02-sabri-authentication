@@ -69,17 +69,37 @@ jobs:
 
       - name: Run cumulative no-network source suites
         run: |
-          set -euo pipefail
-          php tests/security-unit.php
-          php tests/cf01-assurance-unit.php
-          php tests/professional-reauthentication-unit.php
-          php tests/plan-harmonization-unit.php
-          php tests/registration-authentication-unit.php
-          php tests/complete-plan-unit.php
-          php tests/passkey-webauthn-unit.php
-          php tests/three-plan-completion-unit.php
-          php tests/storage-migration-unit.php
-          php tests/r291-r300-review-regression.php
+          set -uo pipefail
+          tests=(
+            tests/security-unit.php
+            tests/cf01-assurance-unit.php
+            tests/professional-reauthentication-unit.php
+            tests/plan-harmonization-unit.php
+            tests/registration-authentication-unit.php
+            tests/complete-plan-unit.php
+            tests/passkey-webauthn-unit.php
+            tests/three-plan-completion-unit.php
+            tests/storage-migration-unit.php
+            tests/r291-r300-review-regression.php
+          )
+          : > "$RUNNER_TEMP/php-suite-failures-${{ matrix.php }}.txt"
+          failed=0
+          for test_file in "${tests[@]}"; do
+            if ! output="$(php "$test_file" 2>&1)"; then
+              printf '%s\n%s\n\n' "$test_file" "$output" | tee -a "$RUNNER_TEMP/php-suite-failures-${{ matrix.php }}.txt"
+              failed=1
+            fi
+          done
+          exit "$failed"
+
+      - name: Retain suite diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: file02-review-suites-${{ matrix.php }}-${{ github.sha }}
+          if-no-files-found: warn
+          retention-days: 7
+          path: ${{ runner.temp }}/php-suite-failures-${{ matrix.php }}.txt
 
       - name: Validate JavaScript and CSS source
         run: |
