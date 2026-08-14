@@ -72,6 +72,7 @@ jobs:
             tests/r308-route-ui-regression.php
             tests/r309-release-truth-regression.php
             tests/r310-final-adversarial-regression.php
+            tests/r311-security-boundary-regression.php
           )
           for test_file in "${tests[@]}"; do php "$test_file"; done
 
