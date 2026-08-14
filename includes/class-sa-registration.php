@@ -129,7 +129,7 @@ final class SA_Registration {
 			 * submissions cannot reuse the same Google proof. */
 			$consumed_google = SAUTH_Google_Registration::consume( $google_token );
 			if ( empty( $consumed_google )
-				|| ! hash_equals( strtolower( (string) $payload['email'] ), strtolower( (string) ( $consumed_google['email'] ?? '' ) )
+				|| ! hash_equals( strtolower( (string) $payload['email'] ), strtolower( (string) ( $consumed_google['email'] ?? '' ) ) )
 				|| ! hash_equals( (string) $payload['google_subject'], (string) ( $consumed_google['sub'] ?? '' ) ) ) {
 				$this->registration_redirect( 'error', 'The Google registration proof was already used or changed. Start Google registration again.' );
 			}
@@ -202,10 +202,15 @@ final class SA_Registration {
 				 * shape; the worker simply performs no account mutation. */
 				$job = array( 'user_id' => $job_user_id, 'privacy_epoch' => $job_epoch, 'created_at' => time() );
 				set_transient( $job_key, $job, self::RECOVERY_JOB_TTL );
-				if ( get_transient( $job_key ) === $job && function_exists( 'wp_schedule_single_event' ) ) {
-					wp_schedule_single_event( time() + 1, self::RECOVERY_JOB_HOOK, array( $job_token ) );
-				} else {
+				$stored = get_transient( $job_key ) === $job;
+				$indexed = ! $job_user_id || SAUTH_Privacy_Jobs::register_job( $job_user_id, $job_key );
+				$scheduled = false;
+				if ( $stored && $indexed && function_exists( 'wp_schedule_single_event' ) ) {
+					$scheduled = false !== wp_schedule_single_event( time() + 1, self::RECOVERY_JOB_HOOK, array( $job_token ) );
+				}
+				if ( ! $scheduled ) {
 					delete_transient( $job_key );
+					if ( $job_user_id ) { SAUTH_Privacy_Jobs::forget_job( $job_user_id, $job_key ); }
 				}
 			}
 		}
@@ -222,6 +227,7 @@ final class SA_Registration {
 		if ( ! is_array( $job ) || absint( $job['created_at'] ?? 0 ) < time() - self::RECOVERY_JOB_TTL ) { return; }
 		$user_id = absint( $job['user_id'] ?? 0 );
 		$epoch   = (string) ( $job['privacy_epoch'] ?? '' );
+		if ( $user_id ) { SAUTH_Privacy_Jobs::forget_job( $user_id, $key ); }
 		if ( ! $user_id || ! SAUTH_Privacy_Jobs::valid_snapshot( $user_id, $epoch ) ) { return; }
 		$user = get_userdata( $user_id );
 		if ( ! $user instanceof WP_User ) { return; }
