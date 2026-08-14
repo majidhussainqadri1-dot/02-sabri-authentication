@@ -206,7 +206,7 @@ final class SA_Registration {
 				$job_key = self::recovery_job_key( $job_token );
 				/* A no-match or erasure-blocked request still gets the same opaque job
 				 * shape; the worker simply performs no account mutation. */
-				$job = array( 'user_id' => $job_user_id, 'privacy_epoch' => $job_epoch, 'created_at' => time() );
+				$job = array( 'user_id' => $job_user_id, 'privacy_epoch' => $job_epoch, 'created_at' => time(), 'retry_count' => 0 );
 				set_transient( $job_key, $job, self::RECOVERY_JOB_TTL );
 				$stored = get_transient( $job_key ) === $job;
 				$indexed = ! $job_user_id || SAUTH_Privacy_Jobs::register_job( $job_user_id, $job_key );
@@ -229,21 +229,43 @@ final class SA_Registration {
 		if ( '' === $job_token || strlen( $job_token ) > 128 ) { return; }
 		$key = self::recovery_job_key( $job_token );
 		$job = get_transient( $key );
-		delete_transient( $key );
-		if ( ! is_array( $job ) || absint( $job['created_at'] ?? 0 ) < time() - self::RECOVERY_JOB_TTL ) { return; }
+		if ( ! is_array( $job ) ) { return; }
 		$user_id = absint( $job['user_id'] ?? 0 );
 		$epoch   = (string) ( $job['privacy_epoch'] ?? '' );
-		if ( $user_id ) { SAUTH_Privacy_Jobs::forget_job( $user_id, $key ); }
-		if ( SAUTH_Operations::safe_mode() || ! SA_Membership_Adapter::available() || ! SAUTH_Account_Contract::provider_available() ) { return; }
-		if ( ! SAUTH_Provider_Health::allow_request( 'email' ) ) { return; }
-		if ( ! $user_id || ! SAUTH_Privacy_Jobs::valid_snapshot( $user_id, $epoch ) ) { return; }
+		$created = absint( $job['created_at'] ?? 0 );
+		if ( ! $created || $created < time() - self::RECOVERY_JOB_TTL ) { self::delete_recovery_job( $user_id, $key ); return; }
+		if ( ! $user_id || ! SAUTH_Privacy_Jobs::valid_snapshot( $user_id, $epoch ) ) { self::delete_recovery_job( $user_id, $key ); return; }
+		if ( SAUTH_Operations::safe_mode() || ! SA_Membership_Adapter::available() || ! SAUTH_Account_Contract::provider_available() || ! SAUTH_Provider_Health::allow_request( 'email' ) ) {
+			self::retry_recovery_job( $job_token, $key, $job );
+			return;
+		}
 		$user = get_userdata( $user_id );
-		if ( ! $user instanceof WP_User ) { return; }
+		if ( ! $user instanceof WP_User ) { self::delete_recovery_job( $user_id, $key ); return; }
+		self::delete_recovery_job( $user_id, $key );
 		$started = microtime( true );
 		$result = retrieve_password( $user->user_login );
 		$latency = (int) round( ( microtime( true ) - $started ) * 1000 );
 		if ( is_wp_error( $result ) ) { SAUTH_Provider_Health::record_failure( 'email', 'recovery_delivery_failed', $latency ); }
 		else { SAUTH_Provider_Health::record_success( 'email', $latency ); }
+	}
+
+	private static function retry_recovery_job( $job_token, $key, array $job ) {
+		$user_id = absint( $job['user_id'] ?? 0 );
+		$created = absint( $job['created_at'] ?? 0 );
+		$retries = absint( $job['retry_count'] ?? 0 );
+		$delay = min( 300, 60 * ( 1 << min( $retries, 2 ) ) );
+		if ( $retries >= 3 || ! $created || $created + self::RECOVERY_JOB_TTL <= time() + $delay || ! function_exists( 'wp_schedule_single_event' ) ) { self::delete_recovery_job( $user_id, $key ); return false; }
+		$job['retry_count'] = $retries + 1;
+		$ttl = max( 1, $created + self::RECOVERY_JOB_TTL - time() );
+		$stored = set_transient( $key, $job, $ttl );
+		if ( false === $stored || get_transient( $key ) !== $job ) { self::delete_recovery_job( $user_id, $key ); return false; }
+		if ( false === wp_schedule_single_event( time() + $delay, self::RECOVERY_JOB_HOOK, array( $job_token ) ) ) { self::delete_recovery_job( $user_id, $key ); return false; }
+		return true;
+	}
+
+	private static function delete_recovery_job( $user_id, $key ) {
+		delete_transient( $key );
+		if ( $user_id ) { SAUTH_Privacy_Jobs::forget_job( $user_id, $key ); }
 	}
 
 	public function reset_password() {
@@ -271,7 +293,7 @@ final class SA_Registration {
 		$confirm  = isset( $_POST['password_confirm'] ) ? (string) wp_unslash( $_POST['password_confirm'] ) : '';
 		if ( strlen( $password ) > self::MAX_PASSWORD_BYTES || strlen( $confirm ) > self::MAX_PASSWORD_BYTES || $password !== $confirm || strlen( $password ) < self::MIN_PASSWORD_LENGTH ) {
 			$password = ''; $confirm = '';
-			$url = add_query_arg( array( 'key' => rawurlencode( $key ), 'login' => rawurlencode( $login ) ), SA_Security::message_url( 'reset', 'error', 'Use matching passwords of at least 12 characters.' ) );
+			$url = add_query_arg( array( 'key' => $key, 'login' => $login ), SA_Security::message_url( 'reset', 'error', 'Use matching passwords of at least 12 characters.' ) );
 			wp_safe_redirect( $url );
 			exit;
 		}
@@ -291,7 +313,13 @@ final class SA_Registration {
 			wp_safe_redirect( SA_Security::message_url( 'reset', 'error', 'The password change could not be confirmed. All sessions were revoked for safety; request a new reset link.' ) );
 			exit;
 		}
-		SAUTH_Session_Manager::revoke_user_sessions( $user_id, 'password_reset' );
+		$revoked = SAUTH_Session_Manager::revoke_user_sessions( $user_id, 'password_reset' );
+		if ( ! $revoked ) {
+			wp_clear_auth_cookie();
+			SA_Membership_Adapter::audit( 'password_reset_session_revocation_unconfirmed', $user_id );
+			wp_safe_redirect( SA_Security::message_url( 'login', 'error', 'Your password was changed, but sign-out-everywhere could not be confirmed. For safety, do not treat the session reset as complete; contact support or retry from a trusted device.' ) );
+			exit;
+		}
 		SA_Security::clear_rate_limit( 'reset_password', strtolower( $login ) );
 		SAUTH_Event_Outbox::emit( 'PasswordResetCompleted.v1', $user_id, $user_id, array( 'all_sessions_revoked' => true, 'method' => 'email_reset' ), 'security' );
 		SA_Membership_Adapter::audit( 'password_reset_completed', $user_id );
@@ -387,7 +415,7 @@ final class SA_Registration {
 		SAUTH_Login_Risk::record_failure( $user_id, $reason );
 		SAUTH_Event_Outbox::emit( 'AccountAuthenticationFailed.v1', $user_id, $user_id, array( 'method' => 'password', 'reason' => sanitize_key( (string) $reason ) ), 'security' );
 		if ( $user_id ) { SA_Membership_Adapter::audit( 'password_authentication_failed', $user_id, array( 'reason' => sanitize_key( (string) $reason ) ) ); }
-		$url = add_query_arg( 'redirect_to', rawurlencode( SA_Security::safe_redirect( $redirect ) ), SA_Security::message_url( 'login', 'error', 'The sign-in details were not accepted. Check your credentials or complete account verification.' ) );
+		$url = add_query_arg( 'redirect_to', SA_Security::safe_redirect( $redirect ), SA_Security::message_url( 'login', 'error', 'The sign-in details were not accepted. Check your credentials or complete account verification.' ) );
 		wp_safe_redirect( $url );
 		exit;
 	}

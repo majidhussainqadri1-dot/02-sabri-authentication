@@ -198,7 +198,7 @@ final class SAUTH_Email_Verification {
 			$job_token = SA_Security::random_token( 16 );
 			if ( '' !== $job_token ) {
 				$job_key = self::resend_job_key( $job_token );
-				$job = array( 'user_id' => $job_user_id, 'privacy_epoch' => $job_epoch, 'created_at' => time() );
+				$job = array( 'user_id' => $job_user_id, 'privacy_epoch' => $job_epoch, 'created_at' => time(), 'retry_count' => 0 );
 				set_transient( $job_key, $job, self::RESEND_JOB_TTL );
 				$stored = get_transient( $job_key ) === $job;
 				$indexed = ! $job_user_id || SAUTH_Privacy_Jobs::register_job( $job_user_id, $job_key );
@@ -221,16 +221,40 @@ final class SAUTH_Email_Verification {
 		if ( '' === $job_token || strlen( $job_token ) > 128 ) { return; }
 		$key = self::resend_job_key( $job_token );
 		$job = get_transient( $key );
-		delete_transient( $key );
 		if ( ! is_array( $job ) ) { return; }
 		$user_id = absint( $job['user_id'] ?? 0 );
 		$epoch   = (string) ( $job['privacy_epoch'] ?? '' );
-		if ( $user_id ) { SAUTH_Privacy_Jobs::forget_job( $user_id, $key ); }
-		if ( absint( $job['created_at'] ?? 0 ) < time() - self::RESEND_JOB_TTL ) { return; }
-		if ( SAUTH_Operations::safe_mode() || ! SAUTH_Account_Contract::provider_available() ) { return; }
-		if ( ! $user_id || ! SAUTH_Privacy_Jobs::valid_snapshot( $user_id, $epoch ) ) { return; }
+		$created = absint( $job['created_at'] ?? 0 );
+		if ( ! $created || $created < time() - self::RESEND_JOB_TTL ) { self::delete_resend_job( $user_id, $key ); return; }
+		if ( ! $user_id || ! SAUTH_Privacy_Jobs::valid_snapshot( $user_id, $epoch ) ) { self::delete_resend_job( $user_id, $key ); return; }
+		if ( SAUTH_Operations::safe_mode() || ! SAUTH_Account_Contract::provider_available() ) { self::retry_resend_job( $job_token, $key, $job, 60 ); return; }
 		$user = get_userdata( $user_id );
-		if ( $user instanceof WP_User ) { self::issue( $user_id, (string) $user->user_email, false ); }
+		if ( ! $user instanceof WP_User ) { self::delete_resend_job( $user_id, $key ); return; }
+		$result = self::issue( $user_id, (string) $user->user_email, false );
+		if ( is_wp_error( $result ) ) {
+			$retryable = array( 'sauth_email_safe_mode', 'sauth_email_provider_unavailable', 'sauth_email_delivery_circuit_open', 'sauth_email_storage_unavailable', 'sauth_email_challenge_store_failed', 'sauth_email_delivery_failed', 'sauth_email_resend_throttled' );
+			if ( in_array( $result->get_error_code(), $retryable, true ) ) { self::retry_resend_job( $job_token, $key, $job, 'sauth_email_resend_throttled' === $result->get_error_code() ? self::RESEND_DELAY : 60 ); return; }
+		}
+		self::delete_resend_job( $user_id, $key );
+	}
+
+	private static function retry_resend_job( $job_token, $key, array $job, $minimum_delay ) {
+		$user_id = absint( $job['user_id'] ?? 0 );
+		$created = absint( $job['created_at'] ?? 0 );
+		$retries = absint( $job['retry_count'] ?? 0 );
+		$delay = max( absint( $minimum_delay ), min( 300, 60 * ( 1 << min( $retries, 2 ) ) ) );
+		if ( $retries >= 3 || ! $created || $created + self::RESEND_JOB_TTL <= time() + $delay || ! function_exists( 'wp_schedule_single_event' ) ) { self::delete_resend_job( $user_id, $key ); return false; }
+		$job['retry_count'] = $retries + 1;
+		$ttl = max( 1, $created + self::RESEND_JOB_TTL - time() );
+		$stored = set_transient( $key, $job, $ttl );
+		if ( false === $stored || get_transient( $key ) !== $job ) { self::delete_resend_job( $user_id, $key ); return false; }
+		if ( false === wp_schedule_single_event( time() + $delay, self::RESEND_JOB_HOOK, array( $job_token ) ) ) { self::delete_resend_job( $user_id, $key ); return false; }
+		return true;
+	}
+
+	private static function delete_resend_job( $user_id, $key ) {
+		delete_transient( $key );
+		if ( $user_id ) { SAUTH_Privacy_Jobs::forget_job( $user_id, $key ); }
 	}
 
 	/** Atomically consume one valid email-verification token. */
