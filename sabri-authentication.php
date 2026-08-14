@@ -119,6 +119,11 @@ function sauth_passkey_assurance_epoch_rotated( $meta_id, $user_id, $meta_key, $
 add_action( 'updated_user_meta', 'sauth_passkey_assurance_epoch_rotated', 10, 4 );
 
 function sauth_start_plugin() {
+	static $started = false;
+	if ( $started ) {
+		return;
+	}
+	$started = true;
 	SAUTH_Storage_Router::init();
 	SAUTH_Provider_Health::init();
 	SAUTH_Provider_HTTP_Guard::init();

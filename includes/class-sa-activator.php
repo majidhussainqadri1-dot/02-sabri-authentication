@@ -33,7 +33,7 @@ final class SA_Activator {
 			);
 		}
 		if ( ! self::repair() ) {
-			update_option( SAUTH_Operations::SAFE_MODE_OPTION, '1', false );
+			SAUTH_Operations::enter_safe_mode();
 			deactivate_plugins( plugin_basename( SAUTH_FILE ) );
 			wp_die(
 				esc_html__( 'File 02 activation stopped because its database/page migration postconditions were not satisfied. Safe Mode was enabled and no successful version marker was published.', 'sabri-authentication' ),
@@ -68,9 +68,11 @@ final class SA_Activator {
 		$stored    = (string) get_option( 'sauth_version', get_option( 'sa_version', '' ) );
 		if ( SAUTH_DB_VERSION !== $stored_db || SAUTH_VERSION !== $stored ) {
 			if ( ! self::repair() ) {
-				update_option( SAUTH_Operations::SAFE_MODE_OPTION, '1', false );
+				SAUTH_Operations::enter_safe_mode();
+				return false;
 			}
 		}
+		return true;
 	}
 
 	/**

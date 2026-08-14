@@ -16,6 +16,9 @@ final class SAUTH_Operations {
 		/* admin_init runs before admin-ajax action dispatch, so a pre-issued passkey
 		 * challenge cannot mutate while Safe Mode is active. */
 		add_action( 'admin_init', array( __CLASS__, 'enforce_safe_mode_request_gate' ), 0 );
+		if ( self::safe_mode() && ! self::safe_mode_entered_at() ) {
+			self::enter_safe_mode();
+		}
 	}
 
 	public static function safe_mode() {
@@ -25,6 +28,17 @@ final class SAUTH_Operations {
 	/** Timestamp of the latest Safe Mode entry; retained after exit to kill pre-entry challenges. */
 	public static function safe_mode_entered_at() {
 		return absint( get_option( self::SAFE_MODE_ENTERED_AT, 0 ) );
+	}
+
+	/** Enter Safe Mode and atomically establish the revocation epoch used by challenge gates. */
+	public static function enter_safe_mode() {
+		$entered = time();
+		update_option( self::SAFE_MODE_ENTERED_AT, $entered, false );
+		if ( $entered !== absint( get_option( self::SAFE_MODE_ENTERED_AT, 0 ) ) ) {
+			return false;
+		}
+		update_option( self::SAFE_MODE_OPTION, '1', false );
+		return '1' === (string) get_option( self::SAFE_MODE_OPTION, '' );
 	}
 
 	public static function high_risk_actions_available() {
@@ -91,17 +105,15 @@ final class SAUTH_Operations {
 		if ( ! current_user_can( 'manage_options' ) ) { wp_die( esc_html__( 'Access denied.', 'sabri-authentication' ) ); }
 		check_admin_referer( 'sauth_toggle_safe_mode', 'sauth_nonce' );
 		$enable = ! empty( $_POST['enable'] );
-		$expected = $enable ? '1' : '0';
 		if ( $enable ) {
-			$entered = time();
-			update_option( self::SAFE_MODE_ENTERED_AT, $entered, false );
-			if ( $entered !== absint( get_option( self::SAFE_MODE_ENTERED_AT, 0 ) ) ) {
-				self::redirect( 'error', 'Safe Mode could not establish its challenge-revocation epoch.' );
+			if ( ! self::enter_safe_mode() ) {
+				self::redirect( 'error', 'Safe Mode could not establish its challenge-revocation epoch and state.' );
 			}
-		}
-		update_option( self::SAFE_MODE_OPTION, $expected, false );
-		if ( $expected !== (string) get_option( self::SAFE_MODE_OPTION, '' ) ) {
-			self::redirect( 'error', 'Safe Mode state could not be stored safely.' );
+		} else {
+			update_option( self::SAFE_MODE_OPTION, '0', false );
+			if ( '0' !== (string) get_option( self::SAFE_MODE_OPTION, '' ) ) {
+				self::redirect( 'error', 'Safe Mode state could not be stored safely.' );
+			}
 		}
 		if ( $enable ) {
 			/* Contain active authenticated state immediately. Any pre-entry WebAuthn
@@ -125,10 +137,8 @@ final class SAUTH_Operations {
 				self::release_repair_lock( $lock ); self::redirect( 'error', 'File 00 readiness/contracts are unavailable; repair stopped before mutation.' );
 			}
 			$was_safe = self::safe_mode();
-			if ( ! $was_safe ) {
-				update_option( self::SAFE_MODE_OPTION, '1', false );
-				update_option( self::SAFE_MODE_ENTERED_AT, time(), false );
-				if ( '1' !== (string) get_option( self::SAFE_MODE_OPTION, '' ) ) { self::release_repair_lock( $lock ); self::redirect( 'error', 'Guarded repair could not enter Safe Mode.' ); }
+			if ( ! $was_safe && ! self::enter_safe_mode() ) {
+				self::release_repair_lock( $lock ); self::redirect( 'error', 'Guarded repair could not enter Safe Mode with a revocation epoch.' );
 			}
 			$core_repaired = SAUTH_Activator::repair();
 			SAUTH_Passkeys::maybe_install( true );
@@ -148,7 +158,7 @@ final class SAUTH_Operations {
 			SA_Membership_Adapter::audit( 'authentication_guarded_repair_completed', get_current_user_id() );
 			self::release_repair_lock( $lock ); self::redirect( 'success', 'Guarded repair completed and all checked postconditions passed.' );
 		} catch ( Throwable $error ) {
-			update_option( self::SAFE_MODE_OPTION, '1', false );
+			self::enter_safe_mode();
 			SA_Membership_Adapter::audit( 'authentication_guarded_repair_failed', get_current_user_id(), array( 'reference' => substr( hash( 'sha256', get_class( $error ) . '|' . $error->getMessage() ), 0, 20 ) ) );
 			self::release_repair_lock( $lock ); self::redirect( 'error', 'Guarded repair failed safely. Safe Mode remains enabled.' );
 		} finally {

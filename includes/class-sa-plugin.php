@@ -49,7 +49,10 @@ final class SA_Plugin {
 		 * ready. Protected settings mutations are registered only after that
 		 * reconciliation succeeds, so a degraded dependency cannot mutate auth
 		 * provider configuration through admin-post. */
-		SA_Activator::maybe_upgrade();
+		if ( ! SA_Activator::maybe_upgrade() ) {
+			add_action( 'admin_notices', array( $this, 'migration_notice' ) );
+			return;
+		}
 		add_action( 'admin_post_sa_save_auth_settings', array( $this, 'save_settings' ) );
 		add_action( 'admin_post_sauth_save_auth_settings', array( $this, 'save_settings' ) );
 		$this->google->hooks();
@@ -276,6 +279,12 @@ final class SA_Plugin {
 		}
 		delete_transient( 'sauth_activation_notice' );
 		echo '<div class="notice notice-success is-dismissible"><p><strong>Sabri Authentication and Accounts ' . esc_html( SAUTH_VERSION ) . ' activated.</strong> File 00 remains the exclusive identity, membership, account-class, guardian, role, verification and MFA-policy authority. File 02 supplies password, Google-first and passkey authentication orchestration, risk challenge, signed email verification, session controls, event outbox and redacted operations.</p></div>';
+	}
+
+	public function migration_notice() {
+		if ( current_user_can( 'activate_plugins' ) ) {
+			echo '<div class="notice notice-error"><p><strong>Sabri Authentication migration is incomplete:</strong> File 02 entered Safe Mode and provider/settings mutation hooks were not registered for this request. Run the guarded repair and verify storage postconditions before resuming authentication changes.</p></div>';
+		}
 	}
 
 	public function dependency_notice() {
