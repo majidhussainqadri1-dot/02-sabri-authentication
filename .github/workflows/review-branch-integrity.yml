@@ -69,7 +69,7 @@ jobs:
             tests/r309-release-truth-regression.php
             tests/r310-final-adversarial-regression.php
           )
-          for extra in tests/r31*-regression.php tests/r32*-regression.php; do [ -e "$extra" ] && tests+=("$extra"); done
+          for extra in tests/r31*-regression.php tests/r32*-regression.php tests/r33*-regression.php; do [ -e "$extra" ] && tests+=("$extra"); done
           declare -A seen=()
           for test_file in "${tests[@]}"; do
             if [ -z "${seen[$test_file]+x}" ]; then php "$test_file"; seen[$test_file]=1; fi
