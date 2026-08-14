@@ -81,6 +81,7 @@ jobs:
             tests/three-plan-completion-unit.php
             tests/storage-migration-unit.php
             tests/r291-r300-review-regression.php
+            tests/r299-cross-flow-regression.php
           )
           : > "$RUNNER_TEMP/php-suite-failures-${{ matrix.php }}.txt"
           failed=0
