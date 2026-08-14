@@ -1,7 +1,7 @@
 <?php
 
 define( 'ABSPATH', __DIR__ . '/' );
-define( 'SA_VERSION', '0.3.0' );
+define( 'SAUTH_VERSION', '1.2.1' );
 
 $GLOBALS['sa_current_user'] = 7;
 $GLOBALS['sa_logged_in'] = true;
@@ -9,6 +9,7 @@ $GLOBALS['sa_session_token'] = 'session-token';
 $GLOBALS['sa_password_ok'] = true;
 $GLOBALS['sa_auth_result'] = array();
 $GLOBALS['sa_transients'] = array();
+$GLOBALS['sa_options'] = array();
 $GLOBALS['sa_fingerprint'] = 'fingerprint-a';
 
 function absint( $value ) { return abs( (int) $value ); }
@@ -20,11 +21,14 @@ function get_userdata( $user_id ) { return 7 === (int) $user_id ? (object) array
 function wp_check_password( $password, $hash, $user_id ) { return (bool) $GLOBALS['sa_password_ok'] && 'stored-hash' === $hash && 7 === (int) $user_id; }
 function wp_generate_uuid4() { return '123e4567-e89b-42d3-a456-426614174000'; }
 function wp_salt( $scheme = 'auth' ) { return 'unit-test-' . $scheme; }
-function do_action() {}
-function add_action() {}
+function add_action() { return true; }
+function do_action_ref_array( $hook, $args ) { return null; }
 function set_transient( $key, $value, $ttl ) { $GLOBALS['sa_transients'][ $key ] = array( 'value' => $value, 'expires' => time() + max( 1, (int) $ttl ) ); return true; }
 function get_transient( $key ) { if ( ! isset( $GLOBALS['sa_transients'][ $key ] ) ) { return false; } if ( $GLOBALS['sa_transients'][ $key ]['expires'] <= time() ) { unset( $GLOBALS['sa_transients'][ $key ] ); return false; } return $GLOBALS['sa_transients'][ $key ]['value']; }
 function delete_transient( $key ) { unset( $GLOBALS['sa_transients'][ $key ] ); return true; }
+function update_option( $key, $value, $autoload = null ) { $GLOBALS['sa_options'][ $key ] = $value; return true; }
+function get_option( $key, $default = false ) { return array_key_exists( $key, $GLOBALS['sa_options'] ) ? $GLOBALS['sa_options'][ $key ] : $default; }
+function delete_option( $key ) { unset( $GLOBALS['sa_options'][ $key ] ); return true; }
 
 final class SA_Security {
 	public static function client_fingerprint() { return (string) $GLOBALS['sa_fingerprint']; }
@@ -59,35 +63,36 @@ $valid = array(
 	'contract_version' => '1.0.0',
 	'subject_uuid' => '123e4567-e89b-42d3-a456-426614174000',
 	'scope_hash' => $scope_hash,
-	'method' => 'totp',
+	'method' => 'webauthn_passkey',
 	'assurance_level' => 'aal2',
 	'verified_at' => gmdate( 'c', time() - 5 ),
 	'expires_at' => gmdate( 'c', time() + 300 ),
 	'trace_id' => '123e4567-e89b-42d3-a456-426614174000',
 	'result' => 'valid',
-	'reason_code' => 'session_assurance_valid',
+	'reason_code' => 'authentication_assurance_valid',
 );
 $GLOBALS['sa_auth_result'] = $valid;
 
-$result = SA_Professional_Reauthentication::verify_and_record( 8, 'password', '123456', array( 'scope' => $scope ) );
+$result = SA_Professional_Reauthentication::verify_and_record( 8, 'password', 'ignored', array( 'scope' => $scope ) );
 sa_prof_assert( 'invalid' === $result['result'] && 'current_authenticated_session_required' === $result['reason_code'], 'different subject cannot bind current session' );
 
 $GLOBALS['sa_password_ok'] = false;
-$result = SA_Professional_Reauthentication::verify_and_record( 7, 'wrong', '123456', array( 'scope' => $scope ) );
+$result = SA_Professional_Reauthentication::verify_and_record( 7, 'wrong', 'ignored', array( 'scope' => $scope ) );
 sa_prof_assert( 'invalid' === $result['result'] && 'current_password_invalid' === $result['reason_code'], 'wrong current password fails closed' );
 
 $GLOBALS['sa_password_ok'] = true;
 $GLOBALS['sa_auth_result'] = array( 'contract' => 'wrong', 'contract_version' => '1.0.0', 'result' => 'valid' );
-$result = SA_Professional_Reauthentication::verify_and_record( 7, 'password', '123456', array( 'scope' => $scope ) );
+$result = SA_Professional_Reauthentication::verify_and_record( 7, 'password', 'ignored', array( 'scope' => $scope ) );
 sa_prof_assert( 'unknown' === $result['result'] && 'authentication_contract_invalid' === $result['reason_code'], 'invalid downstream contract fails closed' );
 
 $GLOBALS['sa_auth_result'] = $valid;
-$result = SA_Professional_Reauthentication::verify_and_record( 7, 'password', '123456', array( 'scope' => $scope ) );
-sa_prof_assert( 'valid' === $result['result'], 'password plus AAL2 evidence succeeds' );
+$result = SA_Professional_Reauthentication::verify_and_record( 7, 'password', 'ignored', array( 'scope' => $scope ) );
+sa_prof_assert( 'valid' === $result['result'], 'password plus File 02 AAL2 passkey evidence succeeds' );
 sa_prof_assert( true === $result['password_verified'], 'fresh password verification is explicit' );
 sa_prof_assert( 'professional_verification_review' === $result['purpose'], 'professional review purpose is explicit' );
 sa_prof_assert( 'clinical_sign_in' === $result['authentication_purpose'], 'delegated authentication purpose remains explicit' );
 sa_prof_assert( 'aal2' === $result['assurance_level'], 'AAL2 level is preserved' );
+sa_prof_assert( 'webauthn_passkey' === $result['method'], 'professional receipt must retain File 02 passkey method' );
 
 $result = SA_Professional_Reauthentication::assertion( 7, $scope );
 sa_prof_assert( 'valid' === $result['result'], 'existing session-bound professional receipt can be re-read' );
@@ -99,9 +104,15 @@ sa_prof_assert( 'invalid' === $result['result'], 'client fingerprint change revo
 
 $GLOBALS['sa_fingerprint'] = 'fingerprint-a';
 $GLOBALS['sa_auth_result'] = $valid;
-SA_Professional_Reauthentication::verify_and_record( 7, 'password', '123456', array( 'scope' => $scope ) );
+SA_Professional_Reauthentication::verify_and_record( 7, 'password', 'ignored', array( 'scope' => $scope ) );
 $GLOBALS['sa_session_token'] = 'rotated-session-token';
 $result = SA_Professional_Reauthentication::assertion( 7, $scope );
 sa_prof_assert( 'invalid' === $result['result'], 'session-token rotation revokes professional receipt' );
+
+$result = SA_Professional_Reauthentication::verify_and_record( 7, str_repeat( 'x', 4097 ), 'ignored', array( 'scope' => $scope ) );
+sa_prof_assert( 'invalid' === $result['result'] && 'current_password_invalid' === $result['reason_code'], 'oversized current password is rejected before verification' );
+
+$result = SA_Professional_Reauthentication::verify_and_record( 7, 'password', 'ignored', array( 'scope' => str_repeat( 'x', 2049 ) ) );
+sa_prof_assert( 'invalid' === $result['result'] && 'opaque_scope_invalid' === $result['reason_code'], 'oversized professional scope is rejected before hashing/provider use' );
 
 echo "All {$tests} professional reauthentication checks passed.\n";
