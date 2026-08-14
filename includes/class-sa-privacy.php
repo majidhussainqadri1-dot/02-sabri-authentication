@@ -93,6 +93,7 @@ final class SA_Privacy {
 		}
 
 		$failed = false;
+		$more_outbox = false;
 		try {
 			if ( ! SAUTH_Session_Manager::revoke_user_sessions( $user_id, 'privacy_erasure' ) ) {
 				$failed = true;
@@ -162,7 +163,8 @@ final class SA_Privacy {
 					else { $removed = true; }
 				}
 				$remaining_raw = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM `{$table}` WHERE actor_user_id=%d OR subject_user_id=%d", $user_id, $user_id ) );
-				if ( null === $remaining_raw || '' !== (string) $wpdb->last_error || (int) $remaining_raw > 0 ) { $failed = true; }
+				if ( null === $remaining_raw || '' !== (string) $wpdb->last_error ) { $failed = true; }
+				elseif ( (int) $remaining_raw > 0 ) { $more_outbox = true; }
 			}
 
 			/* New asynchronous jobs are indexed and were purged by begin_erasure().
@@ -172,6 +174,12 @@ final class SA_Privacy {
 		} catch ( Throwable $error ) {
 			$failed = true;
 			$messages[] = __( 'File 02 privacy erasure encountered an internal failure and remains fail-closed.', 'sabri-authentication' );
+		}
+
+		if ( $more_outbox && ! $failed ) {
+			$messages[] = __( 'File 02 authentication-event anonymization is continuing in the next privacy-erasure page.', 'sabri-authentication' );
+			SA_Membership_Adapter::audit( 'authentication_privacy_erasure_continuation', $user_id );
+			return array( 'items_removed' => $removed, 'items_retained' => true, 'messages' => $messages, 'done' => false );
 		}
 
 		if ( $failed ) {
