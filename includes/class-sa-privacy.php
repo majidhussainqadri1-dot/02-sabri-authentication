@@ -2,192 +2,213 @@
 
 defined( 'ABSPATH' ) || exit;
 
+/** File 02 privacy export, erasure and policy disclosure. */
 final class SA_Privacy {
+	const EXPORT_LIMIT = 200;
+
 	public function hooks() {
-		add_filter( 'wp_privacy_personal_data_exporters', array( $this, 'exporters' ) );
-		add_filter( 'wp_privacy_personal_data_erasers', array( $this, 'erasers' ) );
-		add_action( 'admin_init', array( $this, 'policy_content' ) );
+		add_filter( 'wp_privacy_personal_data_exporters', array( $this, 'register_exporter' ) );
+		add_filter( 'wp_privacy_personal_data_erasers', array( $this, 'register_eraser' ) );
+		add_action( 'admin_init', array( $this, 'privacy_policy' ) );
 	}
 
-	public function exporters( $exporters ) {
-		$exporters['sabri-authentication'] = array(
-			'exporter_friendly_name' => 'Sabri Authentication, Sessions and Account Links',
-			'callback'               => array( $this, 'export_data' ),
-		);
+	public function register_exporter( array $exporters ) {
+		$exporters['sabri-authentication'] = array( 'exporter_friendly_name' => __( 'Sabri Authentication and Accounts', 'sabri-authentication' ), 'callback' => array( $this, 'export' ) );
 		return $exporters;
 	}
 
-	public function erasers( $erasers ) {
-		$erasers['sabri-authentication'] = array(
-			'eraser_friendly_name' => 'Sabri Authentication Links and Projections',
-			'callback'             => array( $this, 'erase_data' ),
-		);
+	public function register_eraser( array $erasers ) {
+		$erasers['sabri-authentication'] = array( 'eraser_friendly_name' => __( 'Sabri Authentication and Accounts', 'sabri-authentication' ), 'callback' => array( $this, 'erase' ) );
 		return $erasers;
 	}
 
-	public function export_data( $email, $page = 1 ) {
-		$user = get_user_by( 'email', $email );
-		if ( ! $user ) {
-			return array( 'data' => array(), 'done' => true );
-		}
-
-		$fields = array(
-			'Google unique identifier'   => get_user_meta( $user->ID, '_sa_google_sub', true ),
-			'Google link version'        => get_user_meta( $user->ID, '_sa_google_link_version', true ),
-			'Google linked'              => get_user_meta( $user->ID, '_sa_google_account', true ),
-			'Google account email'       => get_user_meta( $user->ID, '_sa_google_email', true ),
-			'Google email verified'      => get_user_meta( $user->ID, '_sa_google_email_verified', true ),
-			'Google profile image URL'   => get_user_meta( $user->ID, '_sa_google_picture', true ),
-			'Google linked at'           => get_user_meta( $user->ID, '_sa_google_linked_at', true ),
-			'Google last login at'       => get_user_meta( $user->ID, '_sa_google_last_login_at', true ),
-			'Legacy account type'        => get_user_meta( $user->ID, '_sa_account_type', true ),
-			'Legacy phone'               => get_user_meta( $user->ID, '_sa_phone', true ),
-			'Legacy country'             => get_user_meta( $user->ID, '_sa_country', true ),
-			'Legacy city'                => get_user_meta( $user->ID, '_sa_city', true ),
-			'Legacy preferred language'  => get_user_meta( $user->ID, '_sa_preferred_language', true ),
-			'Legacy profile complete'    => get_user_meta( $user->ID, '_sa_profile_complete', true ),
-			'Legacy terms accepted at'   => get_user_meta( $user->ID, '_sa_terms_accepted_at', true ),
-			'Legacy privacy accepted at' => get_user_meta( $user->ID, '_sa_privacy_accepted_at', true ),
-			'Legacy WordPress biography' => (string) $user->description,
-		);
-
+	public function export( $email_address, $page = 1 ) {
 		global $wpdb;
-		$email_table = $wpdb->prefix . 'sa_email_verifications';
-		if ( self::table_exists( $email_table ) ) {
-			$row = $wpdb->get_row( $wpdb->prepare( "SELECT status, sent_at, expires_at, verified_at, created_at, updated_at FROM {$email_table} WHERE user_id = %d", $user->ID ), ARRAY_A );
-			if ( is_array( $row ) ) {
-				$fields['Local email-verification status']     = $row['status'];
-				$fields['Verification email last sent at']     = $row['sent_at'];
-				$fields['Verification challenge expires at']   = $row['expires_at'];
-				$fields['Email locally verified at']           = $row['verified_at'];
-				$fields['Verification challenge created at']   = $row['created_at'];
-				$fields['Verification challenge last updated'] = $row['updated_at'];
-			}
-		}
-
+		$user = get_user_by( 'email', sanitize_email( $email_address ) );
+		if ( ! $user instanceof WP_User ) { return array( 'data' => array(), 'done' => true ); }
+		$user_id = (int) $user->ID;
 		$data = array();
-		foreach ( $fields as $name => $value ) {
-			if ( '' !== (string) $value ) {
-				$data[] = array( 'name' => $name, 'value' => $value );
-			}
+
+		$google = $this->google_projection( $user_id );
+		if ( ! empty( $google ) ) {
+			$data[] = array( 'group_id' => 'sabri-authentication-google', 'group_label' => __( 'Google account authentication', 'sabri-authentication' ), 'item_id' => 'google-link-' . $user_id, 'data' => $this->export_pairs( $google ) );
 		}
 
-		$items = array(
-			array(
-				'group_id'    => 'sabri-authentication',
-				'group_label' => 'Sabri Authentication',
-				'item_id'     => 'sabri-authentication-' . $user->ID,
-				'data'        => $data,
-			),
-		);
-
-		$session_table = $wpdb->prefix . 'sa_auth_sessions';
-		if ( self::table_exists( $session_table ) ) {
-			$sessions = $wpdb->get_results(
-				$wpdb->prepare( "SELECT public_id, device_label, network_label, risk_level, status, created_at, last_seen_at, expires_at, revoked_at, revocation_reason FROM {$session_table} WHERE user_id = %d ORDER BY last_seen_at DESC LIMIT 100", $user->ID ),
-				ARRAY_A
-			);
-			foreach ( is_array( $sessions ) ? $sessions : array() as $session ) {
-				$items[] = array(
-					'group_id'    => 'sabri-authentication-sessions',
-					'group_label' => 'Sabri Authentication Sessions',
-					'item_id'     => 'sauth-session-' . sanitize_text_field( $session['public_id'] ),
-					'data'        => self::named_fields( $session ),
-				);
-			}
+		$sessions = $wpdb->get_results( $wpdb->prepare( 'SELECT public_id,device_label,network_label,risk_level,status,last_seen_at,expires_at,revoked_at,revocation_reason FROM ' . SAUTH_Activator::table( 'auth_sessions' ) . ' WHERE user_id=%d ORDER BY id DESC LIMIT %d', $user_id, self::EXPORT_LIMIT ), ARRAY_A );
+		foreach ( is_array( $sessions ) ? $sessions : array() as $row ) {
+			$data[] = array( 'group_id' => 'sabri-authentication-sessions', 'group_label' => __( 'Authentication sessions', 'sabri-authentication' ), 'item_id' => 'session-' . sanitize_key( (string) $row['public_id'] ), 'data' => $this->export_pairs( $row ) );
 		}
 
-		$device_table = $wpdb->prefix . 'sa_auth_devices';
-		if ( self::table_exists( $device_table ) ) {
-			$devices = $wpdb->get_results(
-				$wpdb->prepare( "SELECT public_id, device_label, network_label, status, risk_score, first_seen_at, last_seen_at, last_login_at FROM {$device_table} WHERE user_id = %d ORDER BY last_seen_at DESC LIMIT 100", $user->ID ),
-				ARRAY_A
-			);
-			foreach ( is_array( $devices ) ? $devices : array() as $device ) {
-				$items[] = array(
-					'group_id'    => 'sabri-authentication-devices',
-					'group_label' => 'Sabri Authentication Trusted Devices',
-					'item_id'     => 'sauth-device-' . sanitize_text_field( $device['public_id'] ),
-					'data'        => self::named_fields( $device ),
-				);
-			}
+		$email_row = $wpdb->get_row( $wpdb->prepare( 'SELECT status,attempts,sent_at,expires_at,verified_at,created_at,updated_at FROM ' . SAUTH_Activator::table( 'email_verifications' ) . ' WHERE user_id=%d', $user_id ), ARRAY_A );
+		if ( is_array( $email_row ) ) {
+			$data[] = array( 'group_id' => 'sabri-authentication-email', 'group_label' => __( 'Email verification', 'sabri-authentication' ), 'item_id' => 'email-verification-' . $user_id, 'data' => $this->export_pairs( $email_row ) );
 		}
 
-		return array( 'data' => $items, 'done' => true );
+		$attempts = $wpdb->get_results( $wpdb->prepare( 'SELECT public_id,result,reason_code,risk_score,created_at FROM ' . SAUTH_Activator::table( 'auth_attempts' ) . ' WHERE user_id=%d ORDER BY id DESC LIMIT %d', $user_id, self::EXPORT_LIMIT ), ARRAY_A );
+		foreach ( is_array( $attempts ) ? $attempts : array() as $row ) {
+			$data[] = array( 'group_id' => 'sabri-authentication-attempts', 'group_label' => __( 'Authentication security attempts', 'sabri-authentication' ), 'item_id' => 'attempt-' . sanitize_key( (string) $row['public_id'] ), 'data' => $this->export_pairs( $row ) );
+		}
+
+		$events = $wpdb->get_results( $wpdb->prepare( 'SELECT event_id,event_name,privacy_class,trace_id,status,created_at,published_at FROM ' . SAUTH_Activator::table( 'auth_outbox' ) . ' WHERE actor_user_id=%d OR subject_user_id=%d ORDER BY id DESC LIMIT %d', $user_id, $user_id, self::EXPORT_LIMIT ), ARRAY_A );
+		foreach ( is_array( $events ) ? $events : array() as $row ) {
+			$data[] = array( 'group_id' => 'sabri-authentication-events', 'group_label' => __( 'Authentication event evidence', 'sabri-authentication' ), 'item_id' => 'event-' . sanitize_key( (string) $row['event_id'] ), 'data' => $this->export_pairs( $row ) );
+		}
+
+		if ( class_exists( 'SAUTH_Passkeys' ) && is_callable( array( 'SAUTH_Passkeys', 'privacy_export' ) ) ) {
+			$passkeys = SAUTH_Passkeys::privacy_export( array(), sanitize_email( $email_address ), 1 );
+			if ( is_array( $passkeys ) && ! empty( $passkeys['data'] ) && is_array( $passkeys['data'] ) ) { $data = array_merge( $data, $passkeys['data'] ); }
+		}
+		return array( 'data' => $data, 'done' => true );
 	}
 
-	public function erase_data( $email, $page = 1 ) {
-		$user = get_user_by( 'email', $email );
-		if ( ! $user ) {
+	/**
+	 * Erase only File 02-owned personal data. File 00 identity/membership truth
+	 * and File 03 profile fields are explicitly out of scope.
+	 */
+	public function erase( $email_address, $page = 1 ) {
+		global $wpdb;
+		$user = get_user_by( 'email', sanitize_email( $email_address ) );
+		if ( ! $user instanceof WP_User ) {
 			return array( 'items_removed' => false, 'items_retained' => false, 'messages' => array(), 'done' => true );
 		}
+		$user_id = (int) $user->ID;
+		$removed = false;
+		$messages = array();
 
-		$keys = array_merge(
-			SA_Google_OAuth::google_meta_keys(),
-			array( '_sa_phone', '_sa_country', '_sa_city', '_sa_account_type', '_sa_preferred_language', '_sa_profile_complete', '_sa_terms_accepted_at', '_sa_privacy_accepted_at' )
-		);
-		foreach ( array_unique( $keys ) as $key ) {
-			delete_user_meta( $user->ID, $key );
-		}
-		if ( '' !== (string) $user->description ) {
-			wp_update_user( array( 'ID' => $user->ID, 'description' => '' ) );
+		/* The barrier must be raised before any deletion. If it cannot be proved,
+		 * fail closed and retain data rather than race queued recovery workers. */
+		if ( ! SAUTH_Privacy_Jobs::begin_erasure( $user_id ) ) {
+			return array( 'items_removed' => false, 'items_retained' => true, 'messages' => array( __( 'File 02 privacy erasure could not establish its asynchronous-job barrier. No destructive erasure was attempted.', 'sabri-authentication' ) ), 'done' => true );
 		}
 
-		global $wpdb;
-		foreach ( array( 'sa_email_verifications', 'sa_auth_sessions', 'sa_auth_devices', 'sa_auth_risk_challenges' ) as $suffix ) {
-			$table = $wpdb->prefix . $suffix;
-			if ( self::table_exists( $table ) ) {
-				$wpdb->delete( $table, array( 'user_id' => $user->ID ), array( '%d' ) );
+		$failed = false;
+		try {
+			if ( ! SAUTH_Session_Manager::revoke_user_sessions( $user_id, 'privacy_erasure' ) ) {
+				$failed = true;
+				$messages[] = __( 'WordPress session revocation could not be verified.', 'sabri-authentication' );
 			}
-		}
 
-		$attempt_table = $wpdb->prefix . 'sa_auth_attempts';
-		if ( self::table_exists( $attempt_table ) ) {
-			$wpdb->update(
-				$attempt_table,
-				array( 'user_id' => 0, 'fingerprint_hash' => str_repeat( '0', 64 ), 'network_hash' => str_repeat( '0', 64 ), 'reason_code' => 'privacy_anonymized' ),
-				array( 'user_id' => $user->ID ),
-				array( '%d', '%s', '%s', '%s' ),
-				array( '%d' )
+			if ( class_exists( 'SAUTH_Passkey_Runtime' ) && ! SAUTH_Passkey_Runtime::invalidate_user_assurance( $user_id ) ) {
+				/* invalidate_user_assurance contains failure by destroying every session,
+				 * but erasure still reports the unverified epoch mutation. */
+				$failed = true;
+				$messages[] = __( 'Passkey assurance invalidation could not be verified.', 'sabri-authentication' );
+			}
+
+			foreach ( SA_Google_OAuth::google_meta_keys() as $key ) {
+				if ( metadata_exists( 'user', $user_id, $key ) ) { $removed = true; }
+				delete_user_meta( $user_id, $key );
+				if ( metadata_exists( 'user', $user_id, $key ) ) { $failed = true; }
+			}
+
+			/* Durable passkey rows plus opaque WebAuthn user handle. */
+			$passkey_table = $wpdb->prefix . 'sauth_passkeys';
+			$passkey_count = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$passkey_table} WHERE user_id=%d", $user_id ) );
+			if ( $passkey_count > 0 ) { $removed = true; }
+			if ( class_exists( 'SAUTH_Passkeys' ) && is_callable( array( 'SAUTH_Passkeys', 'privacy_erase' ) ) ) {
+				SAUTH_Passkeys::privacy_erase( array(), sanitize_email( $email_address ), 1 );
+			}
+			if ( 0 !== (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$passkey_table} WHERE user_id=%d", $user_id ) ) ) { $failed = true; }
+			delete_user_meta( $user_id, SAUTH_Passkeys::USER_HANDLE_META );
+			delete_user_meta( $user_id, SAUTH_Passkey_Runtime::EPOCH_META );
+
+			/* File 02 canonical and preserved legacy rows must both honor erasure. */
+			$table_pairs = array(
+				array( SAUTH_Activator::table( 'email_verifications' ), SAUTH_Activator::legacy_table( 'email_verifications' ) ),
+				array( SAUTH_Activator::table( 'auth_sessions' ), SAUTH_Activator::legacy_table( 'auth_sessions' ) ),
+				array( SAUTH_Activator::table( 'auth_devices' ), SAUTH_Activator::legacy_table( 'auth_devices' ) ),
+				array( SAUTH_Activator::table( 'risk_challenges' ), SAUTH_Activator::legacy_table( 'risk_challenges' ) ),
+				array( SAUTH_Activator::table( 'auth_attempts' ), SAUTH_Activator::legacy_table( 'auth_attempts' ) ),
 			);
-		}
-
-		SAUTH_Session_Manager::revoke_user_sessions( $user->ID, 'privacy_erasure' );
-		return array(
-			'items_removed'  => true,
-			'items_retained' => true,
-			'messages'       => array(
-				'File 02 email challenges, Google link metadata, session projections, trusted-device projections, pending risk challenges and legacy File 02 fields were removed.',
-				'Short-lived security-attempt records were anonymized rather than deleted so bounded abuse-defense evidence cannot be re-associated with the account.',
-				'The WordPress account and Membership Core identity, roles, guardian, verification, institutional and audit records remain under their canonical privacy procedures.',
-			),
-			'done' => true,
-		);
-	}
-
-	public function policy_content() {
-		if ( ! function_exists( 'wp_add_privacy_policy_content' ) ) {
-			return;
-		}
-		wp_add_privacy_policy_content(
-			'Sabri Authentication and Accounts',
-			'<p class="privacy-policy-tutorial">This module may temporarily store one-way hashes for email challenges and session/device bindings, generalized device and network labels, bounded risk scores, expiry/status timestamps, Google account-link metadata and privacy-minimized authentication events. Raw verification tokens, passwords, reset keys, raw session tokens, full IP addresses, Google access/refresh tokens, TOTP secrets and recovery codes are not retained by File 02. Membership identity, guardian, roles and institutional verification remain under Sabri Membership Core. Session projections and inactive-device data are rotated, and privacy erasure deletes or anonymizes File 02-owned projections subject to bounded security-retention duties.</p>'
-		);
-	}
-
-	private static function named_fields( array $row ) {
-		$data = array();
-		foreach ( $row as $name => $value ) {
-			if ( '' !== (string) $value && null !== $value ) {
-				$data[] = array( 'name' => ucwords( str_replace( '_', ' ', $name ) ), 'value' => (string) $value );
+			foreach ( $table_pairs as $pair ) {
+				foreach ( array_unique( array_filter( $pair ) ) as $table ) {
+					if ( ! self::table_exists( $table ) ) { continue; }
+					$count = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM `{$table}` WHERE user_id=%d", $user_id ) );
+					if ( $count > 0 ) { $removed = true; }
+					$result = $wpdb->query( $wpdb->prepare( "DELETE FROM `{$table}` WHERE user_id=%d", $user_id ) );
+					if ( false === $result || 0 !== (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM `{$table}` WHERE user_id=%d", $user_id ) ) ) { $failed = true; }
+				}
 			}
+
+			/* Authentication event evidence keeps the event but removes direct subject
+			 * identifiers and identity-key payload fields. */
+			foreach ( array_unique( array_filter( array( SAUTH_Activator::table( 'auth_outbox' ), SAUTH_Activator::legacy_table( 'auth_outbox' ) ) ) ) as $table ) {
+				if ( ! self::table_exists( $table ) ) { continue; }
+				$rows = $wpdb->get_results( $wpdb->prepare( "SELECT id,payload_json FROM `{$table}` WHERE actor_user_id=%d OR subject_user_id=%d LIMIT %d", $user_id, $user_id, 5000 ), ARRAY_A );
+				foreach ( is_array( $rows ) ? $rows : array() as $row ) {
+					$payload = json_decode( (string) $row['payload_json'], true );
+					$payload = is_array( $payload ) ? self::erase_identity_payload( $payload ) : array();
+					$payload_json = wp_json_encode( $payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+					$updated = $wpdb->update( $table, array( 'actor_user_id' => 0, 'subject_user_id' => 0, 'payload_json' => false === $payload_json ? '{}' : $payload_json, 'updated_at' => current_time( 'mysql', true ) ), array( 'id' => absint( $row['id'] ) ), array( '%d','%d','%s','%s' ), array( '%d' ) );
+					if ( false === $updated ) { $failed = true; }
+					else { $removed = true; }
+				}
+				$remaining = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM `{$table}` WHERE actor_user_id=%d OR subject_user_id=%d", $user_id, $user_id ) );
+				if ( $remaining > 0 ) { $failed = true; }
+			}
+
+			/* New asynchronous jobs are indexed and were purged by begin_erasure().
+			 * Legacy unindexed transient receipts remain cryptographically invalid
+			 * after session/epoch revocation and expire within their original short TTL. */
+			$messages[] = __( 'Any pre-existing unindexed short-lived authentication receipt is invalidated immediately and expires under its original bounded transient lifetime.', 'sabri-authentication' );
+		} catch ( Throwable $error ) {
+			$failed = true;
+			$messages[] = __( 'File 02 privacy erasure encountered an internal failure and remains fail-closed.', 'sabri-authentication' );
 		}
-		return $data;
+
+		if ( $failed ) {
+			/* Do not clear the erasure barrier; no recovery/resend worker may recreate
+			 * File 02 state until an operator safely retries/completes erasure. */
+			SA_Membership_Adapter::audit( 'authentication_privacy_erasure_incomplete', $user_id );
+			return array( 'items_removed' => $removed, 'items_retained' => true, 'messages' => $messages, 'done' => true );
+		}
+
+		if ( ! SAUTH_Privacy_Jobs::finish_erasure( $user_id ) ) {
+			$messages[] = __( 'File 02 data was erased but the privacy barrier cleanup could not be verified.', 'sabri-authentication' );
+			return array( 'items_removed' => true, 'items_retained' => true, 'messages' => $messages, 'done' => true );
+		}
+		SA_Membership_Adapter::audit( 'authentication_privacy_erasure_completed', $user_id );
+		return array( 'items_removed' => $removed, 'items_retained' => false, 'messages' => $messages, 'done' => true );
+	}
+
+	public function privacy_policy() {
+		if ( ! function_exists( 'wp_add_privacy_policy_content' ) ) { return; }
+		$content = '<p>' . esc_html__( 'File 02 processes password authentication state, verified Google-link projections, signed email-verification evidence, privacy-minimized session/device/risk projections, WebAuthn/passkey public-key credentials and short-lived asynchronous recovery/resend job state. Passwords, reset keys, verification tokens, OAuth tokens, passkey private keys and raw WordPress session tokens are not stored by File 02.', 'sabri-authentication' ) . '</p>';
+		$content .= '<p>' . esc_html__( 'File 00 remains the canonical owner of membership, identity, account class, guardian, role and verification truth. File 02 does not erase those records. Privacy erasure revokes File 02 sessions and authentication assurance, deletes File 02-owned Google/passkey/session/verification/risk records, anonymizes direct user identifiers in authentication event evidence and invalidates queued recovery work before deletion.', 'sabri-authentication' ) . '</p>';
+		wp_add_privacy_policy_content( __( 'Sabri Authentication and Accounts', 'sabri-authentication' ), wp_kses_post( wpautop( $content ) ) );
+	}
+
+	private function google_projection( $user_id ) {
+		$fields = array( 'sub','email','email_verified','account','linked_at','last_login_at','link_version','picture' );
+		$out = array();
+		foreach ( $fields as $field ) {
+			$value = get_user_meta( $user_id, '_sauth_google_' . $field, true );
+			if ( '' === (string) $value ) { $value = get_user_meta( $user_id, '_sa_google_' . $field, true ); }
+			if ( '' !== (string) $value ) { $out[ $field ] = $value; }
+		}
+		return $out;
+	}
+
+	private function export_pairs( array $values ) {
+		$out = array();
+		foreach ( $values as $name => $value ) { $out[] = array( 'name' => ucwords( str_replace( '_', ' ', sanitize_key( (string) $name ) ) ), 'value' => is_scalar( $value ) ? (string) $value : wp_json_encode( $value ) ); }
+		return $out;
+	}
+
+	private static function erase_identity_payload( array $payload, $depth = 0 ) {
+		if ( $depth >= 4 ) { return array(); }
+		$out = array();
+		foreach ( $payload as $key => $value ) {
+			$clean = sanitize_key( (string) $key );
+			if ( in_array( $clean, array( 'user_id','actor_user_id','subject_user_id','owner_user_id','platform_uuid','subject_uuid' ), true ) ) { continue; }
+			$out[ $clean ] = is_array( $value ) ? self::erase_identity_payload( $value, $depth + 1 ) : $value;
+		}
+		return $out;
 	}
 
 	private static function table_exists( $table ) {
 		global $wpdb;
-		$like = $wpdb->esc_like( $table );
-		return $table === $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $like ) );
+		$table = (string) $table;
+		return '' !== $table && $table === (string) $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) );
 	}
 }
