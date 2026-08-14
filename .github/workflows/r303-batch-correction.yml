@@ -23,6 +23,21 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/r303-fix.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('tests/r303-registration-recovery-regression.php')
+          text = p.read_text(encoding='utf-8')
+          replacements = {
+              '    array( $registration, "wp_check_password( $password, (string) $fresh_user->user_pass, $user_id )", \'reset persistence postcondition missing\' ),\n': '    array( $registration, \'wp_check_password( $password, (string) $fresh_user->user_pass, $user_id )\', \'reset persistence postcondition missing\' ),\n',
+              '    array( $registration, "true === ( $assertion[\'membership\'][\'active\'] ?? false )", \'completion-only login does not require active membership\' ),\n': '    array( $registration, \'true === ( $assertion[\\\'membership\\\'][\\\'active\\\'] ?? false )\', \'completion-only login does not require active membership\' ),\n',
+              '$wipe = strpos( $registration, "$payload[\'password\'] = \'\';", $owner_call === false ? 0 : $owner_call );\n': '$wipe = strpos( $registration, \'$payload[\\\'password\\\'] = \\\'\\\';\', $owner_call === false ? 0 : $owner_call );\n',
+          }
+          for old, new in replacements.items():
+              if old not in text:
+                  raise SystemExit('R303 generated regression literal not found: ' + old.strip())
+              text = text.replace(old, new, 1)
+          p.write_text(text, encoding='utf-8')
+          PY
           git diff --check
           php -l includes/class-sa-registration.php
           php -l includes/class-sauth-email-verification.php
