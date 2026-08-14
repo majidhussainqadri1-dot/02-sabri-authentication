@@ -214,7 +214,7 @@ final class SA_Authentication_Assurance {
 		$index_key = self::session_index_key( $user_id, $token );
 		$keys = get_transient( $index_key );
 		if ( is_array( $keys ) ) {
-			foreach ( array_values( array_unique( array_filter( array_map( 'strval', $keys ) ) ) as $key ) {
+			foreach ( array_values( array_unique( array_filter( array_map( 'strval', $keys ) ) ) ) as $key ) {
 				delete_transient( $key );
 			}
 		}
