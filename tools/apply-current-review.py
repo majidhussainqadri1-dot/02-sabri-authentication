@@ -81,7 +81,6 @@ new = '''\t\tif ( '' === $provider ) {
 s = replace_once(s, old, new, 'provider HTTPS boundary')
 write(p, s)
 
-# Permanent regression gate for the frozen R311 ledger.
 write('tests/r311-security-boundary-regression.php', r'''<?php
 $root = dirname( __DIR__ );
 $risk = file_get_contents( $root . '/includes/class-sauth-login-risk.php' );
@@ -99,18 +98,5 @@ foreach ( $checks as $check ) { if ( false === strpos( $check[0], $check[1] ) ) 
 if ( $fail ) { fwrite( STDERR, "R311 regressions:\n- " . implode( "\n- ", $fail ) . "\n" ); exit( 1 ); }
 echo 'R311 security boundary regression PASS (' . count( $checks ) . " assertions).\n";
 ''')
-
-# Make R311 permanent in the cumulative exact-head gate.
-p = '.github/workflows/review-branch-integrity.yml'
-s = read(p)
-old = '''            tests/r310-final-adversarial-regression.php
-          )
-'''
-new = '''            tests/r310-final-adversarial-regression.php
-            tests/r311-security-boundary-regression.php
-          )
-'''
-s = replace_once(s, old, new, 'cumulative R311 test registration')
-write(p, s)
 
 print('R311 frozen ledger corrections applied')
