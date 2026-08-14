@@ -69,7 +69,7 @@ jobs:
       - name: Install WordPress and exact plugins
         run: |
           set -euo pipefail
-          curl -fsSL https://raw.githubusercontent.com/wp-cli/builds-pages/gh-pages/phar/wp-cli.phar -o /tmp/wp
+          curl -fsSL https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar -o /tmp/wp
           chmod +x /tmp/wp
           mkdir -p /tmp/wordpress
           /tmp/wp core download --version=7.0 --path=/tmp/wordpress --quiet
