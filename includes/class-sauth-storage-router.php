@@ -7,7 +7,7 @@ defined( 'ABSPATH' ) || exit;
  *
  * File 02 historically used `sa_*` table identifiers. Version 1.1.0 creates
  * and owns only canonical `sauth_*` tables, copies legacy rows idempotently,
- * and rewrites any retained compatibility query before it reaches MySQL.
+ * and rewrites retained compatibility queries only in SQL identifier positions.
  */
 final class SAUTH_Storage_Router {
 	private static $initialized = false;
@@ -39,14 +39,25 @@ final class SAUTH_Storage_Router {
 			if ( '' === $canonical || $legacy === $canonical ) {
 				continue;
 			}
-		/* Do not rewrite the source side of the explicit one-way migration. */
-			$migration = false !== strpos( $query, 'INSERT IGNORE INTO ' . $canonical )
-				&& false !== strpos( $query, ' FROM ' . $legacy );
+
+			/* Do not rewrite the source side of the explicit one-way migration. */
+			$migration = preg_match( '/\bINSERT\s+IGNORE\s+INTO\s+`?' . preg_quote( $canonical, '/' ) . '`?/i', $query )
+				&& preg_match( '/\bFROM\s+`?' . preg_quote( $legacy, '/' ) . '`?/i', $query );
 			if ( $migration ) {
 				continue;
 			}
-			$query = str_replace( '`' . $legacy . '`', '`' . $canonical . '`', $query );
-			$query = str_replace( $legacy, $canonical, $query );
+
+			/* Rewrite only SQL table-identifier positions. Broad string replacement
+			 * can corrupt literal values, JSON or diagnostic text that merely contains
+			 * a legacy table name. */
+			$pattern = '/\b(FROM|JOIN|UPDATE|INTO|TABLE)\s+`?' . preg_quote( $legacy, '/' ) . '`?/i';
+			$query = preg_replace_callback(
+				$pattern,
+				static function ( $matches ) use ( $canonical ) {
+					return strtoupper( (string) $matches[1] ) . ' `' . $canonical . '`';
+				},
+				$query
+			);
 		}
 		return $query;
 	}
