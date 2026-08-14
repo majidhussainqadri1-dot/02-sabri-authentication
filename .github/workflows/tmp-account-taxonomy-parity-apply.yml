@@ -33,21 +33,23 @@ jobs:
           elif new not in s:
               raise SystemExit('File02 account_types state is neither old nor corrected')
           test=Path('tests/r331-account-taxonomy-parity-regression.php')
-          if not test.exists():
-              lines=[
-                  "<?php",
-                  "$root = dirname( __DIR__ );",
-                  "$registration = file_get_contents( $root . '/includes/class-sa-registration.php' );",
-                  "$fail = array();",
-                  "$canonical = array( 'member', 'patient', 'student', 'doctor', 'teacher', 'researcher', 'pharmacy', 'clinic', 'publisher' );",
-                  "foreach ( $canonical as $type ) { if ( false === strpos( $registration, \"'\" . $type . \"'\" ) ) { $fail[] = 'missing canonical account type: ' . $type; } }",
-                  "foreach ( array( 'clinic_staff', 'institution_representative' ) as $legacy ) { if ( false !== strpos( $registration, \"'\" . $legacy . \"'\" ) ) { $fail[] = 'legacy provider-only alias remains: ' . $legacy; } }",
-                  "if ( false === strpos( $registration, 'File 00 canonical account taxonomy' ) ) { $fail[] = 'canonical ownership comment missing'; }",
-                  "if ( $fail ) { fwrite( STDERR, \"R331 taxonomy regressions:\\n- \" . implode( \"\\n- \", $fail ) . \"\\n\" ); exit( 1 ); }",
-                  "echo 'R331 account taxonomy parity regression PASS (12 assertions).' . PHP_EOL;",
-                  ""
-              ]
-              test.write_text("\n".join(lines))
+          lines=[
+              "<?php",
+              "$root = dirname( __DIR__ );",
+              "$registration = file_get_contents( $root . '/includes/class-sa-registration.php' );",
+              "$fail = array();",
+              "$matched = preg_match( '/public static function account_types\\(\\) \\{(.*?)\\n\\t\\}/s', $registration, $m );",
+              "$block = $matched ? $m[1] : '';",
+              "if ( ! $matched ) { $fail[] = 'account_types method block unavailable'; }",
+              "$canonical = array( 'member', 'patient', 'student', 'doctor', 'teacher', 'researcher', 'pharmacy', 'clinic', 'publisher' );",
+              "foreach ( $canonical as $type ) { if ( false === strpos( $block, \"'\" . $type . \"'\" ) ) { $fail[] = 'missing canonical account type: ' . $type; } }",
+              "foreach ( array( 'clinic_staff', 'institution_representative' ) as $legacy ) { if ( false !== strpos( $block, \"'\" . $legacy . \"'\" ) ) { $fail[] = 'legacy provider-only alias remains in account choices: ' . $legacy; } }",
+              "if ( false === strpos( $registration, 'File 00 canonical account taxonomy' ) ) { $fail[] = 'canonical ownership comment missing'; }",
+              "if ( $fail ) { fwrite( STDERR, \"R331 taxonomy regressions:\\n- \" . implode( \"\\n- \", $fail ) . \"\\n\" ); exit( 1 ); }",
+              "echo 'R331 account taxonomy parity regression PASS (13 assertions).' . PHP_EOL;",
+              ""
+          ]
+          test.write_text("\n".join(lines))
           PY
           git diff --check
           php -l includes/class-sa-registration.php
