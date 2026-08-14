@@ -35,6 +35,10 @@ jobs:
               new='"add_query_arg( \'redirect_to\', SA_Security::safe_redirect( \\$redirect )"'
               if old in text:
                   p.write_text(text.replace(old,new,1),encoding='utf-8')
+          for name in ('README.md','PLAN-TRACEABILITY.md'):
+              path=Path(name)
+              text=path.read_text(encoding='utf-8')
+              path.write_text('\n'.join(line.rstrip() for line in text.splitlines())+'\n',encoding='utf-8')
           PY
           git diff --check
 
