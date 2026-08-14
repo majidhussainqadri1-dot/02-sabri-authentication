@@ -64,6 +64,23 @@ new="""\t\t$remaining_raw = $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FRO
 s=one(s,old,new,'revoke-all material postcondition')
 write(p,s)
 
+# Existing CF-01 unit fixture must emulate the current hardened provider, not the retired legacy projection.
+p='tests/cf01-assurance-unit.php'; s=read(p)
+old="""final class SAUTH_Passkeys {
+\tpublic static function file00_assurance( $baseline = array(), $user_id = 0 ) {
+\t\treturn $GLOBALS['sa_cf01_passkey'];
+\t}
+}
+"""
+new="""final class SAUTH_Passkey_Runtime {
+\tpublic static function current_assurance( $user_id = 0 ) {
+\t\treturn $GLOBALS['sa_cf01_passkey'];
+\t}
+}
+"""
+s=one(s,old,new,'CF-01 passkey runtime fixture')
+write(p,s)
+
 write('tests/r316-session-assurance-hardening-regression.php',r'''<?php
 $root=dirname(__DIR__); $s=file_get_contents($root.'/includes/class-sauth-session-manager.php'); $a=file_get_contents($root.'/includes/class-sa-authentication-assurance.php'); $p=file_get_contents($root.'/includes/class-sa-professional-reauthentication.php'); $ac=file_get_contents($root.'/includes/class-sa-access-control.php'); $sm=file_get_contents($root.'/includes/class-sauth-safe-mode-challenge-gate.php'); $fail=array();
 $checks=array(
