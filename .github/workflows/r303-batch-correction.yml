@@ -1,0 +1,42 @@
+name: R303 Batch Correction
+
+on:
+  push:
+    branches:
+      - review/file02-r301-r310-2026-08-14
+
+permissions:
+  contents: write
+
+jobs:
+  correct:
+    if: startsWith(github.event.head_commit.message, 'R303 fixer bootstrap')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+          ref: ${{ github.sha }}
+      - name: Apply frozen R303 ledger
+        run: |
+          set -euo pipefail
+          python3 tools/r303-fix.py
+          git diff --check
+          php -l includes/class-sa-registration.php
+          php -l includes/class-sauth-email-verification.php
+          php -l tests/registration-authentication-unit.php
+          php -l tests/r303-registration-recovery-regression.php
+          php tests/registration-authentication-unit.php
+          php tests/r303-registration-recovery-regression.php
+      - name: Commit R303 corrected state
+        run: |
+          set -euo pipefail
+          git rm tools/r303-fix.py
+          git config user.name 'majidhussainqadri1-dot'
+          git config user.email 'majidhussainqadri1@gmail.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'R303: harden registration, recovery and verification flows'
+          git push origin HEAD:review/file02-r301-r310-2026-08-14
