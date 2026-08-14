@@ -71,7 +71,6 @@ new="""\t\t$required_columns = self::required_table_columns();
 s=one(s,old,new,'storage schema postcondition')
 write(p,s)
 
-# Passkey schema marker also requires all material credential columns.
 p='includes/class-sauth-passkeys.php'; s=read(p)
 old="""\t\t$table_ready = $table === (string) $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) );
 \t\tif ( ! $table_ready || ! self::manager_page_ready() ) { delete_option( self::OPTION_SCHEMA_VERSION ); return false; }
@@ -113,8 +112,8 @@ $checks=array(
  array($a,'SHOW COLUMNS FROM','base storage readiness still proves names only'),
  array($a,"sauth_legacy_table_migration_version', ''","legacy migration marker write is not verified"),
  array($p,'table_schema_ready','passkey schema marker still proves table name only'),
- array($p,"credential_id_ciphertext','passkey schema does not require encrypted credential id column'),
- array($p,"hardware_backed','passkey schema does not require modern security metadata columns')
+ array($p,'credential_id_ciphertext','passkey schema does not require encrypted credential id column'),
+ array($p,'hardware_backed','passkey schema does not require modern security metadata columns')
 );
 foreach($checks as $c){if(false===strpos($c[0],$c[1]))$fail[]=$c[2];}
 if($fail){fwrite(STDERR,"R312 regressions:\n- ".implode("\n- ",$fail)."\n");exit(1);} echo 'R312 schema postcondition regression PASS ('.count($checks)." assertions).\n";
