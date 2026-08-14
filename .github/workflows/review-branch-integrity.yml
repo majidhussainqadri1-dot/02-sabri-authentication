@@ -1,0 +1,88 @@
+name: File 02 Review Branch Integrity
+
+on:
+  pull_request:
+  push:
+    branches:
+      - review/**
+
+permissions:
+  contents: read
+
+jobs:
+  review-source-integrity:
+    name: Review-only exact-head lint and cumulative regression
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        php:
+          - '7.4'
+          - '8.3'
+    steps:
+      - name: Checkout exact immutable head
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Prove exact immutable head
+        run: |
+          set -euo pipefail
+          expected='${{ github.event.pull_request.head.sha || github.sha }}'
+          test "$(git rev-parse HEAD)" = "$expected"
+          git diff --check
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: none
+          extensions: openssl
+
+      - name: Lint every PHP file
+        run: |
+          set -euo pipefail
+          mapfile -t php_files < <(find . -type f -name '*.php' -not -path './.git/*' -print | sort)
+          test "${#php_files[@]}" -ge 40
+          for file in "${php_files[@]}"; do php -l "$file"; done
+
+      - name: Run cumulative no-network source suites
+        run: |
+          set -euo pipefail
+          php tests/security-unit.php
+          php tests/cf01-assurance-unit.php
+          php tests/professional-reauthentication-unit.php
+          php tests/plan-harmonization-unit.php
+          php tests/registration-authentication-unit.php
+          php tests/complete-plan-unit.php
+          php tests/passkey-webauthn-unit.php
+          php tests/three-plan-completion-unit.php
+          php tests/storage-migration-unit.php
+          php tests/r291-r300-review-regression.php
+
+      - name: Validate JavaScript and CSS source
+        run: |
+          set -euo pipefail
+          node --check assets/js/authentication.js
+          python3 - <<'PY'
+          import pathlib
+          css = pathlib.Path('assets/css/authentication.css').read_text(encoding='utf-8')
+          if css.count('{') != css.count('}'):
+              raise SystemExit('CSS brace mismatch')
+          if 'orange' in css.lower() or '#f97316' in css.lower():
+              raise SystemExit('superseded orange-primary token found')
+          print('Review-branch JS/CSS structural checks passed.')
+          PY
+
+      - name: Enforce review-only artifact boundary
+        run: |
+          set -euo pipefail
+          if find . -type f \( -name '*.zip' -o -name '*.tar' -o -name '*.tgz' -o -name '*.7z' -o -name '*.rar' \) -not -path './.git/*' | grep -q .; then
+            echo 'Review branch must not contain installable/archive artifacts.' >&2
+            exit 1
+          fi
+          echo 'No installable artifact was built or retained by this review workflow.'
