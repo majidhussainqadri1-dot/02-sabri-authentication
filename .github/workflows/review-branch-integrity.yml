@@ -83,6 +83,7 @@ jobs:
             tests/r291-r300-review-regression.php
             tests/r299-cross-flow-regression.php
             tests/r302-migration-postcondition-regression.php
+            tests/r303-registration-recovery-regression.php
           )
           : > "$RUNNER_TEMP/php-suite-failures-${{ matrix.php }}.txt"
           failed=0
