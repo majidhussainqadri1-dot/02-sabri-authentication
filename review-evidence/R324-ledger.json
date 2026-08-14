@@ -1,5 +1,6 @@
 {
   "round": "R324",
+  "permanent_regression_ready": true,
   "replacements": [
     {
       "path": "includes/class-sauth-passkey-runtime.php",
