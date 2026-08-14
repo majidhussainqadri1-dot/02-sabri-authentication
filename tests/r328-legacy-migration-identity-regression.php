@@ -12,7 +12,7 @@ $checks = array(
     array( $activator, "'risk_challenges' => 'public_id'", 'risk-challenge logical identity missing' ),
     array( $activator, "'auth_attempts' => 'public_id'", 'attempt logical identity missing' ),
     array( $activator, 'LEFT JOIN {$canonical} AS c', 'post-copy logical reconciliation query missing' ),
-    array( $activator, "WHERE c.`{$identity}` IS NULL", 'migration does not prove every legacy identity is represented' ),
+    array( $activator, 'WHERE c.`{$identity}` IS NULL', 'migration does not prove every legacy identity is represented' ),
     array( $migration, 'stable logical identity', 'migration documentation lacks logical identity reconciliation rule' ),
 );
 foreach ( $checks as $check ) { if ( false === strpos( $check[0], $check[1] ) ) { $fail[] = $check[2]; } }
