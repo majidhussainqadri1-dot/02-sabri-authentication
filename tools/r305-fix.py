@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
+import re
 ROOT = Path(__file__).resolve().parents[1]
 
 def rep(path, old, new, count=1):
@@ -10,19 +11,24 @@ def rep(path, old, new, count=1):
         raise SystemExit(f'{path}: expected {count}, found {n}: {old[:140]!r}')
     p.write_text(text.replace(old, new, count), encoding='utf-8')
 
-# R305-A: management UI must not truncate server-accepted current passwords.
-rep('includes/class-sauth-passkeys.php', 'id="sauth-passkey-password" type="password" autocomplete="current-password" maxlength="256"', 'id="sauth-passkey-password" type="password" autocomplete="current-password" maxlength="4096"')
-
-# R305-B: a completion route may not override a non-active membership denial.
-old_signin = """\tprivate static function sign_in_allowed( array $assertion, array $completion ) {
-\t\tif ( 'unknown' === ( $assertion['result'] ?? 'unknown' ) || ! empty( $assertion['membership']['suspended'] ) ) { return false; }
-\t\tif ( 'allow' === ( $assertion['result'] ?? '' ) ) { return true; }
-\t\treturn 'allow' === ( $completion['result'] ?? '' ) && ! empty( $completion['missing_steps'] ) && ! empty( $completion['next_route'] );
-\t}
-"""
-new_signin = """\tprivate static function sign_in_allowed( array $assertion, array $completion ) {
-\t\tif ( 'unknown' === ( $assertion['result'] ?? 'unknown' ) || ! empty( $assertion['membership']['suspended'] ) ) { return false; }
-\t\tif ( 'allow' === ( $assertion['result'] ?? '' ) ) { return true; }
+def replace_signin(path):
+    p = ROOT / path
+    text = p.read_text(encoding='utf-8')
+    pattern = re.compile(
+        r"\tprivate static function sign_in_allowed\( array \$assertion, array \$completion \) \{\n"
+        r".*?\n\t\}\n",
+        re.S,
+    )
+    matches = list(pattern.finditer(text))
+    if len(matches) != 1:
+        raise SystemExit(f'{path}: expected one sign_in_allowed block, found {len(matches)}')
+    new = """\tprivate static function sign_in_allowed( array $assertion, array $completion ) {
+\t\tif ( 'unknown' === ( $assertion['result'] ?? 'unknown' ) || ! empty( $assertion['membership']['suspended'] ) ) {
+\t\t\treturn false;
+\t\t}
+\t\tif ( 'allow' === ( $assertion['result'] ?? '' ) ) {
+\t\t\treturn true;
+\t\t}
 \t\t$active = true === ( $assertion['membership']['active'] ?? false );
 \t\treturn $active
 \t\t\t&& 'allow' === ( $completion['result'] ?? '' )
@@ -30,8 +36,14 @@ new_signin = """\tprivate static function sign_in_allowed( array $assertion, arr
 \t\t\t&& ! empty( $completion['next_route'] );
 \t}
 """
-rep('includes/class-sauth-passkeys.php', old_signin, new_signin)
-rep('includes/class-sauth-passkey-runtime.php', old_signin, new_signin)
+    p.write_text(pattern.sub(new, text, count=1), encoding='utf-8')
+
+# R305-A: management UI must not truncate server-accepted current passwords.
+rep('includes/class-sauth-passkeys.php', 'id="sauth-passkey-password" type="password" autocomplete="current-password" maxlength="256"', 'id="sauth-passkey-password" type="password" autocomplete="current-password" maxlength="4096"')
+
+# R305-B: a completion route may not override a non-active membership denial.
+replace_signin('includes/class-sauth-passkeys.php')
+replace_signin('includes/class-sauth-passkey-runtime.php')
 
 # R305-C: stale/foreign assurance receipt versions must never satisfy current assurance.
 rep(
@@ -106,7 +118,6 @@ text = p.read_text(encoding='utf-8')
 a = text.find(start)
 if a < 0:
     raise SystemExit('privacy_erase start not found')
-# class closes immediately after this method in current file.
 b = text.rfind("\n}")
 if b <= a:
     raise SystemExit('privacy_erase end not found')
@@ -118,20 +129,23 @@ new_erase = r'''	public static function privacy_erase( $email_address, $page = 1
 		$user_id = absint( $user->ID );
 		global $wpdb;
 		$before = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . self::table() . ' WHERE user_id=%d', $user_id ) );
+		$handle_before = function_exists( 'metadata_exists' ) && metadata_exists( 'user', $user_id, self::USER_HANDLE_META );
+		$epoch_before = class_exists( 'SAUTH_Passkey_Runtime' ) && function_exists( 'metadata_exists' ) && metadata_exists( 'user', $user_id, SAUTH_Passkey_Runtime::EPOCH_META );
 		$deleted = $wpdb->delete( self::table(), array( 'user_id' => $user_id ), array( '%d' ) );
 		delete_user_meta( $user_id, self::USER_HANDLE_META );
 		if ( class_exists( 'SAUTH_Passkey_Runtime' ) ) {
 			SAUTH_Passkey_Runtime::invalidate_user_assurance( $user_id );
+			delete_user_meta( $user_id, SAUTH_Passkey_Runtime::EPOCH_META );
 		}
-		delete_user_meta( $user_id, SAUTH_Passkey_Runtime::EPOCH_META );
 		self::clear_assurance_for_user( $user_id );
 
 		$remaining = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . self::table() . ' WHERE user_id=%d', $user_id ) );
 		$handle_retained = function_exists( 'metadata_exists' ) && metadata_exists( 'user', $user_id, self::USER_HANDLE_META );
 		$epoch_retained = class_exists( 'SAUTH_Passkey_Runtime' ) && function_exists( 'metadata_exists' ) && metadata_exists( 'user', $user_id, SAUTH_Passkey_Runtime::EPOCH_META );
 		$failed = false === $deleted || $remaining > 0 || $handle_retained || $epoch_retained;
+		$had_data = $before > 0 || $handle_before || $epoch_before;
 		return array(
-			'items_removed' => ! $failed && $before > 0,
+			'items_removed' => ! $failed && $had_data,
 			'items_retained' => $failed,
 			'messages' => $failed ? array( __( 'Some passkey authentication data could not be erased. An administrator must review the retained data before the request is considered complete.', 'sabri-authentication' ) ) : array(),
 			'done' => true,
