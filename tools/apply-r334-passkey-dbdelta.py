@@ -3,12 +3,16 @@ from pathlib import Path
 import json
 import re
 
-root = Path('.')
 old_version = '1.2.4'
 new_version = '1.2.5'
 old_branch = 'fix/file02-account-taxonomy-parity-1.2.4'
 new_branch = 'fix/file02-passkey-dbdelta-migration-1.2.5'
 version_re = re.compile(r'(?<![0-9])1\.2\.4(?![0-9])')
+
+def current_sync(text):
+    # Branch replacement must occur before bare runtime-version replacement, otherwise
+    # the old branch becomes a nonexistent hybrid ...taxonomy-parity-1.2.5.
+    return version_re.sub(new_version, text.replace(old_branch, new_branch))
 
 # 1. Runtime product correction: make passkey CREATE TABLE dbDelta-compatible.
 p = Path('includes/class-sauth-passkeys.php')
@@ -23,7 +27,7 @@ elif new_keys not in s:
     raise SystemExit('R334 passkey index state is neither old nor corrected')
 
 # 2. Advance standalone current runtime identity references from 1.2.4 to 1.2.5.
-# Historical evidence/changelog records are intentionally excluded.
+# Historical review evidence and release-history sections are intentionally excluded.
 current_top = [
     'sabri-authentication.php','README.md','STATUS.md','STAGING-ACCEPTANCE.md','CONTRACTS.md',
     'MIGRATION.md','RELEASE-MANIFEST.md','PLAN-TRACEABILITY.md','ARCHITECTURE.md','SBOM.spdx.json',
@@ -31,34 +35,27 @@ current_top = [
 ]
 for name in current_top:
     p = Path(name)
-    if not p.exists():
-        continue
-    s = p.read_text()
-    s = version_re.sub(new_version, s)
-    s = s.replace(old_branch, new_branch)
-    p.write_text(s)
+    if p.exists():
+        p.write_text(current_sync(p.read_text()))
 
 # Current test/workflow truth must follow the current candidate. Exact File00 1.2.44 is protected by boundary regex.
 for base in (Path('tests'), Path('.github/workflows')):
     for p in base.rglob('*'):
         if not p.is_file() or p.suffix not in {'.php','.yml','.yaml'}:
             continue
-        s = p.read_text()
-        s2 = version_re.sub(new_version, s).replace(old_branch, new_branch)
+        s = p.read_text(); s2 = current_sync(s)
         if s2 != s:
             p.write_text(s2)
 
 # 3. WordPress readme: current metadata/new history, retain 1.2.4 history.
-p = Path('readme.txt')
-s = p.read_text()
+p = Path('readme.txt'); s = p.read_text()
 if 'Stable tag: 1.2.4' not in s:
     raise SystemExit('R334 readme stable-tag preimage missing')
 s = s.replace('Stable tag: 1.2.4', 'Stable tag: 1.2.5', 1)
-# Current prose only, before changelog.
 parts = s.split('== Changelog ==', 1)
 if len(parts) != 2:
     raise SystemExit('R334 readme changelog boundary missing')
-parts[0] = version_re.sub(new_version, parts[0]).replace(old_branch, new_branch)
+parts[0] = current_sync(parts[0])
 changelog = parts[1]
 anchor = '\n\n= 1.2.4 =\n'
 entry = """
@@ -70,12 +67,10 @@ entry = """
 """
 if anchor not in changelog:
     raise SystemExit('R334 readme 1.2.4 history anchor missing')
-s = parts[0] + '== Changelog ==' + changelog.replace(anchor, entry + anchor, 1)
-p.write_text(s)
+p.write_text(parts[0] + '== Changelog ==' + changelog.replace(anchor, entry + anchor, 1))
 
 # 4. Markdown changelog: prepend new current release, retain 1.2.4 provenance.
-p = Path('CHANGELOG.md')
-s = p.read_text()
+p = Path('CHANGELOG.md'); s = p.read_text()
 anchor = '## 1.2.4 — Canonical Account Taxonomy Parity Candidate'
 if anchor not in s:
     raise SystemExit('R334 CHANGELOG 1.2.4 anchor missing')
@@ -98,8 +93,7 @@ section = """## 1.2.5 — Passkey dbDelta Migration Compatibility Candidate
 p.write_text(s.replace(anchor, section + anchor, 1))
 
 # 5. Release lock current truth; cross-file blocker stays until full exact integration is green.
-p = Path('RELEASE-LOCK.json')
-data = json.loads(p.read_text())
+p = Path('RELEASE-LOCK.json'); data = json.loads(p.read_text())
 data['release_version'] = new_version
 data['candidate_branch'] = new_branch
 data['package_name'] = '02-sabri-authentication-1.2.5-SOURCE-CANDIDATE.zip'
@@ -150,11 +144,8 @@ echo 'R334 passkey dbDelta migration regression PASS (18 assertions).' . PHP_EOL
 
 # 7. Current integration workflow identity/upgrade postconditions follow 1.2.5.
 p = Path('.github/workflows/file00-1.2.44-real-integration.yml')
-s = p.read_text()
-s = version_re.sub(new_version, s).replace(old_branch, new_branch)
-p.write_text(s)
+p.write_text(current_sync(p.read_text()))
 
 # 8. Temporary correction machinery must not survive the corrected tree.
 for temp in (Path('.github/workflows/tmp-r334-passkey-dbdelta-apply.yml'), Path('tools/apply-r334-passkey-dbdelta.py')):
-    if temp.exists():
-        temp.unlink()
+    if temp.exists(): temp.unlink()
