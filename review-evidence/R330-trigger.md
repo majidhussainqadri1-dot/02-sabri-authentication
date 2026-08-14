@@ -1,1 +1,1 @@
-R330 correction trigger. The complete review and frozen ledger were recorded before this marker.
+R330 correction retry trigger. The complete review and frozen defect set remain unchanged; this retry only aligns the historical R319 regression with the already-frozen R330 evidence synchronization requirement.
