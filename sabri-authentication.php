@@ -57,6 +57,7 @@ require_once SAUTH_DIR . 'includes/class-sauth-google-registration.php';
 require_once SAUTH_DIR . 'includes/class-sa-access-control.php';
 require_once SAUTH_DIR . 'includes/class-sa-privacy.php';
 require_once SAUTH_DIR . 'includes/class-sauth-operations.php';
+require_once SAUTH_DIR . 'includes/class-sauth-safe-mode-challenge-gate.php';
 require_once SAUTH_DIR . 'includes/class-sauth-provider-http-guard.php';
 require_once SAUTH_DIR . 'includes/class-sauth-canonical-routes.php';
 require_once SAUTH_DIR . 'includes/class-sauth-passkeys.php';
