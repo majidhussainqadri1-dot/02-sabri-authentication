@@ -1,6 +1,6 @@
 <?php
 /**
- * No-network checks for the File 02 v1.1 three-plan boundaries.
+ * No-network checks for the File 02 account-orchestration and event boundaries.
  */
 
 define( 'ABSPATH', __DIR__ . '/' );
@@ -31,6 +31,10 @@ function wp_validate_redirect( $url, $fallback = '' ) { return 0 === strpos( (st
 final class SA_Security {
 	public static function client_fingerprint() { return str_repeat( 'a', 64 ); }
 	public static function safe_redirect( $url, $fallback = '' ) { return wp_validate_redirect( $url, $fallback ); }
+}
+final class SA_Membership_Adapter {
+	public static $available = true;
+	public static function available() { return (bool) self::$available; }
 }
 
 final class SMC_Authentication_Contract_V11 {
@@ -78,7 +82,11 @@ function sauth_test_assert( $condition, $message ) {
 require_once dirname( __DIR__ ) . '/includes/class-sauth-account-contract.php';
 require_once dirname( __DIR__ ) . '/includes/class-sauth-event-outbox.php';
 
-sauth_test_assert( SAUTH_Account_Contract::provider_available(), 'valid File 00 v1.1 account provider was not detected' );
+sauth_test_assert( SAUTH_Account_Contract::provider_available(), 'valid File 00 v1.1 account provider plus membership readiness was not detected' );
+SA_Membership_Adapter::$available = false;
+sauth_test_assert( ! SAUTH_Account_Contract::provider_available(), 'account provider remained usable while membership readiness was unavailable' );
+SA_Membership_Adapter::$available = true;
+
 $registration = SAUTH_Account_Contract::register_account(
 	array(
 		'name' => 'Test Member',
@@ -140,9 +148,9 @@ sauth_test_assert( ! isset( $event['payload']['reset_token_hash'] ), 'reset-toke
 sauth_test_assert( ! isset( $event['payload']['nested']['token'] ), 'nested token leaked into event payload' );
 sauth_test_assert( ! isset( $event['payload']['nested']['session_verifier_hash'] ), 'session verifier leaked into event payload' );
 sauth_test_assert( 'success' === $event['payload']['nested']['result'], 'safe nested event payload was removed' );
-sauth_test_assert( '1.1.0' === $event['producer_version'], 'producer version is not bound to current release' );
+sauth_test_assert( '1.1.0' === $event['producer_version'], 'producer version is not bound to test release' );
 
 $invalid = SAUTH_Event_Outbox::build_envelope( 'UnknownEvent.v1', 0, 0 );
 sauth_test_assert( is_wp_error( $invalid ), 'unsupported event name was accepted' );
 
-echo "File 02 plan harmonization v1.1 checks passed.\n";
+echo "File 02 plan harmonization account/event checks passed.\n";
