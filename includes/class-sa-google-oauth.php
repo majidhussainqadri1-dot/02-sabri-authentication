@@ -237,11 +237,17 @@ final class SA_Google_OAuth {
 		if ( ! is_array( $completion ) || 'allow' !== ( $completion['result'] ?? '' ) ) {
 			$this->fail( 'Account completion status could not be verified for Google sign-in.', 'login' );
 		}
+		$risk = SAUTH_Login_Risk::evaluate( $user->ID, $completion );
+		if ( 'challenge' === ( $risk['action'] ?? '' ) || 'deny' === ( $risk['action'] ?? '' ) ) {
+			SAUTH_Login_Risk::record_failure( $user->ID, 'google_' . sanitize_key( (string) ( $risk['reason_code'] ?? 'risk_rejected' ) ), absint( $risk['score'] ?? 100 ) );
+			SAUTH_Event_Outbox::emit( 'AccountAuthenticationFailed.v1', $user->ID, $user->ID, array( 'method' => 'google_oidc', 'reason' => 'passkey_step_up_required', 'risk_score' => absint( $risk['score'] ?? 100 ) ), 'security' );
+			$this->fail( 'This Google sign-in needs stronger verification for the current device or network. Use your registered File 02 passkey to sign in.', 'login' );
+		}
 		wp_set_current_user( $user->ID );
 		wp_set_auth_cookie( $user->ID, true, is_ssl() );
 		self::safe_observer_action( 'wp_login', array( $user->user_login, $user ) );
-		SAUTH_Login_Risk::record_successful_login( $user->ID, 'google', 0 );
-		SAUTH_Event_Outbox::emit( 'AccountAuthenticationSucceeded.v1', $user->ID, $user->ID, array( 'method' => 'google_oidc', 'risk' => 'provider_authenticated' ), 'security' );
+		SAUTH_Login_Risk::record_successful_login( $user->ID, 'google', absint( $risk['score'] ?? 0 ) );
+		SAUTH_Event_Outbox::emit( 'AccountAuthenticationSucceeded.v1', $user->ID, $user->ID, array( 'method' => 'google_oidc', 'risk_score' => absint( $risk['score'] ?? 0 ) ), 'security' );
 		update_user_meta( $user->ID, '_sauth_google_last_login_at', current_time( 'mysql', true ) );
 		update_user_meta( $user->ID, '_sa_google_last_login_at', current_time( 'mysql', true ) );
 		SA_Membership_Adapter::audit( 'google_login_success', $user->ID );
@@ -283,9 +289,7 @@ final class SA_Google_OAuth {
 		}
 		if ( ! empty( $remaining ) ) {
 			/* Fail closed even if the underlying store partially rejected deletion. */
-			update_user_meta( $user_id, '_sauth_google_account', '0' );
-			update_user_meta( $user_id, '_sa_google_account', '0' );
-			if ( class_exists( 'WP_Session_Tokens' ) ) { WP_Session_Tokens::get_instance( $user_id )->destroy_all(); }
+			self::contain_linkage_failure( $user_id, 'google_account_unlink_incomplete' );
 			SA_Membership_Adapter::audit( 'google_account_unlink_incomplete', $user_id, array( 'remaining_count' => count( $remaining ) ) );
 			wp_safe_redirect( SA_Security::message_url( 'google_account', 'error', 'Google unlinking could not be completed safely. All sessions were revoked; sign in again and contact support.' ) );
 			exit;
@@ -438,11 +442,39 @@ final class SA_Google_OAuth {
 						if ( '' === (string) $restore_value ) { delete_user_meta( $user_id, $restore_key ); }
 						else { update_user_meta( $user_id, $restore_key, $restore_value ); }
 					}
+					$restored = true;
+					foreach ( $before as $restore_key => $restore_value ) {
+						$restored = $restored && hash_equals( (string) $restore_value, (string) get_user_meta( $user_id, $restore_key, true ) );
+					}
+					if ( ! $restored ) { self::contain_linkage_failure( $user_id, 'google_link_rollback_failed' ); }
 					return false;
 				}
 			}
 		}
 		return true;
+	}
+
+
+	/**
+	 * Disable Google authentication after an uncertain link/unlink mutation. If
+	 * the disable markers themselves cannot be proven durable, Safe Mode becomes
+	 * the higher-level containment barrier. All sessions are revoked either way.
+	 */
+	public static function contain_linkage_failure( $user_id, $reason = 'google_linkage_uncertain' ) {
+		$user_id = absint( $user_id );
+		if ( ! $user_id ) { return false; }
+		update_user_meta( $user_id, '_sauth_google_account', '0' );
+		update_user_meta( $user_id, '_sa_google_account', '0' );
+		$disabled = '0' === (string) get_user_meta( $user_id, '_sauth_google_account', true )
+			&& '0' === (string) get_user_meta( $user_id, '_sa_google_account', true );
+		if ( ! $disabled ) {
+			update_option( SAUTH_Operations::SAFE_MODE_OPTION, '1', false );
+		}
+		if ( class_exists( 'WP_Session_Tokens' ) ) {
+			WP_Session_Tokens::get_instance( $user_id )->destroy_all();
+		}
+		SA_Membership_Adapter::audit( sanitize_key( (string) $reason ), $user_id, array( 'disabled_marker_verified' => $disabled ) );
+		return $disabled;
 	}
 
 	private static function fresh_passkey( $user_id ) {

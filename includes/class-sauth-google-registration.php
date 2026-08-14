@@ -280,6 +280,11 @@ final class SAUTH_Google_Registration {
 							if ( '' === (string) $restore_value ) { delete_user_meta( $user_id, $restore_key ); }
 							else { update_user_meta( $user_id, $restore_key, $restore_value ); }
 						}
+						$restored = true;
+						foreach ( $before as $restore_key => $restore_value ) {
+							$restored = $restored && hash_equals( (string) $restore_value, (string) get_user_meta( $user_id, $restore_key, true ) );
+						}
+						if ( ! $restored ) { SA_Google_OAuth::contain_linkage_failure( $user_id, 'google_registration_link_rollback_failed' ); }
 						return false;
 					}
 				}
