@@ -44,6 +44,9 @@ final class SAUTH_Email_Verification {
 			|| ! hash_equals( strtolower( (string) $canonical_user->user_email ), strtolower( $email ) ) ) {
 			return new WP_Error( 'sauth_email_subject_invalid', 'Email verification could not be prepared.' );
 		}
+		if ( SAUTH_Operations::safe_mode() ) {
+			return new WP_Error( 'sauth_email_safe_mode', 'Email verification is temporarily paused by Safe Mode.' );
+		}
 		if ( ! SAUTH_Privacy_Jobs::can_enqueue( $user_id ) ) {
 			return new WP_Error( 'sauth_email_privacy_erasure_active', 'Email verification is paused while File 02 privacy erasure is active.' );
 		}
@@ -194,10 +197,15 @@ final class SAUTH_Email_Verification {
 				$job_key = self::resend_job_key( $job_token );
 				$job = array( 'user_id' => $job_user_id, 'privacy_epoch' => $job_epoch, 'created_at' => time() );
 				set_transient( $job_key, $job, self::RESEND_JOB_TTL );
-				if ( get_transient( $job_key ) === $job && function_exists( 'wp_schedule_single_event' ) ) {
-					wp_schedule_single_event( time() + 1, self::RESEND_JOB_HOOK, array( $job_token ) );
-				} else {
+				$stored = get_transient( $job_key ) === $job;
+				$indexed = ! $job_user_id || SAUTH_Privacy_Jobs::register_job( $job_user_id, $job_key );
+				$scheduled = false;
+				if ( $stored && $indexed && function_exists( 'wp_schedule_single_event' ) ) {
+					$scheduled = false !== wp_schedule_single_event( time() + 1, self::RESEND_JOB_HOOK, array( $job_token ) );
+				}
+				if ( ! $scheduled ) {
 					delete_transient( $job_key );
+					if ( $job_user_id ) { SAUTH_Privacy_Jobs::forget_job( $job_user_id, $job_key ); }
 				}
 			}
 		}
@@ -211,9 +219,12 @@ final class SAUTH_Email_Verification {
 		$key = self::resend_job_key( $job_token );
 		$job = get_transient( $key );
 		delete_transient( $key );
-		if ( ! is_array( $job ) || absint( $job['created_at'] ?? 0 ) < time() - self::RESEND_JOB_TTL ) { return; }
+		if ( ! is_array( $job ) ) { return; }
 		$user_id = absint( $job['user_id'] ?? 0 );
 		$epoch   = (string) ( $job['privacy_epoch'] ?? '' );
+		if ( $user_id ) { SAUTH_Privacy_Jobs::forget_job( $user_id, $key ); }
+		if ( absint( $job['created_at'] ?? 0 ) < time() - self::RESEND_JOB_TTL ) { return; }
+		if ( SAUTH_Operations::safe_mode() || ! SAUTH_Account_Contract::provider_available() ) { return; }
 		if ( ! $user_id || ! SAUTH_Privacy_Jobs::valid_snapshot( $user_id, $epoch ) ) { return; }
 		$user = get_userdata( $user_id );
 		if ( $user instanceof WP_User ) { self::issue( $user_id, (string) $user->user_email, false ); }
@@ -226,6 +237,9 @@ final class SAUTH_Email_Verification {
 		$token   = trim( (string) $token );
 		if ( ! $user_id || strlen( $token ) < 64 || strlen( $token ) > self::MAX_TOKEN_BYTES ) {
 			return new WP_Error( 'sauth_email_token_invalid', 'This verification link is invalid or expired.' );
+		}
+		if ( SAUTH_Operations::safe_mode() ) {
+			return new WP_Error( 'sauth_email_safe_mode', 'Email verification is temporarily paused by Safe Mode.' );
 		}
 		if ( ! SAUTH_Privacy_Jobs::can_enqueue( $user_id ) ) {
 			return new WP_Error( 'sauth_email_privacy_erasure_active', 'Email verification is paused while File 02 privacy erasure is active.' );

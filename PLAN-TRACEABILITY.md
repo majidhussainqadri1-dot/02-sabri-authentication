@@ -8,9 +8,9 @@
 4. Continuous-Value / Top-20 Superset plan, especially CV-005 Passkey/MFA, CV-006 Device/Session Center and CV-010 Account Recovery.
 5. Later File 00 Advanced Trust boundary is a cross-file ownership refinement: File 02 owns authentication/login/passkey/WebAuthn ceremony; File 00 owns membership/identity/MFA policy and consumes a versioned File 02 assurance claim.
 
-**Candidate branch:** `codex/file02-four-plan-passkey-completion-1.2.0`  
-**Candidate version/schema:** `1.2.0 / 1.2.0`; passkey schema `1.0.0`  
-**Paired File 00 account contract:** `smc.authentication-account 1.1.0`  
+**Candidate branch:** `review/file02-r291-r300-main-2026-08-14`
+**Candidate version/schema:** `1.2.1 / 1.2.0`; passkey schema `1.0.0`
+**Paired File 00 account contract:** `smc.authentication-account 1.1.0`
 **Advanced Trust producer:** `smc_file02_authentication_assurance_v1` / `1.0.0`
 
 ## Ownership and constitution
@@ -56,7 +56,7 @@
 | F02-FR-005 Linking/unlinking | exact-email, current session, step-up, duplicate lock, unlink and session revocation | Implemented |
 | F02-FR-006 Password recovery | non-enumerating initiation, one-time key, strength check and all-session revocation | Implemented |
 | F02-FR-007 Sessions | HMAC-only bindings, opaque IDs, current marker, generalized presentation and scoped revoke operations | Implemented |
-| F02-FR-008 Login risk | new device/network/failure/provider state and File 00-owned step-up | Implemented |
+| F02-FR-008 Login risk | new device/network/failure/provider state; elevated password risk requires a separate File 02 passkey sign-in | Implemented |
 | F02-FR-009 Completion | File 00 state including city/type/ethics/photo, same-origin route and loop prevention | Implemented |
 | F02-FR-010 Redirect safety | same-origin allowlist and canonical route validation | Implemented |
 | F02-FR-011 Audit events | versioned outbox, trace IDs, retries/dead-letter, secret stripping and authentication facts | Implemented |
@@ -94,7 +94,7 @@
 | User handle | random opaque File 02 handle, independent of WordPress salts, erased with passkey data |
 | Signature | OpenSSL SHA-256 verify against server-derived SPKI public key |
 | Signature counter | non-zero regression marks credential compromised; zero counters permitted for synchronized passkeys |
-| Management reauth | current passkey or File 00 step-up; password bootstrap only when File 00 2FA is not enabled |
+| Management reauth | fresh File 02 passkey assurance, otherwise current password; retired File 00 factor codes are never solicited or accepted |
 | Assurance | current-user + current-session + fingerprint + five-minute receipt; File 00 revalidates freshness/owner/version |
 | Hardware-backed claim | intentionally false under attestation=none; no invented provenance |
 

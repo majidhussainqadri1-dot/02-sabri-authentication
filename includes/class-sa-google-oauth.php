@@ -218,6 +218,7 @@ final class SA_Google_OAuth {
 			} finally {
 				$this->release_link_lock( $lock );
 			}
+			SAUTH_Event_Outbox::emit( 'GoogleAccountLinked.v1', $user->ID, $user->ID, array( 'method' => 'google_oidc' ), 'security' );
 			SA_Membership_Adapter::audit( 'google_account_linked', $user->ID );
 			wp_safe_redirect( SA_Security::message_url( 'google_account', 'success', 'Google has been linked to your account.' ) );
 			exit;
@@ -232,13 +233,24 @@ final class SA_Google_OAuth {
 			|| ! SA_Membership_Adapter::can_use_google( $user->ID ) ) {
 			$this->fail( 'The linked membership is not eligible for Google sign-in.', 'login' );
 		}
+		$completion = SAUTH_Account_Contract::completion_state( $user->ID, array( 'purpose' => 'google_sign_in' ) );
+		if ( ! is_array( $completion ) || 'allow' !== ( $completion['result'] ?? '' ) ) {
+			$this->fail( 'Account completion status could not be verified for Google sign-in.', 'login' );
+		}
 		wp_set_current_user( $user->ID );
 		wp_set_auth_cookie( $user->ID, true, is_ssl() );
 		self::safe_observer_action( 'wp_login', array( $user->user_login, $user ) );
+		SAUTH_Login_Risk::record_successful_login( $user->ID, 'google', 0 );
+		SAUTH_Event_Outbox::emit( 'AccountAuthenticationSucceeded.v1', $user->ID, $user->ID, array( 'method' => 'google_oidc', 'risk' => 'provider_authenticated' ), 'security' );
 		update_user_meta( $user->ID, '_sauth_google_last_login_at', current_time( 'mysql', true ) );
 		update_user_meta( $user->ID, '_sa_google_last_login_at', current_time( 'mysql', true ) );
 		SA_Membership_Adapter::audit( 'google_login_success', $user->ID );
-		$destination = isset( $data['redirect'] ) ? SA_Security::safe_redirect( $data['redirect'] ) : SA_Membership_Adapter::profile_url();
+		$requested = isset( $data['redirect'] ) ? SA_Security::safe_redirect( $data['redirect'], SA_Membership_Adapter::profile_url() ) : SA_Membership_Adapter::profile_url();
+		$resolution = SAUTH_Completion_Resolver::resolve( $user->ID, $requested, $completion );
+		$destination = SA_Membership_Adapter::profile_url();
+		if ( 'allow' === ( $resolution['result'] ?? '' ) || 'completion_loop_prevented' === ( $resolution['reason_code'] ?? '' ) ) {
+			$destination = SA_Security::safe_redirect( (string) ( $resolution['destination'] ?? '' ), $destination );
+		}
 		wp_safe_redirect( $destination );
 		exit;
 	}
@@ -265,10 +277,24 @@ final class SA_Google_OAuth {
 		foreach ( self::google_meta_keys() as $key ) {
 			delete_user_meta( $user_id, $key );
 		}
+		$remaining = array();
+		foreach ( self::google_meta_keys() as $key ) {
+			if ( metadata_exists( 'user', $user_id, $key ) ) { $remaining[] = $key; }
+		}
+		if ( ! empty( $remaining ) ) {
+			/* Fail closed even if the underlying store partially rejected deletion. */
+			update_user_meta( $user_id, '_sauth_google_account', '0' );
+			update_user_meta( $user_id, '_sa_google_account', '0' );
+			if ( class_exists( 'WP_Session_Tokens' ) ) { WP_Session_Tokens::get_instance( $user_id )->destroy_all(); }
+			SA_Membership_Adapter::audit( 'google_account_unlink_incomplete', $user_id, array( 'remaining_count' => count( $remaining ) ) );
+			wp_safe_redirect( SA_Security::message_url( 'google_account', 'error', 'Google unlinking could not be completed safely. All sessions were revoked; sign in again and contact support.' ) );
+			exit;
+		}
 		if ( class_exists( 'WP_Session_Tokens' ) ) {
 			WP_Session_Tokens::get_instance( $user_id )->destroy_others( wp_get_session_token() );
 		}
 		SA_Security::clear_rate_limit( 'google_unlink', (string) $user_id );
+		SAUTH_Event_Outbox::emit( 'GoogleAccountUnlinked.v1', $user_id, $user_id, array( 'method' => 'google_oidc' ), 'security' );
 		SA_Membership_Adapter::audit( 'google_account_unlinked', $user_id );
 		wp_safe_redirect( SA_Security::message_url( 'google_account', 'success', 'Google has been unlinked. Your password and passkey sign-in methods remain under File 02.' ) );
 		exit;

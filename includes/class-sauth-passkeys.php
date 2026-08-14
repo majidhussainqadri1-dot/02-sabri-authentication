@@ -54,8 +54,14 @@ final class SAUTH_Passkeys {
 		}
 	}
 
-	public static function maybe_install() {
-		if ( self::SCHEMA_VERSION === (string) get_option( self::OPTION_SCHEMA_VERSION, '' ) ) {
+	public static function maybe_install( $force = false ) {
+		/* Never mutate File 02 passkey schema/pages while the mandatory File 00
+		 * runtime, DB and account contract are unavailable. Guarded repair passes
+		 * $force=true only after proving those dependencies ready. */
+		if ( ! SA_Membership_Adapter::available() || ! SAUTH_Account_Contract::provider_available() ) {
+			return;
+		}
+		if ( ! $force && self::SCHEMA_VERSION === (string) get_option( self::OPTION_SCHEMA_VERSION, '' ) ) {
 			return;
 		}
 		global $wpdb;
@@ -90,7 +96,23 @@ final class SAUTH_Passkeys {
 		) " . $wpdb->get_charset_collate() . ';';
 		dbDelta( $sql );
 		self::ensure_manager_page();
+
+		/* Do not publish a successful schema marker until the table and private
+		 * manager page actually exist. A failed dbDelta/page write must remain
+		 * retryable on the next request or guarded repair. */
+		$table_exists = $table === (string) $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) );
+		$map = (array) get_option( 'sauth_page_map', array() );
+		$page_id = isset( $map['passkeys'] ) ? absint( $map['passkeys'] ) : 0;
+		$page_ready = $page_id > 0 && 'trash' !== get_post_status( $page_id );
+		if ( ! $table_exists || ! $page_ready ) {
+			delete_option( self::OPTION_SCHEMA_VERSION );
+			return;
+		}
 		update_option( self::OPTION_SCHEMA_VERSION, self::SCHEMA_VERSION, false );
+		if ( self::SCHEMA_VERSION !== (string) get_option( self::OPTION_SCHEMA_VERSION, '' ) ) {
+			delete_option( self::OPTION_SCHEMA_VERSION );
+			return;
+		}
 		if ( function_exists( 'wp_next_scheduled' ) && ! wp_next_scheduled( self::CLEANUP_HOOK ) ) {
 			wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', self::CLEANUP_HOOK );
 		}
@@ -176,10 +198,8 @@ final class SAUTH_Passkeys {
 					<div class="sa-form">
 						<label for="sauth-passkey-name">Passkey name <span class="screen-reader-text">optional</span></label>
 						<input id="sauth-passkey-name" type="text" maxlength="80" autocomplete="off" placeholder="For example: My phone">
-						<label for="sauth-passkey-password">Current password <span class="screen-reader-text">accepted only when stronger File 00 step-up is not already required</span></label>
+						<label for="sauth-passkey-password">Current password <span class="screen-reader-text">used when this session does not already have a fresh File 02 passkey assurance</span></label>
 						<input id="sauth-passkey-password" type="password" autocomplete="current-password" maxlength="256">
-						<label for="sauth-passkey-stepup">Authenticator or recovery code <span class="screen-reader-text">required when File 00 two-factor protection is enabled</span></label>
-						<input id="sauth-passkey-stepup" type="text" autocomplete="one-time-code" maxlength="128">
 						<button type="button" class="sa-primary-button" data-sauth-passkey-register>Add a Passkey</button>
 					</div>
 				<?php endif; ?>
@@ -202,7 +222,7 @@ final class SAUTH_Passkeys {
 					</article>
 				<?php endforeach; ?>
 				</div>
-				<p class="sa-data-note">If a device is lost, revoke its passkey and review Active Sessions. Support must never ask for your password, authenticator code or recovery code.</p>
+				<p class="sa-data-note">If a device is lost, revoke its passkey and review Active Sessions. Support must never ask for your password, passkey private key, biometric data or recovery material.</p>
 				<a class="sa-secondary-button" href="<?php echo esc_url( SA_Security::page_url( 'sessions' ) ); ?>">Review Active Sessions</a>
 			</section>
 		</main>
@@ -223,7 +243,7 @@ final class SAUTH_Passkeys {
 			self::json_error( 'credential_limit_reached' );
 		}
 		$password = isset( $_POST['current_password'] ) ? (string) wp_unslash( $_POST['current_password'] ) : '';
-		$step_up = isset( $_POST['step_up_code'] ) ? sanitize_text_field( wp_unslash( $_POST['step_up_code'] ) ) : '';
+		$step_up = ''; // Retired File 00 factor material is never accepted as File 02 authority.
 		if ( ! self::reauthenticate_for_management( $user_id, $password, $step_up, 'passkey_enrollment' ) ) {
 			$password = '';
 			$step_up = '';
@@ -470,7 +490,7 @@ final class SAUTH_Passkeys {
 		$user_id = get_current_user_id();
 		$public_id = isset( $_POST['credential_id'] ) ? sanitize_text_field( wp_unslash( $_POST['credential_id'] ) ) : '';
 		$password = isset( $_POST['current_password'] ) ? (string) wp_unslash( $_POST['current_password'] ) : '';
-		$step_up = isset( $_POST['step_up_code'] ) ? sanitize_text_field( wp_unslash( $_POST['step_up_code'] ) ) : '';
+		$step_up = ''; // Retired File 00 factor material is never accepted as File 02 authority.
 		if ( ! self::reauthenticate_for_management( $user_id, $password, $step_up, 'passkey_revocation' ) ) {
 			$password = '';
 			$step_up = '';
@@ -573,30 +593,14 @@ final class SAUTH_Passkeys {
 
 	private static function reauthenticate_for_management( $user_id, $password, $step_up, $scope ) {
 		$user_id = absint( $user_id );
+		$step_up = ''; // Compatibility argument only; File 00 TOTP/recovery codes are retired.
+		$scope = '';
 		if ( ! $user_id ) {
 			return false;
 		}
 		$current = self::file00_assurance( array(), $user_id );
 		if ( 'file02' === ( $current['owner'] ?? '' ) && ! empty( $current['passkey_asserted'] ) ) {
 			return true;
-		}
-		$two_factor_required = SA_Membership_Adapter::two_factor_enabled( $user_id );
-		if ( '' !== (string) $step_up && class_exists( 'SA_Authentication_Assurance' ) ) {
-			$result = SA_Authentication_Assurance::verify_and_record(
-				$user_id,
-				(string) $step_up,
-				array(
-					'purpose' => 'authentication_link',
-					'scope' => sanitize_key( $scope ),
-					'trace_id' => strtolower( wp_generate_uuid4() ),
-				)
-			);
-			if ( 'valid' === ( $result['result'] ?? '' ) ) {
-				return true;
-			}
-		}
-		if ( $two_factor_required ) {
-			return false;
 		}
 		if ( '' !== (string) $password ) {
 			$user = get_userdata( $user_id );
@@ -945,7 +949,11 @@ final class SAUTH_Passkeys {
 	private static function environment_ready() {
 		$ctx = self::rp_context();
 		$local = in_array( $ctx['rp_id'], array( 'localhost', '127.0.0.1', '::1' ), true );
-		return '' !== $ctx['rp_id'] && ( 'https' === $ctx['scheme'] || ( $local && 'http' === $ctx['scheme'] ) ) && function_exists( 'openssl_verify' );
+		return '' !== $ctx['rp_id']
+			&& ( 'https' === $ctx['scheme'] || ( $local && 'http' === $ctx['scheme'] ) )
+			&& function_exists( 'openssl_verify' )
+			&& SA_Membership_Adapter::available()
+			&& SAUTH_Account_Contract::provider_available();
 	}
 
 	private static function rp_id_hash() {

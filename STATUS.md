@@ -2,7 +2,7 @@
 
 ## Current candidate
 
-- Branch: `fix/live-bootstrap-storage-router-1.2.1`
+- Branch: `review/file02-r291-r300-main-2026-08-14`
 - Version/schema: `1.2.1 / 1.2.0`; passkey table schema `1.0.0`
 - Governing corpus: Definitive Master Plan v3.0; `SSH-F02-PLAN-2026-v1.0`; Consolidated All-Chats Directives v2.1; Continuous-Value/Top-20 Superset plan; later File 00 Advanced Trust boundary for File 02 passkey/WebAuthn ceremony
 - Canonical repository name: `02-sabri-authentication-and-accounts`
@@ -17,7 +17,7 @@
 - Full password and Google-first registration orchestration plus all mandatory identity/guardian/completion fields.
 - Password login, signed email verification, recovery/reset, Google OAuth/link/unlink, provider circuits, Safe Mode and fail-closed membership checks.
 - Device/session registry, generalized device/network display, individual revoke, revoke others and sign out everywhere (CV-006 source scope).
-- New-device/network/recent-failure challenge with File 00-owned MFA/step-up policy.
+- New-device/network/recent-failure policy with elevated password risk requiring a separate File 02 passkey sign-in; retired File 00 factor codes are not an authentication ceremony.
 - WebAuthn/passkey registration and usernameless authentication (CV-005) with HTTPS/RP ID/origin binding, required user verification and discoverable credentials.
 - Server-side attestation-object CBOR parsing and COSE ES256/RS256 public-key extraction; client-supplied public keys are not trusted.
 - Atomic one-time challenge replay claim, credential collision protection, signature verification, signature-counter regression containment and revoked/compromised states.

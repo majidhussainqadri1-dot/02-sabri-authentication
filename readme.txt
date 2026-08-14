@@ -11,7 +11,7 @@ Complete authentication and account-entry orchestration for the Sabri Social Hom
 
 == Truthful release status ==
 
-Version 1.2.1 is the live-proven bootstrap correction over the four-plan 1.2.0 source candidate. A real File 00/File 02 WordPress integration run proved that 1.2.0 could pass its File 00 dependency activation gate and then fatal on the next request because `SAUTH_Storage_Router::init()` was called without loading `class-sauth-storage-router.php`. Version 1.2.1 corrects that exact bootstrap defect without changing the File 02 DB schema or ownership contracts. Source completion and automated QA do not by themselves prove Hostinger staging acceptance, live deployment or operational acceptance.
+Version 1.2.1 contains the repository correction for a bootstrap defect proven by a real File 00/File 02 WordPress integration run against 1.2.0. A real File 00/File 02 WordPress integration run proved that 1.2.0 could pass its File 00 dependency activation gate and then fatal on the next request because `SAUTH_Storage_Router::init()` was called without loading `class-sauth-storage-router.php`. Version 1.2.1 corrects that exact bootstrap defect without changing the File 02 DB schema or ownership contracts. Source completion and automated QA do not by themselves prove Hostinger staging acceptance, live deployment or operational acceptance.
 
 == Canonical constitution ==
 
@@ -44,8 +44,8 @@ If a required contract is missing, malformed or circuit-open, protected mutation
 * WebAuthn/passkey usernameless sign-in and passkey enrollment/revocation with required user verification, discoverable credentials, RP-ID/origin binding, one-time challenge replay claims, server-side CBOR/COSE parsing, ES256/RS256 verification, signature-counter checks and privacy-minimized metadata.
 * Passkey registration accepts only the COSE public key embedded in authenticatorData inside an `attestation=none` attestation object; a browser-supplied public key is never trusted.
 * Fresh passkey assurance is session-bound and projected to File 00 as owner=`file02`, contract `1.0.0`, level 3, `passkey_asserted=true`; hardware-backed status is not claimed when attestation provenance is intentionally unavailable.
-* Passkey enrollment/revocation requires fresh reauthentication. If File 00 two-factor protection is enabled, password-only management is rejected and File 00 step-up is required.
-* New-device/network/recent-failure risk scoring with File 00-owned step-up.
+* Passkey enrollment/revocation requires fresh reauthentication: a fresh File 02 passkey assurance, otherwise the current password. Retired File 00 Authenticator/recovery codes are never solicited or accepted as File 02 authentication authority.
+* New-device/network/recent-failure risk scoring; elevated password risk requires a separate File 02 passkey sign-in.
 * Loop-safe account-completion resolution including profile photograph, city, account type, ethical consent, phone, identity, guardian and MFA steps.
 * Opaque per-session registry, current marker, generalized device/network presentation, individual revoke, revoke others and sign out everywhere.
 * Password recovery/reset and all-session revocation.

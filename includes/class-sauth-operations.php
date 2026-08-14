@@ -49,6 +49,13 @@ final class SAUTH_Operations {
 			'sauth_google_registration_callback',
 			'sa_register',
 			'sauth_register',
+			'sa_forgot_password',
+			'sauth_forgot_password',
+			'sa_reset_password',
+			'sauth_reset_password',
+			'sauth_verify_email',
+			'sauth_resend_email_verification',
+			'sa_google_unlink',
 		);
 		if ( ! in_array( $action, $blocked, true ) ) { return; }
 		if ( function_exists( 'wp_doing_ajax' ) && wp_doing_ajax() ) {

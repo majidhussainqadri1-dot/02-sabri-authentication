@@ -182,6 +182,10 @@ final class SA_Registration {
 
 	public function forgot_password() {
 		check_admin_referer( 'sa_forgot_password', 'sa_nonce' );
+		if ( SAUTH_Operations::safe_mode() || ! SA_Membership_Adapter::available() || ! SAUTH_Account_Contract::provider_available() ) {
+			wp_safe_redirect( SA_Security::message_url( 'forgot', 'success', 'If the account exists and recovery is available, a reset email will be sent.' ) );
+			exit;
+		}
 		$login = isset( $_POST['user_login'] ) ? trim( sanitize_text_field( wp_unslash( $_POST['user_login'] ) ) ) : '';
 		if ( strlen( $login ) > 320 ) { $login = ''; }
 		$subject = strtolower( $login );
@@ -228,6 +232,7 @@ final class SA_Registration {
 		$user_id = absint( $job['user_id'] ?? 0 );
 		$epoch   = (string) ( $job['privacy_epoch'] ?? '' );
 		if ( $user_id ) { SAUTH_Privacy_Jobs::forget_job( $user_id, $key ); }
+		if ( SAUTH_Operations::safe_mode() || ! SA_Membership_Adapter::available() || ! SAUTH_Account_Contract::provider_available() ) { return; }
 		if ( ! $user_id || ! SAUTH_Privacy_Jobs::valid_snapshot( $user_id, $epoch ) ) { return; }
 		$user = get_userdata( $user_id );
 		if ( ! $user instanceof WP_User ) { return; }
@@ -239,6 +244,10 @@ final class SA_Registration {
 	}
 
 	public function reset_password() {
+		if ( SAUTH_Operations::safe_mode() || ! SA_Membership_Adapter::available() || ! SAUTH_Account_Contract::provider_available() ) {
+			wp_safe_redirect( SA_Security::message_url( 'reset', 'error', 'Password reset is temporarily unavailable. No credential was changed.' ) );
+			exit;
+		}
 		$login = isset( $_POST['login'] ) ? sanitize_user( wp_unslash( $_POST['login'] ) ) : '';
 		$key   = isset( $_POST['key'] ) ? sanitize_text_field( wp_unslash( $_POST['key'] ) ) : '';
 		if ( strlen( $login ) > 128 || strlen( $key ) > 256 ) {

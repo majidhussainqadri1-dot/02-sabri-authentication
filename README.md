@@ -28,7 +28,7 @@ The candidate retains:
 - fresh five-minute passkey assurance projected to File 00 as a versioned `owner=file02` claim without moving identity/MFA policy into File 02;
 - conservative provenance: `attestation=none` never fabricates a hardware-backed assertion;
 - opaque session/device registry, canonical `/account/sessions/`, individual/other/all-session revocation and generalized device/network presentation;
-- suspicious-login risk challenge and File 00-owned step-up;
+- suspicious-login risk policy with elevated password risk requiring a separate File 02 passkey sign-in;
 - privacy-minimized authentication/passkey events, privacy export/erasure, provider circuits, Safe Mode, System Check and guarded repair;
 - File 01/File 20 manifests, migration/rollback/backup/incident documentation and deterministic packaging;
 - canonical `SAUTH_` public naming with bounded legacy `SA_` compatibility.

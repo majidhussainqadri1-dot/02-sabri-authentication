@@ -1,8 +1,8 @@
-# File 02 Migration Guide — 1.2.0
+# File 02 Migration Guide — 1.2.1
 
 ## Migration model
 
-File 02 migration remains additive, idempotent and non-destructive. The 1.2.0 candidate preserves the seven canonical authentication tables from 1.1.0 and adds the isolated `sauth_passkeys` schema `1.0.0` plus its private passkey manager page.
+File 02 migration remains additive, idempotent and non-destructive. The 1.2.1 candidate preserves the seven canonical authentication tables from 1.1.0 and the additive `sauth_passkeys` schema `1.0.0` introduced in 1.2.0, while correcting bootstrap and review-discovered lifecycle controls without changing DB schema 1.2.0.
 
 `SAUTH_Activator::repair()` continues to reconcile the original authentication schema. `SAUTH_Passkeys::maybe_install()` creates/reconciles the passkey table and manager page through WordPress `dbDelta`; guarded repair forces this passkey reconciliation even if its stored schema marker is stale.
 
@@ -21,7 +21,7 @@ File 02 never migrates or mutates File 00 roles, membership approvals, account-c
 ## Pre-migration gates
 
 - Record exact source head, package SHA-256, manifest and SBOM.
-- Verify File 00 `smc.authentication-account 1.1.0`, existing step-up assurance and later Advanced Trust passkey consumer compatibility.
+- Verify File 00 `smc.authentication-account 1.1.0`, current membership assurance, and the Advanced Trust consumer compatibility for File 02 passkey assurance; retired File 00 factor codes are not a File 02 ceremony.
 - Verify HTTPS canonical origin, OpenSSL support, PHP/WordPress requirements and database privileges.
 - Back up database, WordPress files and encryption-key configuration; prove isolated restore.
 - Enable Safe Mode before upgrading a populated environment.
@@ -29,9 +29,9 @@ File 02 never migrates or mutates File 00 roles, membership approvals, account-c
 
 ## Execution
 
-1. Install the exact deterministic 1.2.0 package with registration/provider/passkey mutations gated.
+1. Install the exact deterministic 1.2.1 package only after its release build is separately produced and approved; registration/provider/passkey mutations remain gated.
 2. Activate or run guarded File 02 repair.
-3. Confirm `sauth_version` and `sauth_db_version` are `1.2.0` and `sauth_passkey_schema_version` is `1.0.0`.
+3. Confirm `sauth_version` is `1.2.1`, `sauth_db_version` remains `1.2.0`, and `sauth_passkey_schema_version` is `1.0.0`.
 4. Confirm the seven prior canonical `sauth_*` tables plus `sauth_passkeys` and their indexes exist.
 5. Confirm the private `account-passkeys` manager page exists and remains `noindex/no-store` through File 02 private-page controls.
 6. Compare legacy/canonical row counts; duplicate keys may reduce copied row counts only where canonical rows already exist.

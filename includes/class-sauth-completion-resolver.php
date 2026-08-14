@@ -52,7 +52,7 @@ final class SAUTH_Completion_Resolver {
 	public static function is_completion_step( $step ) {
 		return in_array(
 			sanitize_key( (string) $step ),
-			array( 'email', 'email_verification', 'phone', 'mobile_verification', 'age', 'guardian', 'profile', 'identity', 'terms', 'privacy', 'two_factor', 'mfa', 'verification' ),
+			array( 'email', 'email_verification', 'phone', 'mobile_verification', 'age', 'guardian', 'profile', 'profile_photo', 'identity', 'identity_reference', 'address', 'city', 'country', 'account_type', 'terms', 'privacy', 'ethical_conduct', 'two_factor', 'mfa', 'verification' ),
 			true
 		);
 	}

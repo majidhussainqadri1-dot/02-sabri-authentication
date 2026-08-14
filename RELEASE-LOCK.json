@@ -6,7 +6,7 @@
   "release_version": "1.2.1",
   "database_version": "1.2.0",
   "passkey_schema_version": "1.0.0",
-  "candidate_branch": "fix/live-bootstrap-storage-router-1.2.1",
+  "candidate_branch": "review/file02-r291-r300-main-2026-08-14",
   "canonical_repository": "02-sabri-authentication-and-accounts",
   "transport_repository": "02-sabri-authentication",
   "package_folder": "02-sabri-authentication",
@@ -28,9 +28,9 @@
   "artifact_policy": "Current exact-head CI must lint, test WebAuthn parsing/signatures, prove bootstrap class loading, build twice, byte-compare, clean-extract, path-safety check and retain the exact package artifact.",
   "status": {
     "specified": "complete",
-    "coded": "candidate_complete",
+    "coded": "review_candidate",
     "packaged": "ci_gated",
-    "automated_qa": "exact_head_gated",
+    "automated_qa": "review_exact_head_gated",
     "staging_accepted": false,
     "live_deployed": false,
     "operational": false

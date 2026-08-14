@@ -119,7 +119,6 @@ final class SAUTH_Google_Registration {
 		}
 		$client_id = trim( (string) get_option( 'sauth_google_client_id', get_option( 'sa_google_client_id', '' ) ) );
 		$client_secret = SA_Security::decrypt( (string) get_option( 'sauth_google_client_secret', get_option( 'sa_google_client_secret', '' ) ) );
-		$started = microtime( true );
 		$response = wp_remote_post(
 			SA_Google_OAuth::TOKEN_ENDPOINT,
 			array(
@@ -137,14 +136,11 @@ final class SAUTH_Google_Registration {
 		);
 		$code = '';
 		$client_secret = '';
-		$latency = (int) round( ( microtime( true ) - $started ) * 1000 );
 		if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
-			SAUTH_Provider_Health::record_failure( 'google', 'registration_token_exchange_failed', $latency );
 			self::fail( 'Google registration could not be completed.' );
 		}
 		$token = json_decode( wp_remote_retrieve_body( $response ), true );
 		if ( ! is_array( $token ) || empty( $token['id_token'] ) || strlen( (string) $token['id_token'] ) > 16384 ) {
-			SAUTH_Provider_Health::record_failure( 'google', 'registration_identity_token_missing', $latency );
 			self::fail( 'Google did not return a valid identity token.' );
 		}
 		$id_token = (string) $token['id_token'];
@@ -155,12 +151,10 @@ final class SAUTH_Google_Registration {
 		);
 		$id_token = '';
 		if ( is_wp_error( $verify ) || 200 !== wp_remote_retrieve_response_code( $verify ) ) {
-			SAUTH_Provider_Health::record_failure( 'google', 'registration_identity_validation_failed', $latency );
 			self::fail( 'The Google identity token could not be validated.' );
 		}
 		$claims = json_decode( wp_remote_retrieve_body( $verify ), true );
 		if ( ! self::valid_claims( $claims, $data ) ) {
-			SAUTH_Provider_Health::record_failure( 'google', 'registration_claims_invalid', $latency );
 			self::fail( 'The Google identity token failed validation.' );
 		}
 		$registration_token = SA_Security::random_token( 32 );
@@ -181,7 +175,6 @@ final class SAUTH_Google_Registration {
 		if ( get_transient( $context_key ) !== $context ) {
 			self::fail( 'The Google registration continuation could not be stored safely.' );
 		}
-		SAUTH_Provider_Health::record_success( 'google', $latency );
 		wp_safe_redirect( add_query_arg( 'google_registration', rawurlencode( $registration_token ), SA_Security::page_url( 'signup', wp_registration_url() ) ) );
 		exit;
 	}
@@ -221,11 +214,15 @@ final class SAUTH_Google_Registration {
 		if ( ! add_option( $claim_key, time(), '', false ) ) {
 			return array();
 		}
+		$scheduled = false;
 		if ( function_exists( 'wp_schedule_single_event' ) ) {
-			wp_schedule_single_event( time() + self::CLAIM_TTL, self::CLAIM_HOOK, array( $claim_key ) );
+			$scheduled = false !== wp_schedule_single_event( time() + self::CLAIM_TTL, self::CLAIM_HOOK, array( $claim_key ) );
 		}
 		$data = self::context( $token );
 		delete_transient( self::context_key( $token ) );
+		/* If cron could not retain the cleanup, release only after the one-time
+		 * context is gone; concurrent replay still cannot recover that context. */
+		if ( ! $scheduled ) { delete_option( $claim_key ); }
 		return $data;
 	}
 

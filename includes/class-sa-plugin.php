@@ -202,14 +202,12 @@ final class SA_Plugin {
 			wp_safe_redirect( add_query_arg( 'error', 'invalid_client_id', self::settings_url() ) );
 			exit;
 		}
-		update_option( 'sauth_google_client_id', $client_id, false );
-		update_option( 'sa_google_client_id', $client_id, false );
 
+		$encrypted = (string) get_option( 'sauth_google_client_secret', get_option( 'sa_google_client_secret', '' ) );
 		if ( ! empty( $_POST['clear_google_client_secret'] ) ) {
-			delete_option( 'sauth_google_client_secret' );
-			delete_option( 'sa_google_client_secret' );
+			$encrypted = '';
 		} elseif ( isset( $_POST['google_client_secret'] ) && '' !== trim( (string) wp_unslash( $_POST['google_client_secret'] ) ) ) {
-			$secret    = trim( sanitize_text_field( wp_unslash( $_POST['google_client_secret'] ) ) );
+			$secret = trim( sanitize_text_field( wp_unslash( $_POST['google_client_secret'] ) ) );
 			$encrypted = SA_Security::encrypt( $secret );
 			$secret = '';
 			unset( $_POST['google_client_secret'] );
@@ -217,19 +215,48 @@ final class SA_Plugin {
 				wp_safe_redirect( add_query_arg( 'error', 'encryption_failed', self::settings_url() ) );
 				exit;
 			}
-			update_option( 'sauth_google_client_secret', $encrypted, false );
-			update_option( 'sa_google_client_secret', $encrypted, false );
 		}
 
 		$enable = ! empty( $_POST['google_enabled'] );
-		if ( $enable && ( SAUTH_Operations::safe_mode() || ! SA_Membership_Adapter::available() || ! SAUTH_Account_Contract::provider_available() || ! is_ssl() || '' === $client_id || '' === SA_Security::decrypt( (string) get_option( 'sauth_google_client_secret', get_option( 'sa_google_client_secret', '' ) ) ) ) ) {
-			update_option( 'sauth_google_enabled', '0', false );
-			update_option( 'sa_google_enabled', '0', false );
+		if ( $enable && ( SAUTH_Operations::safe_mode() || ! is_ssl() || '' === $client_id || '' === $encrypted || '' === SA_Security::decrypt( $encrypted ) ) ) {
 			wp_safe_redirect( add_query_arg( 'error', 'not_ready', self::settings_url() ) );
 			exit;
 		}
-		update_option( 'sauth_google_enabled', $enable ? '1' : '0', false );
-		update_option( 'sa_google_enabled', $enable ? '1' : '0', false );
+
+		$keys = array(
+			'sauth_google_client_id', 'sa_google_client_id',
+			'sauth_google_client_secret', 'sa_google_client_secret',
+			'sauth_google_enabled', 'sa_google_enabled',
+		);
+		$snapshot = array();
+		foreach ( $keys as $key ) { $snapshot[ $key ] = get_option( $key, null ); }
+		$desired = array(
+			'sauth_google_client_id' => $client_id,
+			'sa_google_client_id' => $client_id,
+			'sauth_google_client_secret' => $encrypted,
+			'sa_google_client_secret' => $encrypted,
+			'sauth_google_enabled' => $enable ? '1' : '0',
+			'sa_google_enabled' => $enable ? '1' : '0',
+		);
+		$stored_ok = true;
+		foreach ( $desired as $key => $value ) {
+			if ( '' === $value && false !== strpos( $key, 'client_secret' ) ) { delete_option( $key ); }
+			else { update_option( $key, $value, false ); }
+			$current = get_option( $key, null );
+			if ( '' === $value && false !== strpos( $key, 'client_secret' ) ) {
+				$stored_ok = $stored_ok && null === $current;
+			} else {
+				$stored_ok = $stored_ok && (string) $current === (string) $value;
+			}
+		}
+		if ( ! $stored_ok ) {
+			foreach ( $snapshot as $key => $value ) {
+				if ( null === $value ) { delete_option( $key ); }
+				else { update_option( $key, $value, false ); }
+			}
+			wp_safe_redirect( add_query_arg( 'error', 'settings_store_failed', self::settings_url() ) );
+			exit;
+		}
 		SAUTH_Provider_Health::reset( 'google' );
 		wp_safe_redirect( add_query_arg( 'updated', '1', self::settings_url() ) );
 		exit;
