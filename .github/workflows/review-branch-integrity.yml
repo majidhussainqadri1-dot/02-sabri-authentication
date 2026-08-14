@@ -17,9 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php:
-          - '7.4'
-          - '8.3'
+        php: ['7.4','8.3']
     steps:
       - name: Checkout exact immutable head
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -45,31 +43,14 @@ jobs:
 
       - name: Lint every PHP file
         run: |
-          set -uo pipefail
+          set -euo pipefail
           mapfile -t php_files < <(find . -type f -name '*.php' -not -path './.git/*' -print | sort)
-          test "${#php_files[@]}" -ge 40 || exit 1
-          : > "$RUNNER_TEMP/php-lint-failures-${{ matrix.php }}.txt"
-          failed=0
-          for file in "${php_files[@]}"; do
-            if ! output="$(php -l "$file" 2>&1)"; then
-              printf '%s\n%s\n\n' "$file" "$output" | tee -a "$RUNNER_TEMP/php-lint-failures-${{ matrix.php }}.txt"
-              failed=1
-            fi
-          done
-          exit "$failed"
-
-      - name: Retain lint diagnostics on failure
-        if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: file02-review-lint-${{ matrix.php }}-${{ github.sha }}
-          if-no-files-found: warn
-          retention-days: 7
-          path: ${{ runner.temp }}/php-lint-failures-${{ matrix.php }}.txt
+          test "${#php_files[@]}" -ge 40
+          for file in "${php_files[@]}"; do php -l "$file"; done
 
       - name: Run cumulative no-network source suites
         run: |
-          set -uo pipefail
+          set -euo pipefail
           tests=(
             tests/security-unit.php
             tests/cf01-assurance-unit.php
@@ -89,25 +70,9 @@ jobs:
             tests/r306-session-assurance-regression.php
             tests/r307-privacy-operations-regression.php
             tests/r308-route-ui-regression.php
+            tests/r309-release-truth-regression.php
           )
-          : > "$RUNNER_TEMP/php-suite-failures-${{ matrix.php }}.txt"
-          failed=0
-          for test_file in "${tests[@]}"; do
-            if ! output="$(php "$test_file" 2>&1)"; then
-              printf '%s\n%s\n\n' "$test_file" "$output" | tee -a "$RUNNER_TEMP/php-suite-failures-${{ matrix.php }}.txt"
-              failed=1
-            fi
-          done
-          exit "$failed"
-
-      - name: Retain suite diagnostics on failure
-        if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: file02-review-suites-${{ matrix.php }}-${{ github.sha }}
-          if-no-files-found: warn
-          retention-days: 7
-          path: ${{ runner.temp }}/php-suite-failures-${{ matrix.php }}.txt
+          for test_file in "${tests[@]}"; do php "$test_file"; done
 
       - name: Validate JavaScript and CSS source
         run: |
@@ -115,12 +80,11 @@ jobs:
           node --check assets/js/authentication.js
           python3 - <<'PY'
           import pathlib
-          css = pathlib.Path('assets/css/authentication.css').read_text(encoding='utf-8')
-          if css.count('{') != css.count('}'):
-              raise SystemExit('CSS brace mismatch')
-          if 'orange' in css.lower() or '#f97316' in css.lower():
-              raise SystemExit('superseded orange-primary token found')
-          print('Review-branch JS/CSS structural checks passed.')
+          css=pathlib.Path('assets/css/authentication.css').read_text(encoding='utf-8')
+          if css.count('{') != css.count('}'): raise SystemExit('CSS brace mismatch')
+          if 'orange' in css.lower() or '#f97316' in css.lower(): raise SystemExit('superseded orange-primary token found')
+          js=pathlib.Path('assets/js/authentication.js').read_text(encoding='utf-8')
+          if 'attestation_object' not in js or 'getPublicKey(' in js: raise SystemExit('WebAuthn trust-boundary regression')
           PY
 
       - name: Enforce review-only artifact boundary
@@ -130,4 +94,4 @@ jobs:
             echo 'Review branch must not contain installable/archive artifacts.' >&2
             exit 1
           fi
-          echo 'No installable artifact was built or retained by this review workflow.'
+          echo 'Review head contains no installable archive artifact.'
