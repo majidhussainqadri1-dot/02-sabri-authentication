@@ -7,6 +7,7 @@
 define( 'ABSPATH', __DIR__ . '/' );
 define( 'MINUTE_IN_SECONDS', 60 );
 define( 'HOUR_IN_SECONDS', 3600 );
+define( 'SA_MASTER_KEY', 'file02-unit-test-dedicated-master-key-2026-08-14' );
 
 $GLOBALS['sa_test_options'] = array(
 	'sa_google_client_id' => '123456789.apps.googleusercontent.com',
@@ -27,6 +28,9 @@ function absint( $value ) {
 }
 function wp_generate_password( $length = 12, $special_chars = true, $extra_special_chars = false ) {
 	return substr( str_repeat( 'aB3', (int) ceil( $length / 3 ) ), 0, $length );
+}
+function sanitize_key( $value ) {
+	return strtolower( preg_replace( '/[^a-z0-9_\-]/i', '', (string) $value ) );
 }
 function sanitize_text_field( $value ) {
 	return trim( strip_tags( (string) $value ) );
@@ -51,16 +55,23 @@ function sa_test_assert( $condition, $message ) {
 require_once dirname( __DIR__ ) . '/includes/class-sa-security.php';
 require_once dirname( __DIR__ ) . '/includes/class-sa-google-oauth.php';
 
+sa_test_assert( SA_Security::master_key_ready(), 'dedicated File 02 master key was not recognized' );
 $plain  = 'unit-test-google-client-secret';
 $cipher = SA_Security::encrypt( $plain );
-sa_test_assert( 0 === strpos( $cipher, 'v2:' ), 'encrypted value must use v2 envelope' );
-sa_test_assert( $plain === SA_Security::decrypt( $cipher ), 'AES-256-GCM round trip failed' );
+sa_test_assert( 0 === strpos( $cipher, 'v3:' ), 'encrypted value must use dedicated-key v3 envelope' );
+sa_test_assert( $plain === SA_Security::decrypt( $cipher ), 'AES-256-GCM dedicated-key round trip failed' );
 $last = substr( $cipher, -1 );
 $tampered = substr( $cipher, 0, -1 ) . ( 'A' === $last ? 'B' : 'A' );
 sa_test_assert( '' === SA_Security::decrypt( $tampered ), 'tampered ciphertext must fail authentication' );
 sa_test_assert( strlen( SA_Security::random_token( 32 ) ) >= 64, 'random token is unexpectedly short' );
 sa_test_assert( 'https://example.test/member' === SA_Security::safe_redirect( 'https://example.test/member' ), 'valid local redirect rejected' );
 sa_test_assert( 'https://example.test/' === SA_Security::safe_redirect( 'https://attacker.test/path' ), 'external redirect was not rejected' );
+
+$notice = SA_Security::message_url( 'login', 'success', 'Verified server notice' );
+parse_str( (string) parse_url( $notice, PHP_URL_QUERY ), $notice_args );
+sa_test_assert( isset( $notice_args['sa_sig'] ), 'server notice signature missing' );
+sa_test_assert( SA_Security::notice_valid( $notice_args['sa_notice'] ?? '', $notice_args['sa_msg'] ?? '', $notice_args['sa_sig'] ?? '' ), 'valid server notice signature was rejected' );
+sa_test_assert( ! SA_Security::notice_valid( 'success', 'Forged success', $notice_args['sa_sig'] ?? '' ), 'forged success notice was accepted' );
 
 $oauth  = new SA_Google_OAuth();
 $method = new ReflectionMethod( 'SA_Google_OAuth', 'valid_claims' );
