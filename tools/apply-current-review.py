@@ -122,7 +122,7 @@ write(p,s)
 write('tests/r317-privacy-integrity-regression.php',r'''<?php
 $root=dirname(__DIR__); $p=file_get_contents($root.'/includes/class-sa-privacy.php'); $o=file_get_contents($root.'/includes/class-sauth-operations.php'); $u=file_get_contents($root.'/uninstall.php'); $fail=array();
 $checks=array(
- array($p,"return array( 'data' => $data, 'done' => false )",'privacy DB export failures can still be reported complete'),
+ array($p,'return array( \'data\' => $data, \'done\' => false )','privacy DB export failures can still be reported complete'),
  array($p,'privacy_passkey_count_failed','passkey erasure precondition DB failure can collapse to zero'),
  array($p,'null === $passkey_remaining','passkey erasure postcondition DB failure can collapse to zero'),
  array($p,'privacy_table_count_failed','table erasure precondition DB failure can collapse to zero'),
