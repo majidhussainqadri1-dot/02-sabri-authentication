@@ -166,6 +166,10 @@ final class SAUTH_Operations {
 		$checks[] = self::check( 'File 02 passkey authentication assurance', $passkey_ready, $passkey_ready ? 'File 02 passkey runtime, schema, table, HTTPS/origin and dependencies are ready.' : 'File 02 passkey authentication readiness is incomplete.' );
 		$checks[] = self::check( 'Runtime version marker', SAUTH_VERSION === (string) get_option( 'sauth_version', '' ), 'Runtime=' . SAUTH_VERSION . '; stored=' . (string) get_option( 'sauth_version', '' ) );
 		$checks[] = self::check( 'Database schema marker', SAUTH_DB_VERSION === (string) get_option( 'sauth_db_version', '' ), 'Expected=' . SAUTH_DB_VERSION . '; stored=' . (string) get_option( 'sauth_db_version', '' ) );
+		$core_storage_ready = SAUTH_Activator::storage_ready();
+		$checks[] = self::check( 'Material File 02 storage postconditions', $core_storage_ready, $core_storage_ready ? 'Required tables, columns, managed pages and passkey installation postconditions are materialized.' : 'One or more material storage/page/passkey postconditions are incomplete.' );
+		$outbox_scheduled = class_exists( 'SAUTH_Event_Outbox' ) && function_exists( 'wp_next_scheduled' ) && false !== wp_next_scheduled( SAUTH_Event_Outbox::CRON_HOOK );
+		$checks[] = self::check( 'Authentication event outbox dispatch schedule', $outbox_scheduled, $outbox_scheduled ? 'Authentication event dispatch cron is scheduled.' : 'Authentication event dispatch cron is not scheduled.' );
 		foreach ( SAUTH_Activator::required_tables() as $name => $table ) {
 			$exists = $table === (string) $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) );
 			$checks[] = self::check( 'Table ' . $name, $exists, $exists ? $table . ' exists.' : $table . ' is missing.' );

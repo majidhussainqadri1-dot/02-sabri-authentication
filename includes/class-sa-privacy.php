@@ -38,26 +38,27 @@ final class SA_Privacy {
 		}
 
 		$sessions = $wpdb->get_results( $wpdb->prepare( 'SELECT public_id,device_label,network_label,risk_level,status,last_seen_at,expires_at,revoked_at,revocation_reason FROM ' . SAUTH_Activator::table( 'auth_sessions' ) . ' WHERE user_id=%d ORDER BY id DESC LIMIT %d OFFSET %d', $user_id, self::EXPORT_LIMIT, $offset ), ARRAY_A );
-		$sessions = is_array( $sessions ) ? $sessions : array();
+		if ( ! is_array( $sessions ) || '' !== (string) $wpdb->last_error ) { return array( 'data' => $data, 'done' => false ); }
 		$done = $done && count( $sessions ) < self::EXPORT_LIMIT;
 		foreach ( $sessions as $row ) {
 			$data[] = array( 'group_id' => 'sabri-authentication-sessions', 'group_label' => __( 'Authentication sessions', 'sabri-authentication' ), 'item_id' => 'session-' . sanitize_key( (string) $row['public_id'] ), 'data' => $this->export_pairs( $row ) );
 		}
 
 		$email_row = 1 === $page ? $wpdb->get_row( $wpdb->prepare( 'SELECT status,attempts,sent_at,expires_at,verified_at,created_at,updated_at FROM ' . SAUTH_Activator::table( 'email_verifications' ) . ' WHERE user_id=%d', $user_id ), ARRAY_A ) : null;
+		if ( 1 === $page && '' !== (string) $wpdb->last_error ) { return array( 'data' => $data, 'done' => false ); }
 		if ( is_array( $email_row ) ) {
 			$data[] = array( 'group_id' => 'sabri-authentication-email', 'group_label' => __( 'Email verification', 'sabri-authentication' ), 'item_id' => 'email-verification-' . $user_id, 'data' => $this->export_pairs( $email_row ) );
 		}
 
 		$attempts = $wpdb->get_results( $wpdb->prepare( 'SELECT public_id,result,reason_code,risk_score,created_at FROM ' . SAUTH_Activator::table( 'auth_attempts' ) . ' WHERE user_id=%d ORDER BY id DESC LIMIT %d OFFSET %d', $user_id, self::EXPORT_LIMIT, $offset ), ARRAY_A );
-		$attempts = is_array( $attempts ) ? $attempts : array();
+		if ( ! is_array( $attempts ) || '' !== (string) $wpdb->last_error ) { return array( 'data' => $data, 'done' => false ); }
 		$done = $done && count( $attempts ) < self::EXPORT_LIMIT;
 		foreach ( $attempts as $row ) {
 			$data[] = array( 'group_id' => 'sabri-authentication-attempts', 'group_label' => __( 'Authentication security attempts', 'sabri-authentication' ), 'item_id' => 'attempt-' . sanitize_key( (string) $row['public_id'] ), 'data' => $this->export_pairs( $row ) );
 		}
 
 		$events = $wpdb->get_results( $wpdb->prepare( 'SELECT event_id,event_name,privacy_class,trace_id,status,created_at,published_at FROM ' . SAUTH_Activator::table( 'auth_outbox' ) . ' WHERE actor_user_id=%d OR subject_user_id=%d ORDER BY id DESC LIMIT %d OFFSET %d', $user_id, $user_id, self::EXPORT_LIMIT, $offset ), ARRAY_A );
-		$events = is_array( $events ) ? $events : array();
+		if ( ! is_array( $events ) || '' !== (string) $wpdb->last_error ) { return array( 'data' => $data, 'done' => false ); }
 		$done = $done && count( $events ) < self::EXPORT_LIMIT;
 		foreach ( $events as $row ) {
 			$data[] = array( 'group_id' => 'sabri-authentication-events', 'group_label' => __( 'Authentication event evidence', 'sabri-authentication' ), 'item_id' => 'event-' . sanitize_key( (string) $row['event_id'] ), 'data' => $this->export_pairs( $row ) );
@@ -113,13 +114,16 @@ final class SA_Privacy {
 
 			/* Durable passkey rows plus opaque WebAuthn user handle. */
 			$passkey_table = $wpdb->prefix . 'sauth_passkeys';
-			$passkey_count = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$passkey_table} WHERE user_id=%d", $user_id ) );
+			$passkey_count_raw = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$passkey_table} WHERE user_id=%d", $user_id ) );
+			if ( null === $passkey_count_raw || '' !== (string) $wpdb->last_error ) { throw new RuntimeException( 'privacy_passkey_count_failed' ); }
+			$passkey_count = (int) $passkey_count_raw;
 			if ( $passkey_count > 0 ) { $removed = true; }
 			if ( class_exists( 'SAUTH_Passkeys' ) && is_callable( array( 'SAUTH_Passkeys', 'privacy_erase' ) ) ) {
 				$passkey_erasure = SAUTH_Passkeys::privacy_erase( sanitize_email( $email_address ), $page );
 				if ( ! is_array( $passkey_erasure ) || ! empty( $passkey_erasure['items_retained'] ) ) { $failed = true; }
 			}
-			if ( 0 !== (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$passkey_table} WHERE user_id=%d", $user_id ) ) ) { $failed = true; }
+			$passkey_remaining = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$passkey_table} WHERE user_id=%d", $user_id ) );
+			if ( null === $passkey_remaining || '' !== (string) $wpdb->last_error || 0 !== (int) $passkey_remaining ) { $failed = true; }
 			delete_user_meta( $user_id, SAUTH_Passkeys::USER_HANDLE_META );
 			delete_user_meta( $user_id, SAUTH_Passkey_Runtime::EPOCH_META );
 
@@ -134,10 +138,12 @@ final class SA_Privacy {
 			foreach ( $table_pairs as $pair ) {
 				foreach ( array_unique( array_filter( $pair ) ) as $table ) {
 					if ( ! self::table_exists( $table ) ) { continue; }
-					$count = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM `{$table}` WHERE user_id=%d", $user_id ) );
-					if ( $count > 0 ) { $removed = true; }
+					$count_raw = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM `{$table}` WHERE user_id=%d", $user_id ) );
+					if ( null === $count_raw || '' !== (string) $wpdb->last_error ) { throw new RuntimeException( 'privacy_table_count_failed' ); }
+					if ( (int) $count_raw > 0 ) { $removed = true; }
 					$result = $wpdb->query( $wpdb->prepare( "DELETE FROM `{$table}` WHERE user_id=%d", $user_id ) );
-					if ( false === $result || 0 !== (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM `{$table}` WHERE user_id=%d", $user_id ) ) ) { $failed = true; }
+					$remaining_raw = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM `{$table}` WHERE user_id=%d", $user_id ) );
+					if ( false === $result || null === $remaining_raw || '' !== (string) $wpdb->last_error || 0 !== (int) $remaining_raw ) { $failed = true; }
 				}
 			}
 
@@ -146,7 +152,8 @@ final class SA_Privacy {
 			foreach ( array_unique( array_filter( array( SAUTH_Activator::table( 'auth_outbox' ), SAUTH_Activator::legacy_table( 'auth_outbox' ) ) ) ) as $table ) {
 				if ( ! self::table_exists( $table ) ) { continue; }
 				$rows = $wpdb->get_results( $wpdb->prepare( "SELECT id,payload_json FROM `{$table}` WHERE actor_user_id=%d OR subject_user_id=%d LIMIT %d", $user_id, $user_id, 5000 ), ARRAY_A );
-				foreach ( is_array( $rows ) ? $rows : array() as $row ) {
+				if ( ! is_array( $rows ) || '' !== (string) $wpdb->last_error ) { throw new RuntimeException( 'privacy_outbox_read_failed' ); }
+				foreach ( $rows as $row ) {
 					$payload = json_decode( (string) $row['payload_json'], true );
 					$payload = is_array( $payload ) ? self::erase_identity_payload( $payload ) : array();
 					$payload_json = wp_json_encode( $payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
@@ -154,8 +161,8 @@ final class SA_Privacy {
 					if ( false === $updated ) { $failed = true; }
 					else { $removed = true; }
 				}
-				$remaining = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM `{$table}` WHERE actor_user_id=%d OR subject_user_id=%d", $user_id, $user_id ) );
-				if ( $remaining > 0 ) { $failed = true; }
+				$remaining_raw = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM `{$table}` WHERE actor_user_id=%d OR subject_user_id=%d", $user_id, $user_id ) );
+				if ( null === $remaining_raw || '' !== (string) $wpdb->last_error || (int) $remaining_raw > 0 ) { $failed = true; }
 			}
 
 			/* New asynchronous jobs are indexed and were purged by begin_erasure().
@@ -220,6 +227,9 @@ final class SA_Privacy {
 	private static function table_exists( $table ) {
 		global $wpdb;
 		$table = (string) $table;
-		return '' !== $table && $table === (string) $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) );
+		if ( '' === $table ) { return false; }
+		$found = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) );
+		if ( '' !== (string) $wpdb->last_error ) { throw new RuntimeException( 'privacy_table_probe_failed' ); }
+		return $table === (string) $found;
 	}
 }
