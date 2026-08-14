@@ -217,8 +217,7 @@ final class SAUTH_Passkey_Runtime {
 			$status = (string) $wpdb->get_var( $wpdb->prepare( 'SELECT status FROM ' . self::table() . ' WHERE id=%d', absint( $credential['id'] ) ) );
 			$invalidated = self::invalidate_user_assurance( $user_id );
 			if ( 1 !== (int) $quarantined || 'compromised' !== $status || ! $invalidated ) {
-				if ( class_exists( 'SAUTH_Operations' ) ) { update_option( SAUTH_Operations::SAFE_MODE_OPTION, '1', false ); }
-				if ( class_exists( 'WP_Session_Tokens' ) ) { WP_Session_Tokens::get_instance( $user_id )->destroy_all(); }
+				self::contain_security_state_failure( $user_id, 'passkey_quarantine' );
 				self::authentication_failure( $user_id, 'credential_quarantine_failed' );
 			}
 			self::authentication_failure( $user_id, 'signature_counter_regression' );
@@ -347,8 +346,16 @@ final class SAUTH_Passkey_Runtime {
 	}
 
 	private static function contain_invalidation_failure( $user_id ) {
-		if ( class_exists( 'WP_Session_Tokens' ) ) { WP_Session_Tokens::get_instance( absint( $user_id ) )->destroy_all(); }
+		self::contain_security_state_failure( $user_id, 'passkey_assurance_invalidation' );
 		return false;
+	}
+
+	private static function contain_security_state_failure( $user_id, $reason ) {
+		$user_id = absint( $user_id );
+		$revoked = $user_id && class_exists( 'SAUTH_Session_Manager' ) ? SAUTH_Session_Manager::revoke_user_sessions( $user_id, sanitize_key( (string) $reason ) ) : false;
+		$safe = class_exists( 'SAUTH_Operations' ) ? SAUTH_Operations::enter_safe_mode() : false;
+		SA_Membership_Adapter::audit( 'passkey_security_state_contained', $user_id, array( 'reason' => sanitize_key( (string) $reason ), 'sessions_revoked_verified' => (bool) $revoked, 'safe_mode_verified' => (bool) $safe ) );
+		return $revoked && $safe;
 	}
 
 	private static function store_pending_assurance( $user_id, $hardware_backed ) {
