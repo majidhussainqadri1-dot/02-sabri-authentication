@@ -1,0 +1,76 @@
+name: File 02 Frozen Round Ledger Apply
+
+on:
+  push:
+    branches:
+      - review/file02-r321-r330-2026-08-14
+
+permissions:
+  contents: write
+
+jobs:
+  apply-after-complete-review:
+    if: contains(github.event.head_commit.message, ' ledger frozen:')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout frozen reviewed head
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+          ref: ${{ github.sha }}
+      - name: Apply only the frozen defect ledger
+        run: |
+          set -euo pipefail
+          round="$(printf '%s' '${{ github.event.head_commit.message }}' | sed -n 's/^\(R[0-9][0-9][0-9]\) ledger frozen:.*/\1/p')"
+          test -n "$round"
+          ledger="review-evidence/${round}-ledger.json"
+          test -f "$ledger"
+          python3 tools/apply-round-ledger.py "$ledger"
+          git diff --check
+      - name: Lint and cumulative regression before correction commit
+        run: |
+          set -euo pipefail
+          mapfile -t php_files < <(find . -type f -name '*.php' -not -path './.git/*' -print | sort)
+          test "${#php_files[@]}" -ge 40
+          for file in "${php_files[@]}"; do php -l "$file" >/dev/null; done
+          tests=(
+            tests/security-unit.php
+            tests/cf01-assurance-unit.php
+            tests/professional-reauthentication-unit.php
+            tests/plan-harmonization-unit.php
+            tests/registration-authentication-unit.php
+            tests/complete-plan-unit.php
+            tests/passkey-webauthn-unit.php
+            tests/three-plan-completion-unit.php
+            tests/storage-migration-unit.php
+            tests/r291-r300-review-regression.php
+            tests/r299-cross-flow-regression.php
+            tests/r302-migration-postcondition-regression.php
+            tests/r303-registration-recovery-regression.php
+            tests/r304-google-auth-regression.php
+            tests/r305-passkey-lifecycle-regression.php
+            tests/r306-session-assurance-regression.php
+            tests/r307-privacy-operations-regression.php
+            tests/r308-route-ui-regression.php
+            tests/r309-release-truth-regression.php
+            tests/r310-final-adversarial-regression.php
+          )
+          for extra in tests/r31*-regression.php tests/r32*-regression.php tests/r33*-regression.php; do [ -e "$extra" ] && tests+=("$extra"); done
+          declare -A seen=()
+          for test_file in "${tests[@]}"; do
+            if [ -z "${seen[$test_file]+x}" ]; then php "$test_file"; seen[$test_file]=1; fi
+          done
+          node --check assets/js/authentication.js
+      - name: Commit corrected state only after tests pass
+        run: |
+          set -euo pipefail
+          round="$(printf '%s' '${{ github.event.head_commit.message }}' | sed -n 's/^\(R[0-9][0-9][0-9]\) ledger frozen:.*/\1/p')"
+          test -n "$round"
+          git config user.name 'majidhussainqadri1-dot'
+          git config user.email 'majidhussainqadri1@gmail.com'
+          git add -A
+          git diff --cached --check
+          git commit -m "$round: corrections after complete review and frozen defect ledger"
+          git push origin HEAD:review/file02-r321-r330-2026-08-14
