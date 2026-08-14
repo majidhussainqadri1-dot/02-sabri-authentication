@@ -1,1 +1,1 @@
-R329 correction-phase retry marker. Frozen product defect ledger remains unchanged; this file exists only to trigger the post-review correction runner after aligning a historical regression gate with the current review branch.
+R329 correction-phase retry marker 2. Frozen product defect ledger remains unchanged; this file exists only to trigger the post-review correction runner after aligning historical/current branch-truth gates.
