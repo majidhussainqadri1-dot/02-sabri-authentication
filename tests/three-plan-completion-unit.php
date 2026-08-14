@@ -149,6 +149,6 @@ $status = sauth_three_plan_read( $root, 'STATUS.md' );
 sauth_three_plan_require( $status, array( 'Version 1.2.2', 'Source coding', 'Automated-QA', 'Staging-Accepted', 'Operational', 'Passkey' ), 'status truth' );
 
 $workflow = sauth_three_plan_read( $root, '.github/workflows/baseline-integrity.yml' );
-sauth_three_plan_require( $workflow, array( 'three-plan-completion-unit.php', 'passkey-webauthn-unit.php', 'class-sauth-storage-router.php', 'upload-artifact', '1.2.2' ), 'release workflow' );
+sauth_three_plan_require( $workflow, array( 'three-plan-completion-unit.php', 'passkey-webauthn-unit.php', 'tests/r320-final-release-regression.php', 'deterministic-package', 'upload-artifact', '1.2.2' ), 'release workflow' );
 
 echo "File 02 prior three-plan requirements preserved inside 1.2.2 R311-R320 hardened candidate.\n";
