@@ -38,20 +38,18 @@ final class SA_Registration {
 		add_action( self::RECOVERY_JOB_HOOK, array( __CLASS__, 'run_recovery_job' ), 10, 1 );
 	}
 
-	/**
-	 * File 00 currently exposes these provider values. R288/R294 separately
-	 * blocks release until File 00 canonical taxonomy and provider vocabulary are
-	 * harmonized; File 02 deliberately does not invent a lossy remap here.
-	 */
+	/** File 00 canonical account taxonomy; File 02 performs no aliases or lossy remap. */
 	public static function account_types() {
 		return array(
-			'member'                     => 'Member / Patient / General User',
-			'doctor'                     => 'Homeopathic Doctor',
-			'student'                    => 'Student',
-			'teacher'                    => 'Teacher / Trainer',
-			'researcher'                 => 'Researcher / Author',
-			'clinic_staff'                => 'Clinic Staff',
-			'institution_representative' => 'Institution Representative',
+			'member'     => 'Member / General User',
+			'patient'    => 'Patient',
+			'student'    => 'Student',
+			'doctor'     => 'Homeopathic Doctor',
+			'teacher'    => 'Teacher / Trainer',
+			'researcher' => 'Researcher / Author',
+			'pharmacy'   => 'Pharmacy',
+			'clinic'     => 'Clinic',
+			'publisher'  => 'Publisher',
 		);
 	}
 
