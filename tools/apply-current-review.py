@@ -8,7 +8,6 @@ def one(s,old,new,label):
     if n!=1: raise SystemExit(f'{label}: expected 1 patch point, found {n}')
     return s.replace(old,new,1)
 
-# R313 ledger 1: email-provider circuit breaker was recorded but never enforced.
 p='includes/class-sauth-email-verification.php'; s=read(p)
 old="""\t\tif ( ! SAUTH_Account_Contract::provider_available() || ! SAUTH_Provider_Health::allow_request( 'membership' ) ) {
 \t\t\treturn new WP_Error( 'sauth_email_provider_unavailable', 'Account verification is temporarily unavailable.' );
@@ -24,7 +23,6 @@ new="""\t\tif ( ! SAUTH_Account_Contract::provider_available() || ! SAUTH_Provid
 \t\t$table = self::table();
 """
 s=one(s,old,new,'email verification delivery circuit')
-# R313 ledger 2: a delivery_failed row was immediately throttled despite telling user to retry.
 old="""\t\tif ( ! $force && is_array( $row ) && ! empty( $row['sent_at'] ) ) {
 \t\t\t$sent_at = strtotime( (string) $row['sent_at'] );
 """
@@ -49,8 +47,8 @@ write('tests/r313-registration-recovery-regression.php',r'''<?php
 $root=dirname(__DIR__); $e=file_get_contents($root.'/includes/class-sauth-email-verification.php'); $r=file_get_contents($root.'/includes/class-sa-registration.php'); $fail=array();
 $checks=array(
  array($e,"allow_request( 'email' )",'verification delivery ignores email provider circuit'),
- array($e,"sauth_email_delivery_circuit_open",'verification delivery circuit has no explicit failure'),
- array($e,"'pending' === (string) ( $row['status'] ?? '' )",'delivery_failed verification cannot be retried immediately'),
+ array($e,'sauth_email_delivery_circuit_open','verification delivery circuit has no explicit failure'),
+ array($e,'\'pending\' === (string) ( $row[\'status\'] ?? \'\' )','delivery_failed verification cannot be retried immediately'),
  array($r,"allow_request( 'email' )",'password recovery worker ignores email provider circuit')
 );
 foreach($checks as $c){if(false===strpos($c[0],$c[1]))$fail[]=$c[2];}
