@@ -90,6 +90,12 @@ jobs:
           git config user.name 'majidhussainqadri1-dot'
           git config user.email 'majidhussainqadri1@gmail.com'
           git add -A
+          # The Actions token has contents:write but not the separate workflows
+          # permission. Keep all workflow-control edits out of this product commit;
+          # they are applied through the authenticated GitHub connector after the
+          # source/product correction commit lands.
+          git reset HEAD -- .github/workflows
+          git checkout -- .github/workflows
           git diff --cached --check
           git commit -m "$round: corrections after complete review and frozen defect ledger"
           git push origin HEAD:review/file02-r311-r320-2026-08-14
