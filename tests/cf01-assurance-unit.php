@@ -7,6 +7,7 @@
 
 define( 'ABSPATH', __DIR__ . '/' );
 define( 'SAUTH_VERSION', '1.2.1' );
+define( 'SAUTH_PASSKEY_CONTRACT_VERSION', '1.0.0' );
 
 $GLOBALS['sa_cf01_users']       = array( 7 => (object) array( 'ID' => 7 ) );
 $GLOBALS['sa_cf01_transients']  = array();

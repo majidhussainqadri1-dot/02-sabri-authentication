@@ -91,6 +91,12 @@ final class SAUTH_Login_Risk {
 		$score = min( 100, $score );
 		$reason = empty( $reasons ) ? 'known_context' : implode( '_', $reasons );
 		if ( $score < self::CHALLENGE_THRESHOLD ) { return array( 'action' => 'allow', 'score' => $score, 'reason_code' => $reason ); }
+		$passkey_ready = class_exists( 'SAUTH_Passkeys' )
+			&& is_callable( array( 'SAUTH_Passkeys', 'authentication_ready' ) )
+			&& SAUTH_Passkeys::authentication_ready();
+		if ( ! $passkey_ready ) {
+			return array( 'action' => 'deny', 'score' => max( self::HIGH_RISK_THRESHOLD, $score ), 'reason_code' => 'strong_authentication_unavailable' );
+		}
 		if ( self::has_active_passkey( $user_id ) ) { return array( 'action' => 'challenge', 'score' => $score, 'reason_code' => $reason ); }
 		/* A first/new network alone may produce medium risk before a user has ever
 		 * enrolled a passkey. Keep that path usable but never allow high risk. */

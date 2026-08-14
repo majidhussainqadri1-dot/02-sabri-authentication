@@ -194,6 +194,8 @@ final class SA_Professional_Reauthentication {
 		$receipt['session_binding'] = self::session_binding( $token );
 		$receipt['fingerprint'] = SA_Security::client_fingerprint();
 		$receipt['password_verified'] = true;
+		$receipt['password_binding'] = self::password_binding( $user_id );
+		if ( '' === $receipt['password_binding'] ) { return false; }
 		$key = self::receipt_key( $user_id, $token, $scope );
 		if ( ! self::write_transient_verified( $key, $receipt, $ttl ) ) {
 			return false;
@@ -220,7 +222,9 @@ final class SA_Professional_Reauthentication {
 		}
 		if ( ! hash_equals( (string) ( $receipt['session_binding'] ?? '' ), self::session_binding( $token ) )
 			|| ! hash_equals( (string) ( $receipt['fingerprint'] ?? '' ), SA_Security::client_fingerprint() )
-			|| ! hash_equals( self::scope_hash( $scope ), (string) ( $receipt['scope_hash'] ?? '' ) ) ) {
+			|| ! hash_equals( self::scope_hash( $scope ), (string) ( $receipt['scope_hash'] ?? '' ) )
+			|| '' === self::password_binding( $user_id )
+			|| ! hash_equals( (string) ( $receipt['password_binding'] ?? '' ), self::password_binding( $user_id ) ) ) {
 			return false;
 		}
 		return self::valid_uuid( $receipt['subject_uuid'] ?? '' )
@@ -274,8 +278,15 @@ final class SA_Professional_Reauthentication {
 	}
 
 	private static function public_receipt( $receipt ) {
-		unset( $receipt['session_binding'], $receipt['fingerprint'] );
+		unset( $receipt['session_binding'], $receipt['fingerprint'], $receipt['password_binding'] );
 		return $receipt;
+	}
+
+
+	private static function password_binding( $user_id ) {
+		$user = get_userdata( absint( $user_id ) );
+		if ( ! $user instanceof WP_User || '' === (string) $user->user_pass ) { return ''; }
+		return hash_hmac( 'sha256', (string) $user->user_pass, wp_salt( 'auth' ) );
 	}
 
 	private static function write_transient_verified( $key, $value, $ttl ) {

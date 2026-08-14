@@ -117,7 +117,14 @@ final class SAUTH_Session_Manager {
 		$token = (string) wp_get_session_token();
 		if ( '' === $token ) { return $user_id; }
 		$status = $wpdb->get_var( $wpdb->prepare( 'SELECT status FROM ' . self::table() . ' WHERE user_id=%d AND token_hash=%s', $user_id, self::token_hash( $token ) ) );
-		return 'revoked' === $status || 'expired' === $status ? 0 : $user_id;
+		if ( '' !== (string) $wpdb->last_error ) {
+			SA_Membership_Adapter::audit( 'session_registry_read_failed', $user_id );
+			return 0;
+		}
+		if ( null === $status ) {
+			return $user_id; // Legitimate pre-registry/upgrade session; reconciled on init.
+		}
+		return 'active' === (string) $status ? $user_id : 0;
 	}
 
 	/** Lazily reconcile a legitimate pre-registry/upgrade session. */
@@ -159,12 +166,11 @@ final class SAUTH_Session_Manager {
 		check_admin_referer( 'sauth_revoke_other_sessions', 'sauth_nonce' );
 		$user_id = get_current_user_id(); $token = (string) wp_get_session_token(); $current = self::current_token_hash();
 		if ( '' === $token || '' === $current || ! class_exists( 'WP_Session_Tokens' ) ) { self::redirect( 'error', 'The current session could not be verified.' ); }
-		$rows = $wpdb->get_col( $wpdb->prepare( 'SELECT public_id FROM ' . self::table() . " WHERE user_id=%d AND status='active' AND token_hash<>%s", $user_id, $current ) );
-		$ids = is_array( $rows ) ? $rows : array();
-		self::mark_revoked( $user_id, $ids, 'user_revoke_others' );
+		$now = current_time( 'mysql', true );
+		$db_result = $wpdb->query( $wpdb->prepare( 'UPDATE ' . self::table() . " SET status='revoked', revoked_at=%s, revocation_reason=%s, updated_at=%s WHERE user_id=%d AND status='active' AND token_hash<>%s", $now, 'user_revoke_others', $now, $user_id, $current ) );
 		WP_Session_Tokens::get_instance( $user_id )->destroy_others( $token );
 		$remaining = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . self::table() . " WHERE user_id=%d AND status='active' AND token_hash<>%s", $user_id, $current ) );
-		if ( $remaining > 0 ) { self::redirect( 'error', 'Other WordPress sessions were revoked, but session evidence could not be reconciled completely. Reload and review again.' ); }
+		if ( false === $db_result || '' !== (string) $wpdb->last_error || $remaining > 0 ) { self::redirect( 'error', 'Other WordPress sessions were revoked, but session evidence could not be reconciled completely. Reload and review again.' ); }
 		SAUTH_Event_Outbox::emit( 'AuthSessionRevoked.v1', $user_id, $user_id, array( 'scope' => 'other_sessions', 'reason' => 'user_request' ), 'security' );
 		SA_Membership_Adapter::audit( 'authentication_sessions_revoked', $user_id, array( 'scope' => 'others' ) );
 		self::redirect( 'success', 'All other sessions were revoked.' );
@@ -214,7 +220,17 @@ final class SAUTH_Session_Manager {
 		if ( '' === $token ) { return; }
 		$hash = self::token_hash( $token );
 		$exists = $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . self::table() . ' WHERE user_id=%d AND token_hash=%s', absint( $user_id ), $hash ) );
-		if ( 0 === (int) $exists ) { self::register_cookie( '', time() + DAY_IN_SECONDS, time() + DAY_IN_SECONDS, $user_id, 'logged_in', $token ); }
+		if ( '' !== (string) $wpdb->last_error ) { return; }
+		if ( 0 === (int) $exists ) {
+			$expiration = time() + YEAR_IN_SECONDS;
+			if ( class_exists( 'WP_Session_Tokens' ) ) {
+				$session = WP_Session_Tokens::get_instance( absint( $user_id ) )->get( $token );
+				if ( is_array( $session ) && absint( $session['expiration'] ?? 0 ) > time() ) {
+					$expiration = absint( $session['expiration'] );
+				}
+			}
+			self::register_cookie( '', $expiration, $expiration, $user_id, 'logged_in', $token );
+		}
 	}
 
 	private static function mark_revoked( $user_id, array $public_ids, $reason ) {

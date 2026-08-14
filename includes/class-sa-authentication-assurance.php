@@ -179,7 +179,11 @@ final class SA_Authentication_Assurance {
 			return $result;
 		}
 		$passkey = self::current_passkey_assurance( $user_id );
-		if ( empty( $passkey['passkey_asserted'] ) || 'file02' !== (string) ( $passkey['owner'] ?? '' ) ) {
+		if ( empty( $passkey['passkey_asserted'] )
+			|| 'file02' !== (string) ( $passkey['owner'] ?? '' )
+			|| 'webauthn_passkey' !== (string) ( $passkey['method'] ?? '' )
+			|| ! defined( 'SAUTH_PASSKEY_CONTRACT_VERSION' )
+			|| SAUTH_PASSKEY_CONTRACT_VERSION !== (string) ( $passkey['contract_version'] ?? '' ) ) {
 			delete_transient( $key );
 			$result['result']      = 'invalid';
 			$result['reason_code'] = 'underlying_passkey_assurance_invalid';

@@ -2,11 +2,13 @@
 
 define( 'ABSPATH', __DIR__ . '/' );
 define( 'SAUTH_VERSION', '1.2.1' );
+class WP_User { public $ID; public $user_pass; public function __construct( $id, $hash ) { $this->ID = $id; $this->user_pass = $hash; } }
 
 $GLOBALS['sa_current_user'] = 7;
 $GLOBALS['sa_logged_in'] = true;
 $GLOBALS['sa_session_token'] = 'session-token';
 $GLOBALS['sa_password_ok'] = true;
+$GLOBALS['sa_user_pass'] = 'stored-hash';
 $GLOBALS['sa_auth_result'] = array();
 $GLOBALS['sa_transients'] = array();
 $GLOBALS['sa_options'] = array();
@@ -17,8 +19,8 @@ function sanitize_key( $value ) { return preg_replace( '/[^a-z0-9_-]/', '', strt
 function is_user_logged_in() { return (bool) $GLOBALS['sa_logged_in']; }
 function get_current_user_id() { return (int) $GLOBALS['sa_current_user']; }
 function wp_get_session_token() { return (string) $GLOBALS['sa_session_token']; }
-function get_userdata( $user_id ) { return 7 === (int) $user_id ? (object) array( 'ID' => 7, 'user_pass' => 'stored-hash' ) : false; }
-function wp_check_password( $password, $hash, $user_id ) { return (bool) $GLOBALS['sa_password_ok'] && 'stored-hash' === $hash && 7 === (int) $user_id; }
+function get_userdata( $user_id ) { return 7 === (int) $user_id ? new WP_User( 7, (string) $GLOBALS['sa_user_pass'] ) : false; }
+function wp_check_password( $password, $hash, $user_id ) { return (bool) $GLOBALS['sa_password_ok'] && (string) $GLOBALS['sa_user_pass'] === (string) $hash && 7 === (int) $user_id; }
 function wp_generate_uuid4() { return '123e4567-e89b-42d3-a456-426614174000'; }
 function wp_salt( $scheme = 'auth' ) { return 'unit-test-' . $scheme; }
 function add_action() { return true; }
@@ -97,6 +99,13 @@ sa_prof_assert( 'webauthn_passkey' === $result['method'], 'professional receipt 
 $result = SA_Professional_Reauthentication::assertion( 7, $scope );
 sa_prof_assert( 'valid' === $result['result'], 'existing session-bound professional receipt can be re-read' );
 sa_prof_assert( true === $result['password_verified'], 'existing receipt retains verified-password evidence' );
+
+$GLOBALS['sa_user_pass'] = 'changed-hash';
+$result = SA_Professional_Reauthentication::assertion( 7, $scope );
+sa_prof_assert( 'invalid' === $result['result'], 'password-hash change revokes professional receipt even before session rotation' );
+$GLOBALS['sa_user_pass'] = 'stored-hash';
+$GLOBALS['sa_auth_result'] = $valid;
+SA_Professional_Reauthentication::verify_and_record( 7, 'password', 'ignored', array( 'scope' => $scope ) );
 
 $GLOBALS['sa_fingerprint'] = 'fingerprint-b';
 $result = SA_Professional_Reauthentication::assertion( 7, $scope );

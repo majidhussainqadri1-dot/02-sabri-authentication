@@ -950,6 +950,10 @@ final class SAUTH_Passkeys {
 		return array( 'scheme' => $scheme, 'rp_id' => $host, 'origin' => $origin );
 	}
 
+	public static function authentication_ready() {
+		return self::environment_ready();
+	}
+
 	private static function environment_ready() {
 		$ctx = self::rp_context();
 		$local = in_array( $ctx['rp_id'], array( 'localhost', '127.0.0.1', '::1' ), true );
