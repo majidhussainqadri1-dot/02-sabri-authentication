@@ -68,49 +68,67 @@ final class SA_Security {
 		return wp_validate_redirect( (string) $url, $fallback );
 	}
 
+	public static function master_key_ready() {
+		return defined( 'SA_MASTER_KEY' ) && is_string( SA_MASTER_KEY ) && strlen( SA_MASTER_KEY ) >= 32;
+	}
+
 	private static function encryption_key() {
-		$material = defined( 'SA_MASTER_KEY' ) && is_string( SA_MASTER_KEY ) && strlen( SA_MASTER_KEY ) >= 32 ? SA_MASTER_KEY : wp_salt( 'auth' );
-		return hash( 'sha256', 'sabri-authentication|v2|' . $material, true );
+		if ( ! self::master_key_ready() ) { return ''; }
+		return hash( 'sha256', 'sabri-authentication|dedicated-master|v3|' . SA_MASTER_KEY, true );
+	}
+
+	private static function legacy_v2_key_from_master() {
+		if ( ! self::master_key_ready() ) { return ''; }
+		return hash( 'sha256', 'sabri-authentication|v2|' . SA_MASTER_KEY, true );
+	}
+
+	private static function legacy_v2_key_from_auth_salt() {
+		return hash( 'sha256', 'sabri-authentication|v2|' . wp_salt( 'auth' ), true );
 	}
 
 	public static function encrypt( $plain ) {
-		if ( '' === $plain || ! function_exists( 'openssl_encrypt' ) ) {
-			return '';
-		}
-		try {
-			$iv = random_bytes( 12 );
-		} catch ( Exception $exception ) {
-			return '';
-		}
+		$key = self::encryption_key();
+		if ( '' === $plain || '' === $key || ! function_exists( 'openssl_encrypt' ) ) { return ''; }
+		try { $iv = random_bytes( 12 ); } catch ( Exception $exception ) { return ''; }
 		$tag = '';
-		$out = openssl_encrypt( $plain, 'aes-256-gcm', self::encryption_key(), OPENSSL_RAW_DATA, $iv, $tag, 'sa-google-secret-v2' );
-		return false === $out ? '' : 'v2:' . base64_encode( $iv . $tag . $out );
+		$out = openssl_encrypt( $plain, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag, 'sa-google-secret-v3' );
+		return false === $out ? '' : 'v3:' . base64_encode( $iv . $tag . $out );
 	}
 
 	public static function decrypt( $cipher ) {
-		if ( '' === $cipher || ! function_exists( 'openssl_decrypt' ) ) {
-			return '';
+		if ( '' === $cipher || ! self::master_key_ready() || ! function_exists( 'openssl_decrypt' ) ) { return ''; }
+		if ( 0 === strpos( $cipher, 'v3:' ) ) {
+			return self::decrypt_gcm_payload( substr( $cipher, 3 ), self::encryption_key(), 'sa-google-secret-v3' );
 		}
-		if ( 0 !== strpos( $cipher, 'v2:' ) ) {
-			return self::decrypt_legacy( $cipher );
+		if ( 0 === strpos( $cipher, 'v2:' ) ) {
+			$payload = substr( $cipher, 3 );
+			$out = self::decrypt_gcm_payload( $payload, self::legacy_v2_key_from_master(), 'sa-google-secret-v2' );
+			if ( '' !== $out ) { return $out; }
+			/* Migration-only compatibility for historical v2 ciphertext that was
+			 * derived from WordPress auth salt. Runtime still requires SA_MASTER_KEY. */
+			return self::decrypt_gcm_payload( $payload, self::legacy_v2_key_from_auth_salt(), 'sa-google-secret-v2' );
 		}
-		$raw = base64_decode( substr( $cipher, 3 ), true );
-		if ( false === $raw || strlen( $raw ) < 29 ) {
-			return '';
-		}
-		$iv  = substr( $raw, 0, 12 );
+		return self::decrypt_legacy( $cipher );
+	}
+
+	private static function decrypt_gcm_payload( $payload, $key, $aad ) {
+		if ( '' === (string) $key ) { return ''; }
+		$raw = base64_decode( (string) $payload, true );
+		if ( false === $raw || strlen( $raw ) < 29 ) { return ''; }
+		$iv = substr( $raw, 0, 12 );
 		$tag = substr( $raw, 12, 16 );
-		$out = openssl_decrypt( substr( $raw, 28 ), 'aes-256-gcm', self::encryption_key(), OPENSSL_RAW_DATA, $iv, $tag, 'sa-google-secret-v2' );
+		$out = openssl_decrypt( substr( $raw, 28 ), 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag, $aad );
 		return false === $out ? '' : $out;
 	}
 
 	private static function decrypt_legacy( $cipher ) {
+		/* Pre-v2 ciphertext is readable only while a dedicated master key is
+		 * configured, solely so activation can migrate it to v3. */
+		if ( ! self::master_key_ready() ) { return ''; }
 		$raw = base64_decode( $cipher, true );
-		if ( false === $raw || strlen( $raw ) < 29 ) {
-			return '';
-		}
+		if ( false === $raw || strlen( $raw ) < 29 ) { return ''; }
 		$key = hash( 'sha256', wp_salt( 'auth' ), true );
-		$iv  = substr( $raw, 0, 12 );
+		$iv = substr( $raw, 0, 12 );
 		$tag = substr( $raw, 12, 16 );
 		$out = openssl_decrypt( substr( $raw, 28 ), 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag );
 		return false === $out ? '' : $out;
@@ -130,14 +148,28 @@ final class SA_Security {
 	}
 
 	public static function message_url( $page_key, $type, $message, array $extra = array() ) {
+		$type = 'success' === sanitize_key( $type ) ? 'success' : 'error';
+		$message = sanitize_text_field( (string) $message );
 		$args = array_merge(
 			$extra,
 			array(
-				'sa_notice' => sanitize_key( $type ),
-				'sa_msg'    => rawurlencode( $message ),
+				'sa_notice' => $type,
+				'sa_msg'    => $message,
+				'sa_sig'    => self::notice_signature( $type, $message ),
 			)
 		);
 		return add_query_arg( $args, self::page_url( $page_key ) );
+	}
+
+	public static function notice_valid( $type, $message, $signature ) {
+		$type = 'success' === sanitize_key( $type ) ? 'success' : 'error';
+		$message = sanitize_text_field( (string) $message );
+		$signature = sanitize_text_field( (string) $signature );
+		return 64 === strlen( $signature ) && hash_equals( self::notice_signature( $type, $message ), $signature );
+	}
+
+	private static function notice_signature( $type, $message ) {
+		return hash_hmac( 'sha256', sanitize_key( $type ) . '|' . sanitize_text_field( (string) $message ), wp_salt( 'nonce' ) );
 	}
 
 	public static function random_token( $bytes = 32 ) {

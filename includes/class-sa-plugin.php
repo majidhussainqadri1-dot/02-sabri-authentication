@@ -258,7 +258,15 @@ final class SA_Plugin {
 			exit;
 		}
 		SAUTH_Provider_Health::reset( 'google' );
-		wp_safe_redirect( add_query_arg( 'updated', '1', self::settings_url() ) );
+		$receipt = SA_Security::random_token( 16 );
+		$receipt_key = 'sauth_settings_saved_' . get_current_user_id();
+		$receipt_hash = hash( 'sha256', $receipt );
+		set_transient( $receipt_key, $receipt_hash, 120 );
+		if ( '' === $receipt || ! hash_equals( $receipt_hash, (string) get_transient( $receipt_key ) ) ) {
+			wp_safe_redirect( add_query_arg( 'error', 'settings_receipt_failed', self::settings_url() ) );
+			exit;
+		}
+		wp_safe_redirect( add_query_arg( 'updated_token', $receipt, self::settings_url() ) );
 		exit;
 	}
 

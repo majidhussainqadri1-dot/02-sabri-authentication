@@ -40,7 +40,7 @@ final class SAUTH_Canonical_Routes {
 
 	public static function redirect_legacy_route() {
 		if ( is_page() && function_exists( 'get_queried_object_id' ) ) {
-			$page_map = (array) get_option( 'sa_page_map', array() );
+			$page_map = (array) get_option( 'sauth_page_map', get_option( 'sa_page_map', array() ) );
 			$page_id  = absint( $page_map['sessions'] ?? 0 );
 			if ( $page_id && get_queried_object_id() === $page_id ) {
 				wp_safe_redirect( home_url( '/account/sessions/' ), 301 );
@@ -133,7 +133,7 @@ final class SAUTH_Canonical_Routes {
 			set_transient( 'sauth_activation_notice', '1', 120 );
 			delete_transient( 'sa_activation_notice' );
 		}
-		update_option( 'sauth_version', SAUTH_VERSION, false );
-		update_option( 'sauth_db_version', SAUTH_DB_VERSION, false );
+		/* Runtime/schema version markers are intentionally not written here.
+		 * SAUTH_Activator::repair() publishes them only after storage postconditions. */
 	}
 }

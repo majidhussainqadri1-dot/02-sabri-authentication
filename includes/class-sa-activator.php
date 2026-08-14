@@ -453,7 +453,7 @@ final class SA_Activator {
 
 	public static function migrate_google_secret() {
 		$cipher = (string) get_option( 'sauth_google_client_secret', get_option( 'sa_google_client_secret', '' ) );
-		if ( '' === $cipher || 0 === strpos( $cipher, 'v2:' ) ) {
+		if ( '' === $cipher || 0 === strpos( $cipher, 'v3:' ) || ! SA_Security::master_key_ready() ) {
 			return;
 		}
 		$plain = SA_Security::decrypt( $cipher );

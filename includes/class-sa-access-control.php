@@ -102,6 +102,10 @@ final class SA_Access_Control {
 	}
 
 	public static function is_file02_page() {
+		if ( class_exists( 'SAUTH_Canonical_Routes' )
+			&& SAUTH_Canonical_Routes::SESSIONS === (string) get_query_var( SAUTH_Canonical_Routes::QUERY_VAR ) ) {
+			return true;
+		}
 		if ( ! is_singular( 'page' ) ) { return false; }
 		$post = get_queried_object();
 		if ( ! $post instanceof WP_Post ) { return false; }

@@ -12,10 +12,10 @@
 				<?php wp_nonce_field( 'sa_login', 'sa_nonce' ); ?>
 				<div class="sa-honeypot" aria-hidden="true"><label>Website<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
 				<label for="sa-user-login">Email or username</label>
-				<input id="sa-user-login" type="text" name="user_login" autocomplete="username" autocapitalize="none" required>
+				<input id="sa-user-login" type="text" name="user_login" autocomplete="username" autocapitalize="none" maxlength="320" required>
 				<label for="sa-user-password">Password</label>
 				<div class="sa-password-wrap">
-					<input id="sa-user-password" type="password" name="password" autocomplete="current-password" minlength="12" required>
+					<input id="sa-user-password" type="password" name="password" autocomplete="current-password" minlength="12" maxlength="4096" required>
 					<button class="sa-show-password" type="button" data-sa-toggle-password="sa-user-password" aria-controls="sa-user-password">Show</button>
 				</div>
 				<div class="sa-form-row">
@@ -34,7 +34,7 @@
 		</div>
 
 		<?php include SA_DIR . 'templates/partials/google-button.php'; ?>
-		<p class="sa-data-note">Google sign-in works only after explicit same-email linking to an eligible Membership Core account and the required step-up verification.</p>
+		<p class="sa-data-note">Google sign-in works only after explicit same-email linking to an eligible Membership Core account. Elevated device/network risk may require a separate File 02 passkey sign-in.</p>
 		<p class="sa-bottom-text">New to the platform? <a href="<?php echo esc_url( $signup_url ); ?>">Create a verified account</a></p>
 	</section>
 </main>
