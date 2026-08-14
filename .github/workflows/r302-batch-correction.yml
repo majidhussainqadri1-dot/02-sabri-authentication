@@ -27,11 +27,16 @@ jobs:
           from pathlib import Path
           p = Path('tests/r302-migration-postcondition-regression.php')
           text = p.read_text(encoding='utf-8')
-          old = '    \'page postcondition exists\' => "! self::exact_shortcode_page( $page, $spec[\'shortcode\'] )",\n'
-          new = '    \'page postcondition exists\' => \'! self::exact_shortcode_page( $page, $spec[\\\'shortcode\\\'] )\',\n'
-          if old not in text:
-              raise SystemExit('R302 generated regression literal not found')
-          p.write_text(text.replace(old, new, 1), encoding='utf-8')
+          replacements = {
+              '    \'legacy copy failure is observed\' => "if ( false === $result )",\n': '    \'legacy copy failure is observed\' => \'if ( false === $result )\',\n',
+              '    \'legacy migration marker waits for success\' => "if ( $ok )",\n': '    \'legacy migration marker waits for success\' => \'if ( $ok )\',\n',
+              '    \'page postcondition exists\' => "! self::exact_shortcode_page( $page, $spec[\'shortcode\'] )",\n': '    \'page postcondition exists\' => \'! self::exact_shortcode_page( $page, $spec[\\\'shortcode\\\'] )\',\n',
+          }
+          for old, new in replacements.items():
+              if old not in text:
+                  raise SystemExit('R302 generated regression literal not found: ' + old.strip())
+              text = text.replace(old, new, 1)
+          p.write_text(text, encoding='utf-8')
           PY
           git diff --check
           php -l includes/class-sa-activator.php
