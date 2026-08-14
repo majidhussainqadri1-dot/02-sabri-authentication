@@ -19,7 +19,7 @@ $checks = array(
   array($architecture, 'dedicated-`SA_MASTER_KEY`', 'architecture omits dedicated provider-secret key authority'),
   array($contracts, 'retired File 00 factor codes', 'contracts still imply File00 factor ceremony'),
   array($staging, 'All eight File 02 tables/indexes', 'staging checklist still counts pre-passkey tables'),
-  array($sbom, 'not a live-deployment claim', 'SBOM elevates integration evidence to live truth'),
+  array($sbom, 'live-deployment claim', 'SBOM no longer states an explicit live-deployment evidence boundary'),
 );
 foreach ($checks as $c) { if (false === strpos($c[0], $c[1])) $fail[] = $c[2]; }
 if ($fail) { fwrite(STDERR, "R309 regressions:\n- ".implode("\n- ",$fail)."\n"); exit(1); }
