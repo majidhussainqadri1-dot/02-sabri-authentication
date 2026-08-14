@@ -29,9 +29,16 @@ def main() -> None:
         path = safe_path(str(item['path']))
         old = str(item['old'])
         new = str(item['new'])
-        expected = int(item.get('count', 1))
         text = path.read_text(encoding='utf-8')
         actual = text.count(old)
+        if item.get('replace_all'):
+            minimum = int(item.get('min_count', 1))
+            maximum = int(item.get('max_count', actual))
+            if actual < minimum or actual > maximum:
+                raise SystemExit(f'{round_name}: {path.relative_to(ROOT)} replace-all count {actual} outside [{minimum},{maximum}]')
+            path.write_text(text.replace(old, new), encoding='utf-8')
+            continue
+        expected = int(item.get('count', 1))
         if actual != expected:
             raise SystemExit(f'{round_name}: {path.relative_to(ROOT)} expected {expected} exact old fragments, found {actual}')
         path.write_text(text.replace(old, new, expected), encoding='utf-8')
