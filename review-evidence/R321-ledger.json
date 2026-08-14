@@ -1,0 +1,77 @@
+{
+  "round": "R321",
+  "review_scope": "Complete repository bootstrap/lifecycle/dependency/Safe-Mode review after R320; no correction began until this ledger was frozen.",
+  "defects": [
+    "Legacy sa_start_plugin() could invoke sauth_start_plugin() a second time and duplicate hooks/cron registrations because the canonical bootstrap had no idempotency guard.",
+    "SA_Activator::maybe_upgrade() did not return reconciliation success, so SA_Plugin registered provider/settings mutation hooks even after a failed migration had entered Safe Mode.",
+    "Automatic Safe Mode entry paths wrote only sauth_safe_mode and did not consistently establish the challenge-revocation epoch used by the stale-passkey gate."
+  ],
+  "replacements": [
+    {
+      "path": "sabri-authentication.php",
+      "count": 1,
+      "old": "function sauth_start_plugin() {\n\tSAUTH_Storage_Router::init();",
+      "new": "function sauth_start_plugin() {\n\tstatic $started = false;\n\tif ( $started ) {\n\t\treturn;\n\t}\n\t$started = true;\n\tSAUTH_Storage_Router::init();"
+    },
+    {
+      "path": "includes/class-sa-activator.php",
+      "count": 1,
+      "old": "\t\tif ( ! self::repair() ) {\n\t\t\tupdate_option( SAUTH_Operations::SAFE_MODE_OPTION, '1', false );\n\t\t\tdeactivate_plugins( plugin_basename( SAUTH_FILE ) );",
+      "new": "\t\tif ( ! self::repair() ) {\n\t\t\tSAUTH_Operations::enter_safe_mode();\n\t\t\tdeactivate_plugins( plugin_basename( SAUTH_FILE ) );"
+    },
+    {
+      "path": "includes/class-sa-activator.php",
+      "count": 1,
+      "old": "\tpublic static function maybe_upgrade() {\n\t\t$stored_db = (string) get_option( 'sauth_db_version', get_option( 'sa_db_version', '' ) );\n\t\t$stored    = (string) get_option( 'sauth_version', get_option( 'sa_version', '' ) );\n\t\tif ( SAUTH_DB_VERSION !== $stored_db || SAUTH_VERSION !== $stored ) {\n\t\t\tif ( ! self::repair() ) {\n\t\t\t\tupdate_option( SAUTH_Operations::SAFE_MODE_OPTION, '1', false );\n\t\t\t}\n\t\t}\n\t}",
+      "new": "\tpublic static function maybe_upgrade() {\n\t\t$stored_db = (string) get_option( 'sauth_db_version', get_option( 'sa_db_version', '' ) );\n\t\t$stored    = (string) get_option( 'sauth_version', get_option( 'sa_version', '' ) );\n\t\tif ( SAUTH_DB_VERSION !== $stored_db || SAUTH_VERSION !== $stored ) {\n\t\t\tif ( ! self::repair() ) {\n\t\t\t\tSAUTH_Operations::enter_safe_mode();\n\t\t\t\treturn false;\n\t\t\t}\n\t\t}\n\t\treturn true;\n\t}"
+    },
+    {
+      "path": "includes/class-sauth-operations.php",
+      "count": 1,
+      "old": "\t\tadd_action( 'admin_init', array( __CLASS__, 'enforce_safe_mode_request_gate' ), 0 );\n\t}\n\n\tpublic static function safe_mode()",
+      "new": "\t\tadd_action( 'admin_init', array( __CLASS__, 'enforce_safe_mode_request_gate' ), 0 );\n\t\tif ( self::safe_mode() && ! self::safe_mode_entered_at() ) {\n\t\t\tself::enter_safe_mode();\n\t\t}\n\t}\n\n\tpublic static function safe_mode()"
+    },
+    {
+      "path": "includes/class-sauth-operations.php",
+      "count": 1,
+      "old": "\tpublic static function safe_mode_entered_at() {\n\t\treturn absint( get_option( self::SAFE_MODE_ENTERED_AT, 0 ) );\n\t}\n\n\tpublic static function high_risk_actions_available()",
+      "new": "\tpublic static function safe_mode_entered_at() {\n\t\treturn absint( get_option( self::SAFE_MODE_ENTERED_AT, 0 ) );\n\t}\n\n\t/** Enter Safe Mode and atomically establish the revocation epoch used by challenge gates. */\n\tpublic static function enter_safe_mode() {\n\t\t$entered = time();\n\t\tupdate_option( self::SAFE_MODE_ENTERED_AT, $entered, false );\n\t\tif ( $entered !== absint( get_option( self::SAFE_MODE_ENTERED_AT, 0 ) ) ) {\n\t\t\treturn false;\n\t\t}\n\t\tupdate_option( self::SAFE_MODE_OPTION, '1', false );\n\t\treturn '1' === (string) get_option( self::SAFE_MODE_OPTION, '' );\n\t}\n\n\tpublic static function high_risk_actions_available()"
+    },
+    {
+      "path": "includes/class-sauth-operations.php",
+      "count": 1,
+      "old": "\t\t$enable = ! empty( $_POST['enable'] );\n\t\t$expected = $enable ? '1' : '0';\n\t\tif ( $enable ) {\n\t\t\t$entered = time();\n\t\t\tupdate_option( self::SAFE_MODE_ENTERED_AT, $entered, false );\n\t\t\tif ( $entered !== absint( get_option( self::SAFE_MODE_ENTERED_AT, 0 ) ) ) {\n\t\t\t\tself::redirect( 'error', 'Safe Mode could not establish its challenge-revocation epoch.' );\n\t\t\t}\n\t\t}\n\t\tupdate_option( self::SAFE_MODE_OPTION, $expected, false );\n\t\tif ( $expected !== (string) get_option( self::SAFE_MODE_OPTION, '' ) ) {\n\t\t\tself::redirect( 'error', 'Safe Mode state could not be stored safely.' );\n\t\t}",
+      "new": "\t\t$enable = ! empty( $_POST['enable'] );\n\t\tif ( $enable ) {\n\t\t\tif ( ! self::enter_safe_mode() ) {\n\t\t\t\tself::redirect( 'error', 'Safe Mode could not establish its challenge-revocation epoch and state.' );\n\t\t\t}\n\t\t} else {\n\t\t\tupdate_option( self::SAFE_MODE_OPTION, '0', false );\n\t\t\tif ( '0' !== (string) get_option( self::SAFE_MODE_OPTION, '' ) ) {\n\t\t\t\tself::redirect( 'error', 'Safe Mode state could not be stored safely.' );\n\t\t\t}\n\t\t}"
+    },
+    {
+      "path": "includes/class-sauth-operations.php",
+      "count": 1,
+      "old": "\t\t\t$was_safe = self::safe_mode();\n\t\t\tif ( ! $was_safe ) {\n\t\t\t\tupdate_option( self::SAFE_MODE_OPTION, '1', false );\n\t\t\t\tupdate_option( self::SAFE_MODE_ENTERED_AT, time(), false );\n\t\t\t\tif ( '1' !== (string) get_option( self::SAFE_MODE_OPTION, '' ) ) { self::release_repair_lock( $lock ); self::redirect( 'error', 'Guarded repair could not enter Safe Mode.' ); }\n\t\t\t}",
+      "new": "\t\t\t$was_safe = self::safe_mode();\n\t\t\tif ( ! $was_safe && ! self::enter_safe_mode() ) {\n\t\t\t\tself::release_repair_lock( $lock ); self::redirect( 'error', 'Guarded repair could not enter Safe Mode with a revocation epoch.' );\n\t\t\t}"
+    },
+    {
+      "path": "includes/class-sauth-operations.php",
+      "count": 1,
+      "old": "\t\t} catch ( Throwable $error ) {\n\t\t\tupdate_option( self::SAFE_MODE_OPTION, '1', false );",
+      "new": "\t\t} catch ( Throwable $error ) {\n\t\t\tself::enter_safe_mode();"
+    },
+    {
+      "path": "includes/class-sa-plugin.php",
+      "count": 1,
+      "old": "\t\tSA_Activator::maybe_upgrade();\n\t\tadd_action( 'admin_post_sa_save_auth_settings', array( $this, 'save_settings' ) );",
+      "new": "\t\tif ( ! SA_Activator::maybe_upgrade() ) {\n\t\t\tadd_action( 'admin_notices', array( $this, 'migration_notice' ) );\n\t\t\treturn;\n\t\t}\n\t\tadd_action( 'admin_post_sa_save_auth_settings', array( $this, 'save_settings' ) );"
+    },
+    {
+      "path": "includes/class-sa-plugin.php",
+      "count": 1,
+      "old": "\tpublic function dependency_notice() {\n\t\tif ( current_user_can( 'activate_plugins' ) ) {",
+      "new": "\tpublic function migration_notice() {\n\t\tif ( current_user_can( 'activate_plugins' ) ) {\n\t\t\techo '<div class=\"notice notice-error\"><p><strong>Sabri Authentication migration is incomplete:</strong> File 02 entered Safe Mode and provider/settings mutation hooks were not registered for this request. Run the guarded repair and verify storage postconditions before resuming authentication changes.</p></div>';\n\t\t}\n\t}\n\n\tpublic function dependency_notice() {\n\t\tif ( current_user_can( 'activate_plugins' ) ) {"
+    }
+  ],
+  "creates": [
+    {
+      "path": "tests/r321-bootstrap-lifecycle-regression.php",
+      "content": "<?php\n$root = dirname( __DIR__ );\n$main = file_get_contents( $root . '/sabri-authentication.php' );\n$activator = file_get_contents( $root . '/includes/class-sa-activator.php' );\n$operations = file_get_contents( $root . '/includes/class-sauth-operations.php' );\n$plugin = file_get_contents( $root . '/includes/class-sa-plugin.php' );\n$fail = array();\n$checks = array(\n  array($main, 'static $started = false;', 'bootstrap lacks idempotency guard'),\n  array($activator, 'return false;', 'upgrade path does not expose repair failure'),\n  array($activator, 'SAUTH_Operations::enter_safe_mode();', 'activator automatic Safe Mode entry lacks revocation epoch authority'),\n  array($operations, 'public static function enter_safe_mode()', 'central Safe Mode entry helper missing'),\n  array($operations, 'self::safe_mode() && ! self::safe_mode_entered_at()', 'legacy Safe Mode state lacks startup epoch reconciliation'),\n  array($plugin, 'if ( ! SA_Activator::maybe_upgrade() )', 'plugin does not stop provider/settings hooks after failed reconciliation'),\n  array($plugin, 'migration_notice', 'failed migration lacks explicit admin evidence'),\n);\nforeach ($checks as $c) { if (false === strpos($c[0], $c[1])) $fail[] = $c[2]; }\nif (substr_count($main, 'static $started = false;') !== 1) $fail[] = 'bootstrap idempotency guard count invalid';\nif (false !== strpos($activator, \"update_option( SAUTH_Operations::SAFE_MODE_OPTION, '1', false )\")) $fail[] = 'activator still bypasses Safe Mode epoch authority';\nif ($fail) { fwrite(STDERR, \"R321 regressions:\\n- \" . implode(\"\\n- \", $fail) . \"\\n\"); exit(1); }\necho \"R321 bootstrap/lifecycle regression PASS (\" . count($checks) . \" assertions).\\n\";\n"
+    }
+  ]
+}
