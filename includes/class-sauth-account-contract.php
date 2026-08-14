@@ -23,6 +23,9 @@ final class SAUTH_Account_Contract {
 	}
 
 	public static function provider_available() {
+		if ( ! class_exists( 'SA_Membership_Adapter' ) || ! SA_Membership_Adapter::available() ) {
+			return false;
+		}
 		$provider = self::provider_class();
 		if ( '' === $provider ) {
 			return false;
@@ -37,41 +40,53 @@ final class SAUTH_Account_Contract {
 
 	public static function register_account( array $payload, array $context = array() ) {
 		$provider = self::provider_class();
-		if ( '' === $provider ) {
+		if ( '' === $provider || ! self::provider_available() ) {
 			return self::unknown( 'provider_unavailable' );
 		}
-		$result = call_user_func(
-			array( $provider, 'register_account' ),
-			self::registration_payload( $payload ),
-			self::context( $context )
-		);
+		try {
+			$result = call_user_func(
+				array( $provider, 'register_account' ),
+				self::registration_payload( $payload ),
+				self::context( $context )
+			);
+		} catch ( Throwable $error ) {
+			return self::unknown( 'provider_exception' );
+		}
 		return self::normalize_result( $result, 'registration' );
 	}
 
 	public static function mark_email_verified( $user_id, $email, array $context = array() ) {
 		$provider = self::provider_class();
-		if ( '' === $provider ) {
+		if ( '' === $provider || ! self::provider_available() ) {
 			return self::unknown( 'provider_unavailable' );
 		}
-		$result = call_user_func(
-			array( $provider, 'mark_email_verified' ),
-			absint( $user_id ),
-			sanitize_email( (string) $email ),
-			self::context( $context )
-		);
+		try {
+			$result = call_user_func(
+				array( $provider, 'mark_email_verified' ),
+				absint( $user_id ),
+				sanitize_email( (string) $email ),
+				self::context( $context )
+			);
+		} catch ( Throwable $error ) {
+			return self::unknown( 'provider_exception' );
+		}
 		return self::normalize_result( $result, 'email_verification' );
 	}
 
 	public static function completion_state( $user_id, array $context = array() ) {
 		$provider = self::provider_class();
-		if ( '' === $provider ) {
+		if ( '' === $provider || ! self::provider_available() ) {
 			return self::completion_unknown( 'provider_unavailable' );
 		}
-		$result = call_user_func(
-			array( $provider, 'get_completion_state' ),
-			absint( $user_id ),
-			self::context( $context )
-		);
+		try {
+			$result = call_user_func(
+				array( $provider, 'get_completion_state' ),
+				absint( $user_id ),
+				self::context( $context )
+			);
+		} catch ( Throwable $error ) {
+			return self::completion_unknown( 'provider_exception' );
+		}
 		if ( ! is_array( $result )
 			|| ! self::valid_provider_header( $result )
 			|| ! isset( $result['missing_steps'], $result['next_route'] )
