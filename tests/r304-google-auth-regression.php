@@ -8,7 +8,7 @@ $checks = array(
     array( $google, '\'challenge\' === ( $risk[\'action\'] ?? \'\' )', 'Google risk challenge path missing' ),
     array( $google, 'record_successful_login( $user->ID, \'google\', absint( $risk[\'score\'] ?? 0 ) )', 'Google success records a fake zero risk score' ),
     array( $google, 'public static function contain_linkage_failure', 'uncertain Google linkage has no common containment barrier' ),
-    array( $google, 'SAUTH_Operations::SAFE_MODE_OPTION', 'failed Google disable marker does not escalate to Safe Mode' ),
+    array( $google, 'SAUTH_Operations::enter_safe_mode()', 'failed Google disable marker does not escalate through the centralized Safe Mode authority' ),
     array( $google, 'google_link_rollback_failed', 'Google link rollback is not postcondition checked' ),
     array( $google, 'self::contain_linkage_failure( $user_id, \'google_account_unlink_incomplete\' )', 'partial unlink is not contained' ),
     array( $registration, 'google_registration_link_rollback_failed', 'Google-first registration rollback is not postcondition checked' ),
