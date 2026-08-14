@@ -25,11 +25,11 @@
 				</div>
 				<div>
 					<label for="sa-email">Email address</label>
-					<input id="sa-email" type="email" name="email" autocomplete="email" value="<?php echo esc_attr( $google_context['email'] ?? '' ); ?>" <?php echo empty( $google_context ) ? '' : 'readonly aria-readonly="true"'; ?> required>
+					<input id="sa-email" type="email" name="email" autocomplete="email" maxlength="320" value="<?php echo esc_attr( $google_context['email'] ?? '' ); ?>" <?php echo empty( $google_context ) ? '' : 'readonly aria-readonly="true"'; ?> required>
 				</div>
 				<div>
 					<label for="sa-phone">Mobile/phone with country code</label>
-					<input id="sa-phone" type="tel" name="phone" autocomplete="tel" inputmode="tel" required>
+					<input id="sa-phone" type="tel" name="phone" autocomplete="tel" inputmode="tel" maxlength="64" required>
 					<small>Ownership verification is completed through File 00 before the account becomes fully verified.</small>
 				</div>
 				<div>
@@ -44,7 +44,7 @@
 				</div>
 				<div>
 					<label for="sa-country">Country</label>
-					<input id="sa-country" type="text" name="country" autocomplete="country-name" required>
+					<input id="sa-country" type="text" name="country" autocomplete="country-name" maxlength="120" required>
 				</div>
 				<div>
 					<label for="sa-city">City</label>
@@ -65,7 +65,7 @@
 				</div>
 				<div class="sa-field-full">
 					<label for="sa-address">Full address</label>
-					<textarea id="sa-address" name="address" autocomplete="street-address" maxlength="500" required></textarea>
+					<textarea id="sa-address" name="address" autocomplete="street-address" maxlength="1000" required></textarea>
 				</div>
 				<div>
 					<label for="sa-identity-type">Identity document type</label>
@@ -77,12 +77,12 @@
 				</div>
 				<div>
 					<label for="sa-identity-reference">Document reference</label>
-					<input id="sa-identity-reference" type="text" name="identity_reference" autocomplete="off" spellcheck="false" minlength="5" maxlength="64" required>
+					<input id="sa-identity-reference" type="text" name="identity_reference" autocomplete="off" spellcheck="false" minlength="5" maxlength="200" required>
 					<small>Passed directly to Membership Core; File 02 does not retain it as public profile data.</small>
 				</div>
 				<div class="sa-field-full">
 					<label for="sa-guardian-reference">Guardian reference, when under 18</label>
-					<input id="sa-guardian-reference" type="text" name="guardian_reference" autocomplete="off" maxlength="190">
+					<input id="sa-guardian-reference" type="text" name="guardian_reference" autocomplete="off" maxlength="200">
 					<small>Required for every minor account; final guardian verification belongs to File 00.</small>
 				</div>
 
@@ -90,14 +90,14 @@
 					<div>
 						<label for="sa-password">Password</label>
 						<div class="sa-password-wrap">
-							<input id="sa-password" type="password" name="password" autocomplete="new-password" minlength="12" required>
+							<input id="sa-password" type="password" name="password" autocomplete="new-password" minlength="12" maxlength="4096" required>
 							<button class="sa-show-password" type="button" data-sa-toggle-password="sa-password" aria-controls="sa-password">Show</button>
 						</div>
 					</div>
 					<div>
 						<label for="sa-password-confirm">Confirm password</label>
 						<div class="sa-password-wrap">
-							<input id="sa-password-confirm" type="password" name="password_confirm" autocomplete="new-password" minlength="12" required>
+							<input id="sa-password-confirm" type="password" name="password_confirm" autocomplete="new-password" minlength="12" maxlength="4096" required>
 							<button class="sa-show-password" type="button" data-sa-toggle-password="sa-password-confirm" aria-controls="sa-password-confirm">Show</button>
 						</div>
 					</div>

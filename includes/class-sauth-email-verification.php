@@ -51,7 +51,7 @@ final class SAUTH_Email_Verification {
 			return new WP_Error( 'sauth_email_privacy_erasure_active', 'Email verification is paused while File 02 privacy erasure is active.' );
 		}
 		$email = sanitize_email( (string) $canonical_user->user_email );
-		if ( ! SAUTH_Account_Contract::provider_available() ) {
+		if ( ! SAUTH_Account_Contract::provider_available() || ! SAUTH_Provider_Health::allow_request( 'membership' ) ) {
 			return new WP_Error( 'sauth_email_provider_unavailable', 'Account verification is temporarily unavailable.' );
 		}
 		$table = self::table();
@@ -243,6 +243,9 @@ final class SAUTH_Email_Verification {
 		}
 		if ( ! SAUTH_Privacy_Jobs::can_enqueue( $user_id ) ) {
 			return new WP_Error( 'sauth_email_privacy_erasure_active', 'Email verification is paused while File 02 privacy erasure is active.' );
+		}
+		if ( ! SAUTH_Account_Contract::provider_available() || ! SAUTH_Provider_Health::allow_request( 'membership' ) ) {
+			return new WP_Error( 'sauth_email_provider_unavailable', 'Account verification is temporarily unavailable.' );
 		}
 		if ( SA_Security::rate_limited( 'email_verification_attempt', self::MAX_ATTEMPTS, HOUR_IN_SECONDS, (string) $user_id ) ) {
 			return new WP_Error( 'sauth_email_attempts_limited', 'Too many verification attempts. Request a new link.' );

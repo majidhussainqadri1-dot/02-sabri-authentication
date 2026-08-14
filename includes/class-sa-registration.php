@@ -144,6 +144,11 @@ final class SA_Registration {
 			)
 		);
 		$latency = (int) round( ( microtime( true ) - $started ) * 1000 );
+		/* The canonical owner call is the last operation that needs plaintext
+		 * registration passwords. Remove them before any mail, audit or error path. */
+		$payload['password'] = '';
+		$payload['password_confirm'] = '';
+		unset( $_POST['password'], $_POST['password_confirm'] );
 		if ( 'allow' !== ( $result['result'] ?? '' ) || empty( $result['user_id'] ) ) {
 			SAUTH_Provider_Health::record_failure( 'membership', sanitize_key( (string) ( $result['reason_code'] ?? 'provider_rejected' ) ), $latency );
 			SAUTH_Event_Outbox::emit( 'AccountAuthenticationFailed.v1', 0, 0, array( 'method' => 'registration', 'reason' => sanitize_key( (string) ( $result['reason_code'] ?? 'provider_rejected' ) ) ), 'security' );
@@ -168,9 +173,6 @@ final class SA_Registration {
 		}
 		$delivery = SAUTH_Email_Verification::issue( $user_id, $payload['email'], true );
 		SA_Membership_Adapter::audit( 'account_registration_orchestrated', $user_id, array( 'contract_version' => SAUTH_ACCOUNT_CONTRACT_VERSION, 'account_type' => $payload['account_type'] ) );
-		$payload['password'] = '';
-		$payload['password_confirm'] = '';
-		unset( $_POST['password'], $_POST['password_confirm'] );
 		SA_Security::clear_rate_limit( 'registration_email', $email_key );
 		if ( is_wp_error( $delivery ) ) {
 			wp_safe_redirect( SA_Security::message_url( 'email_verify', 'error', $delivery->get_error_message() ) );
@@ -272,13 +274,26 @@ final class SA_Registration {
 			wp_safe_redirect( $url );
 			exit;
 		}
+		$user_id = (int) $user->ID;
 		reset_password( $user, $password );
+		$fresh_user = get_userdata( $user_id );
+		$persisted = $fresh_user instanceof WP_User
+			&& function_exists( 'wp_check_password' )
+			&& wp_check_password( $password, (string) $fresh_user->user_pass, $user_id );
 		$password = ''; $confirm = '';
 		unset( $_POST['password'], $_POST['password_confirm'] );
-		SAUTH_Session_Manager::revoke_user_sessions( $user->ID, 'password_reset' );
+		if ( ! $persisted ) {
+			/* Credential state is uncertain. Revoke sessions and never emit a false
+			 * PasswordResetCompleted event or success message. */
+			SAUTH_Session_Manager::revoke_user_sessions( $user_id, 'password_reset_postcondition_failed' );
+			SA_Membership_Adapter::audit( 'password_reset_postcondition_failed', $user_id );
+			wp_safe_redirect( SA_Security::message_url( 'reset', 'error', 'The password change could not be confirmed. All sessions were revoked for safety; request a new reset link.' ) );
+			exit;
+		}
+		SAUTH_Session_Manager::revoke_user_sessions( $user_id, 'password_reset' );
 		SA_Security::clear_rate_limit( 'reset_password', strtolower( $login ) );
-		SAUTH_Event_Outbox::emit( 'PasswordResetCompleted.v1', $user->ID, $user->ID, array( 'all_sessions_revoked' => true, 'method' => 'email_reset' ), 'security' );
-		SA_Membership_Adapter::audit( 'password_reset_completed', $user->ID );
+		SAUTH_Event_Outbox::emit( 'PasswordResetCompleted.v1', $user_id, $user_id, array( 'all_sessions_revoked' => true, 'method' => 'email_reset' ), 'security' );
+		SA_Membership_Adapter::audit( 'password_reset_completed', $user_id );
 		wp_safe_redirect( SA_Security::message_url( 'login', 'success', 'Your password was changed. Sign in again on this device.' ) );
 		exit;
 	}
@@ -359,7 +374,11 @@ final class SA_Registration {
 	private static function sign_in_allowed( array $assertion, array $completion ) {
 		if ( 'unknown' === ( $assertion['result'] ?? 'unknown' ) || ! empty( $assertion['membership']['suspended'] ) ) { return false; }
 		if ( 'allow' === ( $assertion['result'] ?? '' ) ) { return true; }
-		return 'allow' === ( $completion['result'] ?? '' ) && ! empty( $completion['missing_steps'] ) && ! empty( $completion['next_route'] );
+		$active = true === ( $assertion['membership']['active'] ?? false );
+		return $active
+			&& 'allow' === ( $completion['result'] ?? '' )
+			&& ! empty( $completion['missing_steps'] )
+			&& ! empty( $completion['next_route'] );
 	}
 
 	private function login_failure( $user_id, $redirect, $reason ) {
