@@ -3,6 +3,7 @@
 defined( 'ABSPATH' ) || exit;
 
 final class SA_Security {
+	const NOTICE_TTL = 600;
 	public static function client_fingerprint() {
 		$ip = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : 'unknown';
 		$ua = isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : 'unknown';
@@ -37,18 +38,20 @@ final class SA_Security {
 		);
 		$result = $wpdb->query( $sql );
 		if ( false === $result ) {
-			$key    = 'sauth_fallback_' . substr( $bucket, 0, 32 );
-			$state  = get_transient( $key );
+			$key = 'sauth_fallback_' . substr( $bucket, 0, 32 );
+			$state = get_transient( $key );
 			$now_ts = time();
-			if ( ! is_array( $state ) || empty( $state['expires'] ) || (int) $state['expires'] <= $now_ts ) {
-				$state = array( 'hits' => 0, 'expires' => $now_ts + $window );
-			}
+			if ( ! is_array( $state ) || empty( $state['expires'] ) || (int) $state['expires'] <= $now_ts ) { $state = array( 'hits' => 0, 'expires' => $now_ts + $window ); }
 			$state['hits']++;
 			$ttl = max( 1, (int) $state['expires'] - $now_ts );
-			set_transient( $key, $state, $ttl );
+			$stored = set_transient( $key, $state, $ttl );
+			$verified = get_transient( $key );
+			if ( false === $stored || ! is_array( $verified ) || (int) ( $verified['hits'] ?? -1 ) !== (int) $state['hits'] || (int) ( $verified['expires'] ?? 0 ) !== (int) $state['expires'] ) { return true; }
 			return $state['hits'] > $limit;
 		}
-		$hits = (int) $wpdb->get_var( $wpdb->prepare( "SELECT hits FROM {$table} WHERE bucket_hash = %s", $bucket ) );
+		$hits_raw = $wpdb->get_var( $wpdb->prepare( "SELECT hits FROM {$table} WHERE bucket_hash = %s", $bucket ) );
+		if ( null === $hits_raw || '' !== (string) $wpdb->last_error ) { return true; }
+		$hits = (int) $hits_raw;
 		if ( 1 === wp_rand( 1, 100 ) ) {
 			$wpdb->query( $wpdb->prepare( "DELETE FROM {$table} WHERE expires_at < %s", gmdate( 'Y-m-d H:i:s', time() - DAY_IN_SECONDS ) ) );
 		}
@@ -111,6 +114,8 @@ final class SA_Security {
 		return self::decrypt_legacy( $cipher );
 	}
 
+	public static function current_cipher_ready( $cipher ) { $cipher = (string) $cipher; return self::master_key_ready() && 0 === strpos( $cipher, 'v3:' ) && '' !== self::decrypt( $cipher ); }
+
 	private static function decrypt_gcm_payload( $payload, $key, $aad ) {
 		if ( '' === (string) $key ) { return ''; }
 		$raw = base64_decode( (string) $payload, true );
@@ -148,28 +153,36 @@ final class SA_Security {
 	}
 
 	public static function message_url( $page_key, $type, $message, array $extra = array() ) {
-		$type = 'success' === sanitize_key( $type ) ? 'success' : 'error';
-		$message = sanitize_text_field( (string) $message );
-		$args = array_merge(
-			$extra,
-			array(
-				'sa_notice' => $type,
-				'sa_msg'    => $message,
-				'sa_sig'    => self::notice_signature( $type, $message ),
-			)
-		);
-		return add_query_arg( $args, self::page_url( $page_key ) );
+		return add_query_arg( array_merge( $extra, self::notice_query_args( $type, $message ) ), self::page_url( $page_key ) );
 	}
 
-	public static function notice_valid( $type, $message, $signature ) {
+	public static function notice_query_args( $type, $message ) {
+		$type = 'success' === sanitize_key( $type ) ? 'success' : 'error';
+		$message = sanitize_text_field( (string) $message );
+		$issued_at = time();
+		return array( 'sa_notice' => $type, 'sa_msg' => $message, 'sa_iat' => $issued_at, 'sa_sig' => self::notice_signature( $type, $message, $issued_at ) );
+	}
+
+	public static function notice_valid( $type, $message, $signature, $issued_at = 0 ) {
 		$type = 'success' === sanitize_key( $type ) ? 'success' : 'error';
 		$message = sanitize_text_field( (string) $message );
 		$signature = sanitize_text_field( (string) $signature );
-		return 64 === strlen( $signature ) && hash_equals( self::notice_signature( $type, $message ), $signature );
+		$issued_at = absint( $issued_at );
+		$age = time() - $issued_at;
+		return 64 === strlen( $signature ) && $issued_at > 0 && $age >= 0 && $age <= self::NOTICE_TTL && hash_equals( self::notice_signature( $type, $message, $issued_at ), $signature );
 	}
 
-	private static function notice_signature( $type, $message ) {
-		return hash_hmac( 'sha256', sanitize_key( $type ) . '|' . sanitize_text_field( (string) $message ), wp_salt( 'nonce' ) );
+	public static function request_notice() {
+		if ( ! isset( $_GET['sa_notice'], $_GET['sa_msg'], $_GET['sa_sig'], $_GET['sa_iat'] ) ) { return array(); }
+		$type = 'success' === sanitize_key( wp_unslash( $_GET['sa_notice'] ) ) ? 'success' : 'error';
+		$message = sanitize_text_field( wp_unslash( $_GET['sa_msg'] ) );
+		$signature = sanitize_text_field( wp_unslash( $_GET['sa_sig'] ) );
+		$issued_at = absint( wp_unslash( $_GET['sa_iat'] ) );
+		return self::notice_valid( $type, $message, $signature, $issued_at ) ? array( 'type' => $type, 'message' => $message ) : array();
+	}
+
+	private static function notice_signature( $type, $message, $issued_at ) {
+		return hash_hmac( 'sha256', sanitize_key( $type ) . '|' . sanitize_text_field( (string) $message ) . '|' . absint( $issued_at ), wp_salt( 'nonce' ) );
 	}
 
 	public static function random_token( $bytes = 32 ) {

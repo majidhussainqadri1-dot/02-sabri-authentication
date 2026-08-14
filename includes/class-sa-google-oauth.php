@@ -39,6 +39,7 @@ final class SA_Google_OAuth {
 			&& SAUTH_Account_Contract::provider_available()
 			&& '1' === (string) get_option( 'sauth_google_enabled', get_option( 'sa_google_enabled', '0' ) )
 			&& '' !== self::client_id()
+			&& SA_Security::current_cipher_ready( (string) get_option( 'sauth_google_client_secret', get_option( 'sa_google_client_secret', '' ) ) )
 			&& '' !== self::client_secret();
 	}
 

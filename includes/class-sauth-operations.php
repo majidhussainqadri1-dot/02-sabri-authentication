@@ -75,6 +75,7 @@ final class SAUTH_Operations {
 		?>
 		<div class="wrap">
 			<h1><?php echo esc_html__( 'Sabri Authentication — System Check', 'sabri-authentication' ); ?></h1>
+			<?php $sauth_notice = SA_Security::request_notice(); if ( ! empty( $sauth_notice ) ) : ?><div class="notice notice-<?php echo 'success' === $sauth_notice['type'] ? 'success' : 'error'; ?>"><p><?php echo esc_html( $sauth_notice['message'] ); ?></p></div><?php endif; ?>
 			<p><strong><?php echo esc_html__( 'Safe Mode:', 'sabri-authentication' ); ?></strong> <?php echo self::safe_mode() ? '<span style="color:#b42318">ON</span>' : '<span style="color:#067647">OFF</span>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></p>
 			<table class="widefat striped"><thead><tr><th>Check</th><th>Status</th><th>Evidence</th></tr></thead><tbody>
 			<?php foreach ( $checks as $check ) : ?><tr><td><?php echo esc_html( $check['label'] ); ?></td><td><strong><?php echo esc_html( strtoupper( $check['status'] ) ); ?></strong></td><td><?php echo esc_html( $check['evidence'] ); ?></td></tr><?php endforeach; ?>
@@ -121,19 +122,19 @@ final class SAUTH_Operations {
 		if ( '' === $lock ) { self::redirect( 'error', 'Another guarded repair is already running. Wait and retry.' ); }
 		try {
 			if ( ! SA_Membership_Adapter::available() || ! SAUTH_Account_Contract::provider_available() ) {
-				self::redirect( 'error', 'File 00 readiness/contracts are unavailable; repair stopped before mutation.' );
+				self::release_repair_lock( $lock ); self::redirect( 'error', 'File 00 readiness/contracts are unavailable; repair stopped before mutation.' );
 			}
 			$was_safe = self::safe_mode();
 			if ( ! $was_safe ) {
 				update_option( self::SAFE_MODE_OPTION, '1', false );
 				update_option( self::SAFE_MODE_ENTERED_AT, time(), false );
-				if ( '1' !== (string) get_option( self::SAFE_MODE_OPTION, '' ) ) { self::redirect( 'error', 'Guarded repair could not enter Safe Mode.' ); }
+				if ( '1' !== (string) get_option( self::SAFE_MODE_OPTION, '' ) ) { self::release_repair_lock( $lock ); self::redirect( 'error', 'Guarded repair could not enter Safe Mode.' ); }
 			}
 			$core_repaired = SAUTH_Activator::repair();
 			SAUTH_Passkeys::maybe_install( true );
 			if ( ! $core_repaired || ! SAUTH_Activator::storage_ready() || ! SAUTH_Passkeys::authentication_ready() ) {
 				SA_Membership_Adapter::audit( 'authentication_guarded_repair_postcondition_failed', get_current_user_id() );
-				self::redirect( 'error', 'Guarded repair could not prove all core/passkey storage postconditions. Safe Mode remains enabled.' );
+				self::release_repair_lock( $lock ); self::redirect( 'error', 'Guarded repair could not prove all core/passkey storage postconditions. Safe Mode remains enabled.' );
 			}
 			$checks = self::system_check();
 			$bad = array_filter( $checks, static function ( $check ) { return 'ok' !== ( $check['status'] ?? '' ); } );
@@ -142,14 +143,14 @@ final class SAUTH_Operations {
 			}
 			if ( ! empty( $bad ) ) {
 				SA_Membership_Adapter::audit( 'authentication_guarded_repair_incomplete', get_current_user_id(), array( 'failed_checks' => count( $bad ) ) );
-				self::redirect( 'error', 'Guarded repair completed with unresolved checks. Safe Mode remains enabled.' );
+				self::release_repair_lock( $lock ); self::redirect( 'error', 'Guarded repair completed with unresolved checks. Safe Mode remains enabled.' );
 			}
 			SA_Membership_Adapter::audit( 'authentication_guarded_repair_completed', get_current_user_id() );
-			self::redirect( 'success', 'Guarded repair completed and all checked postconditions passed.' );
+			self::release_repair_lock( $lock ); self::redirect( 'success', 'Guarded repair completed and all checked postconditions passed.' );
 		} catch ( Throwable $error ) {
 			update_option( self::SAFE_MODE_OPTION, '1', false );
 			SA_Membership_Adapter::audit( 'authentication_guarded_repair_failed', get_current_user_id(), array( 'reference' => substr( hash( 'sha256', get_class( $error ) . '|' . $error->getMessage() ), 0, 20 ) ) );
-			self::redirect( 'error', 'Guarded repair failed safely. Safe Mode remains enabled.' );
+			self::release_repair_lock( $lock ); self::redirect( 'error', 'Guarded repair failed safely. Safe Mode remains enabled.' );
 		} finally {
 			self::release_repair_lock( $lock );
 		}
@@ -186,5 +187,5 @@ final class SAUTH_Operations {
 		return '';
 	}
 	private static function release_repair_lock( $token ) { $current = get_option( self::REPAIR_LOCK_OPTION, array() ); if ( is_array( $current ) && isset( $current['token'] ) && hash_equals( (string) $current['token'], (string) $token ) ) { delete_option( self::REPAIR_LOCK_OPTION ); } }
-	private static function redirect( $type, $message ) { wp_safe_redirect( SA_Security::message_url( 'system_check', $type, $message, admin_url( 'admin.php?page=sabri-authentication-system-check' ) ) ); exit; }
+	private static function redirect( $type, $message ) { $target = admin_url( 'admin.php?page=sabri-authentication-system-check' ); wp_safe_redirect( add_query_arg( SA_Security::notice_query_args( $type, $message ), $target ) ); exit; }
 }

@@ -55,100 +55,75 @@ final class SAUTH_Passkeys {
 	}
 
 	public static function maybe_install( $force = false ) {
-		/* Never mutate File 02 passkey schema/pages while the mandatory File 00
-		 * runtime, DB and account contract are unavailable. Guarded repair passes
-		 * $force=true only after proving those dependencies ready. */
-		if ( ! SA_Membership_Adapter::available() || ! SAUTH_Account_Contract::provider_available() ) {
-			return;
-		}
-		if ( ! $force && self::SCHEMA_VERSION === (string) get_option( self::OPTION_SCHEMA_VERSION, '' ) ) {
-			return;
-		}
+		if ( ! SA_Membership_Adapter::available() || ! SAUTH_Account_Contract::provider_available() ) { return false; }
+		if ( ! $force && self::installation_ready() ) { return true; }
 		global $wpdb;
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-		$table = self::table();
+		$table = self::table(); $charset = $wpdb->get_charset_collate();
 		$sql = "CREATE TABLE {$table} (
 			id bigint unsigned NOT NULL AUTO_INCREMENT,
 			public_id char(36) NOT NULL,
 			user_id bigint unsigned NOT NULL,
-			credential_hash char(64) NOT NULL,
-			credential_cipher longtext NOT NULL,
+			credential_lookup_hash char(64) NOT NULL,
+			credential_id_ciphertext longtext NOT NULL,
 			public_key_pem longtext NOT NULL,
-			algorithm smallint NOT NULL,
-			transports varchar(255) NOT NULL DEFAULT '',
+			algorithm varchar(20) NOT NULL DEFAULT 'ES256',
+			sign_count bigint unsigned NOT NULL DEFAULT 0,
+			nickname varchar(120) NOT NULL DEFAULT '',
 			attachment varchar(32) NOT NULL DEFAULT '',
+			transports text NOT NULL,
 			discoverable tinyint(1) NOT NULL DEFAULT 1,
 			backup_eligible tinyint(1) NOT NULL DEFAULT 0,
 			backup_state tinyint(1) NOT NULL DEFAULT 0,
 			hardware_backed tinyint(1) NOT NULL DEFAULT 0,
-			sign_count bigint unsigned NOT NULL DEFAULT 0,
-			nickname varchar(80) NOT NULL DEFAULT '',
-			status varchar(16) NOT NULL DEFAULT 'active',
+			status varchar(24) NOT NULL DEFAULT 'active',
 			created_at datetime NOT NULL,
-			last_used_at datetime NULL,
-			revoked_at datetime NULL,
+			last_used_at datetime DEFAULT NULL,
+			revoked_at datetime DEFAULT NULL,
 			updated_at datetime NOT NULL,
-			PRIMARY KEY  (id),
-			UNIQUE KEY public_id (public_id),
-			UNIQUE KEY credential_hash (credential_hash),
-			KEY user_status (user_id,status,updated_at),
-			KEY last_used (last_used_at)
-		) " . $wpdb->get_charset_collate() . ';';
-		dbDelta( $sql );
-		self::ensure_manager_page();
-
-		/* Do not publish a successful schema marker until the table and private
-		 * manager page actually exist. A failed dbDelta/page write must remain
-		 * retryable on the next request or guarded repair. */
-		$table_exists = $table === (string) $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) );
-		$map = (array) get_option( 'sauth_page_map', array() );
-		$page_id = isset( $map['passkeys'] ) ? absint( $map['passkeys'] ) : 0;
-		$page_ready = $page_id > 0 && 'trash' !== get_post_status( $page_id );
-		if ( ! $table_exists || ! $page_ready ) {
-			delete_option( self::OPTION_SCHEMA_VERSION );
-			return;
-		}
+			PRIMARY KEY  (id), UNIQUE KEY public_id (public_id), UNIQUE KEY credential_lookup_hash (credential_lookup_hash), KEY user_status (user_id,status), KEY revoked_at (revoked_at)
+		) {$charset};";
+		dbDelta( $sql ); self::ensure_manager_page();
+		$table_ready = $table === (string) $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) );
+		if ( ! $table_ready || ! self::manager_page_ready() ) { delete_option( self::OPTION_SCHEMA_VERSION ); return false; }
 		update_option( self::OPTION_SCHEMA_VERSION, self::SCHEMA_VERSION, false );
-		if ( self::SCHEMA_VERSION !== (string) get_option( self::OPTION_SCHEMA_VERSION, '' ) ) {
-			delete_option( self::OPTION_SCHEMA_VERSION );
-			return;
-		}
+		if ( self::SCHEMA_VERSION !== (string) get_option( self::OPTION_SCHEMA_VERSION, '' ) ) { return false; }
 		if ( function_exists( 'wp_next_scheduled' ) && ! wp_next_scheduled( self::CLEANUP_HOOK ) ) {
-			wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', self::CLEANUP_HOOK );
+			$scheduled = wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', self::CLEANUP_HOOK );
+			if ( false === $scheduled || is_wp_error( $scheduled ) ) { return false; }
 		}
+		return self::installation_ready();
+	}
+
+	public static function installation_ready() {
+		if ( self::SCHEMA_VERSION !== (string) get_option( self::OPTION_SCHEMA_VERSION, '' ) || ! self::manager_page_ready() ) { return false; }
+		global $wpdb; $table = self::table();
+		$table_ready = $table === (string) $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) );
+		$cron_ready = function_exists( 'wp_next_scheduled' ) && false !== wp_next_scheduled( self::CLEANUP_HOOK );
+		return $table_ready && $cron_ready;
 	}
 
 	private static function ensure_manager_page() {
 		$map = (array) get_option( 'sauth_page_map', get_option( 'sa_page_map', array() ) );
 		$page_id = isset( $map['passkeys'] ) ? absint( $map['passkeys'] ) : 0;
-		if ( $page_id && 'trash' !== get_post_status( $page_id ) ) {
-			return;
+		$page = $page_id ? get_post( $page_id ) : null;
+		if ( self::is_manager_page( $page ) ) { return $page_id; }
+		$candidates = get_posts( array( 'post_type'=>'page', 'post_status'=>array('publish','draft','private','pending'), 'posts_per_page'=>50, 'orderby'=>'ID', 'order'=>'ASC', 'meta_query'=>array('relation'=>'OR', array('key'=>'_sauth_managed_page','value'=>'1'), array('key'=>'_sa_private_page','value'=>'1'), array('key'=>'_sauth_private_page','value'=>'1')) ) );
+		foreach ( is_array( $candidates ) ? $candidates : array() as $candidate ) {
+			if ( self::is_manager_page( $candidate, true ) ) { $page_id=absint($candidate->ID); self::mark_manager_page($page_id); $map['passkeys']=$page_id; update_option('sauth_page_map',$map,false); return $page_id; }
 		}
-		$existing = get_page_by_path( 'account-passkeys', OBJECT, 'page' );
-		if ( $existing instanceof WP_Post ) {
-			$page_id = (int) $existing->ID;
-		} else {
-			$page_id = wp_insert_post(
-				array(
-					'post_title'   => 'Passkeys & Security Keys',
-					'post_name'    => 'account-passkeys',
-					'post_content' => '[sabri_auth_passkeys]',
-					'post_status'  => 'publish',
-					'post_type'    => 'page',
-				),
-				true
-			);
-			if ( is_wp_error( $page_id ) ) {
-				return;
-			}
-		}
-		$page_id = absint( $page_id );
-		if ( $page_id ) {
-			update_post_meta( $page_id, '_sa_private_page', '1' );
-			$map['passkeys'] = $page_id;
-			update_option( 'sauth_page_map', $map, false );
-		}
+		$page_id = wp_insert_post( array( 'post_title'=>'Passkeys & Security Keys', 'post_name'=>'account-passkeys', 'post_content'=>'[sabri_auth_passkeys]', 'post_status'=>'publish', 'post_type'=>'page', 'meta_input'=>array('_sauth_managed_page'=>'1','_sauth_private_page'=>'1') ), true );
+		if ( is_wp_error($page_id) || !absint($page_id) ) { return 0; }
+		$page_id=absint($page_id); self::mark_manager_page($page_id); $map['passkeys']=$page_id; update_option('sauth_page_map',$map,false); return $page_id;
 	}
+	private static function is_manager_page( $page, $legacy_allowed = false ) {
+		if ( ! $page instanceof WP_Post || 'page' !== $page->post_type || 'trash' === $page->post_status || '[sabri_auth_passkeys]' !== trim((string)$page->post_content) ) { return false; }
+		$canonical='1'===(string)get_post_meta($page->ID,'_sauth_managed_page',true);
+		$legacy='1'===(string)get_post_meta($page->ID,'_sa_private_page',true) || '1'===(string)get_post_meta($page->ID,'_sauth_private_page',true);
+		return $canonical || ($legacy_allowed && $legacy);
+	}
+	private static function mark_manager_page( $page_id ) { $page_id=absint($page_id); if(!$page_id){return;} update_post_meta($page_id,'_sauth_managed_page','1'); update_post_meta($page_id,'_sauth_private_page','1'); delete_post_meta($page_id,'_sa_private_page'); }
+	private static function manager_page_ready() { $map=(array)get_option('sauth_page_map',array()); $page_id=isset($map['passkeys'])?absint($map['passkeys']):0; return $page_id>0 && self::is_manager_page(get_post($page_id)); }
 
 	public static function manager_url() {
 		$map = (array) get_option( 'sauth_page_map', array() );

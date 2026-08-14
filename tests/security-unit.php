@@ -69,6 +69,7 @@ $plain  = 'unit-test-google-client-secret';
 $cipher = SA_Security::encrypt( $plain );
 sa_test_assert( 0 === strpos( $cipher, 'v3:' ), 'encrypted value must use dedicated-key v3 envelope' );
 sa_test_assert( $plain === SA_Security::decrypt( $cipher ), 'AES-256-GCM dedicated-key round trip failed' );
+sa_test_assert( SA_Security::current_cipher_ready( $cipher ), 'v3 dedicated-key ciphertext was not accepted as current' );
 $last = substr( $cipher, -1 );
 $tampered = substr( $cipher, 0, -1 ) . ( 'A' === $last ? 'B' : 'A' );
 sa_test_assert( '' === SA_Security::decrypt( $tampered ), 'tampered ciphertext must fail authentication' );
@@ -79,8 +80,8 @@ sa_test_assert( 'https://example.test/' === SA_Security::safe_redirect( 'https:/
 $notice = SA_Security::message_url( 'login', 'success', 'Verified server notice' );
 parse_str( (string) parse_url( $notice, PHP_URL_QUERY ), $notice_args );
 sa_test_assert( isset( $notice_args['sa_sig'] ), 'server notice signature missing' );
-sa_test_assert( SA_Security::notice_valid( $notice_args['sa_notice'] ?? '', $notice_args['sa_msg'] ?? '', $notice_args['sa_sig'] ?? '' ), 'valid server notice signature was rejected' );
-sa_test_assert( ! SA_Security::notice_valid( 'success', 'Forged success', $notice_args['sa_sig'] ?? '' ), 'forged success notice was accepted' );
+sa_test_assert( SA_Security::notice_valid( $notice_args['sa_notice'] ?? '', $notice_args['sa_msg'] ?? '', $notice_args['sa_sig'] ?? '', $notice_args['sa_iat'] ?? 0 ), 'valid server notice signature was rejected' );
+sa_test_assert( ! SA_Security::notice_valid( 'success', 'Forged success', $notice_args['sa_sig'] ?? '', $notice_args['sa_iat'] ?? 0 ), 'forged success notice was accepted' );
 
 $oauth  = new SA_Google_OAuth();
 $method = new ReflectionMethod( 'SA_Google_OAuth', 'valid_claims' );

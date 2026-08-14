@@ -13,7 +13,7 @@ $checks = array(
     array( $routes, "get_option( 'sauth_page_map', get_option( 'sa_page_map', array() ) )", 'legacy session redirect ignores canonical page map' ),
     array( $access, 'SAUTH_Canonical_Routes::SESSIONS === (string) get_query_var', 'canonical sessions route is not recognized as private File 02 surface' ),
     array( $security, "'sa_sig'", 'server notice URLs are unsigned' ),
-    array( $notice, 'SA_Security::notice_valid', 'user query strings can forge authoritative notices' ),
+    array( $notice, 'SA_Security::request_notice', 'user query strings can forge authoritative notices' ),
     array( $security, 'public static function master_key_ready()', 'Google secret encryption does not require a dedicated key' ),
     array( $security, "'v3:'", 'new Google secrets are not versioned to dedicated-key ciphertext' ),
     array( $admin, 'updated_token', 'admin settings success is forgeable from updated=1' ),

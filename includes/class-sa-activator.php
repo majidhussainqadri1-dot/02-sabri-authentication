@@ -86,13 +86,14 @@ final class SA_Activator {
 		self::create_attempt_table();
 		$migration_ok = self::migrate_legacy_tables();
 		self::create_pages();
-		self::migrate_google_secret();
+		$google_secret_ok = self::migrate_google_secret();
 		self::ensure_dummy_password_hash();
+		$passkey_ok = class_exists( 'SAUTH_Passkeys' ) && SAUTH_Passkeys::maybe_install( true );
 
 		/* Never publish a successful runtime/schema marker merely because dbDelta
 		 * returned. Prove every required table and managed page exists first and
 		 * preserve retryability on partial/failed deployment. */
-		if ( ! $migration_ok || ! self::storage_ready() ) {
+		if ( ! $migration_ok || ! $google_secret_ok || ! $passkey_ok || ! self::storage_ready() ) {
 			return false;
 		}
 
@@ -359,6 +360,7 @@ final class SA_Activator {
 				return false;
 			}
 		}
+		if ( ! class_exists( 'SAUTH_Passkeys' ) || ! SAUTH_Passkeys::installation_ready() ) { return false; }
 		return true;
 	}
 
@@ -451,19 +453,13 @@ final class SA_Activator {
 		return is_wp_error( $page ) ? 0 : (int) $page;
 	}
 
-	public static function migrate_google_secret() {
-		$cipher = (string) get_option( 'sauth_google_client_secret', get_option( 'sa_google_client_secret', '' ) );
-		if ( '' === $cipher || 0 === strpos( $cipher, 'v3:' ) || ! SA_Security::master_key_ready() ) {
-			return;
-		}
-		$plain = SA_Security::decrypt( $cipher );
-		if ( '' !== $plain ) {
-			$encrypted = SA_Security::encrypt( $plain );
-			if ( '' !== $encrypted ) {
-				update_option( 'sauth_google_client_secret', $encrypted, false );
-				update_option( 'sa_google_client_secret', $encrypted, false );
-			}
-		}
+	private static function migrate_google_secret() {
+		$cipher=(string)get_option('sauth_google_client_secret',get_option('sa_google_client_secret',''));
+		if(''===$cipher){return true;} if(SA_Security::current_cipher_ready($cipher)){return true;} if(!SA_Security::master_key_ready()){return false;}
+		$plain=SA_Security::decrypt($cipher); if(''===$plain){return false;} $encrypted=SA_Security::encrypt($plain); $plain=''; if(!SA_Security::current_cipher_ready($encrypted)){return false;}
+		update_option('sauth_google_client_secret',$encrypted,false); update_option('sa_google_client_secret',$encrypted,false);
+		$canonical=(string)get_option('sauth_google_client_secret',''); $mirror=(string)get_option('sa_google_client_secret','');
+		return hash_equals($encrypted,$canonical) && hash_equals($encrypted,$mirror) && SA_Security::current_cipher_ready($canonical);
 	}
 
 	public static function ensure_dummy_password_hash() {

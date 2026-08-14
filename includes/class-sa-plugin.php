@@ -218,7 +218,7 @@ final class SA_Plugin {
 		}
 
 		$enable = ! empty( $_POST['google_enabled'] );
-		if ( $enable && ( SAUTH_Operations::safe_mode() || ! is_ssl() || '' === $client_id || '' === $encrypted || '' === SA_Security::decrypt( $encrypted ) ) ) {
+		if ( $enable && ( SAUTH_Operations::safe_mode() || ! is_ssl() || '' === $client_id || ! SA_Security::current_cipher_ready( $encrypted ) ) ) {
 			wp_safe_redirect( add_query_arg( 'error', 'not_ready', self::settings_url() ) );
 			exit;
 		}
