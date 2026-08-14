@@ -5,7 +5,7 @@
       "path": "tests/r322-registration-recovery-integrity-regression.php",
       "count": 1,
       "old": "$revoked = strpos( $r, \"$revoked = SAUTH_Session_Manager::revoke_user_sessions( $user_id, 'password_reset' );\" );",
-      "new": "$revoked = strpos( $r, '$revoked = SAUTH_Session_Manager::revoke_user_sessions( $user_id, \'password_reset\' );' );"
+      "new": "$revoked = strpos( $r, \"\\$revoked = SAUTH_Session_Manager::revoke_user_sessions( \\$user_id, 'password_reset' );\" );"
     }
   ]
 }
