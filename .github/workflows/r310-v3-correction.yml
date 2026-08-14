@@ -38,6 +38,16 @@ jobs:
           p.write_text(text, encoding='utf-8')
           PY
           python3 tools/r310-apply-v3.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('tests/r308-route-ui-regression.php')
+          text = p.read_text(encoding='utf-8')
+          old = "array( $notice, 'SA_Security::notice_valid', 'user query strings can forge authoritative notices' )"
+          new = "array( $notice, 'SA_Security::request_notice', 'user query strings can forge authoritative notices' )"
+          if old not in text:
+              raise SystemExit('R308 notice-validation assertion patch point missing')
+          p.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
           git diff --check
           php -l includes/class-sa-security.php
           php -l includes/class-sauth-passkeys.php
@@ -47,6 +57,7 @@ jobs:
           php -l includes/class-sa-plugin.php
           php -l templates/partials/notice.php
           php -l tests/security-unit.php
+          php -l tests/r308-route-ui-regression.php
           php -l tests/r310-final-adversarial-regression.php
           php tests/security-unit.php
           php tests/r302-migration-postcondition-regression.php
