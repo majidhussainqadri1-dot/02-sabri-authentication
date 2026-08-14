@@ -35,6 +35,7 @@ jobs:
           p.write_text(text.replace(old, new, 1), encoding='utf-8')
           PY
           python3 tools/r299-batch-fix.py
+          sed -i 's/[[:space:]]\+$//' PLAN-TRACEABILITY.md
           git diff --check
           test -f tests/r299-cross-flow-regression.php
 
