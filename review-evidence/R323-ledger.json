@@ -1,6 +1,7 @@
 {
   "round": "R323",
   "correction_harness_aligned": true,
+  "correction_harness_version": 2,
   "replacements": [
     {
       "path": "includes/class-sauth-google-registration.php",
