@@ -84,7 +84,7 @@ final class SAUTH_Passkeys {
 			PRIMARY KEY  (id), UNIQUE KEY public_id (public_id), UNIQUE KEY credential_lookup_hash (credential_lookup_hash), KEY user_status (user_id,status), KEY revoked_at (revoked_at)
 		) {$charset};";
 		dbDelta( $sql ); self::ensure_manager_page();
-		$table_ready = $table === (string) $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) );
+		$table_ready = self::table_schema_ready();
 		if ( ! $table_ready || ! self::manager_page_ready() ) { delete_option( self::OPTION_SCHEMA_VERSION ); return false; }
 		update_option( self::OPTION_SCHEMA_VERSION, self::SCHEMA_VERSION, false );
 		if ( self::SCHEMA_VERSION !== (string) get_option( self::OPTION_SCHEMA_VERSION, '' ) ) { return false; }
@@ -97,10 +97,17 @@ final class SAUTH_Passkeys {
 
 	public static function installation_ready() {
 		if ( self::SCHEMA_VERSION !== (string) get_option( self::OPTION_SCHEMA_VERSION, '' ) || ! self::manager_page_ready() ) { return false; }
-		global $wpdb; $table = self::table();
-		$table_ready = $table === (string) $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) );
 		$cron_ready = function_exists( 'wp_next_scheduled' ) && false !== wp_next_scheduled( self::CLEANUP_HOOK );
-		return $table_ready && $cron_ready;
+		return self::table_schema_ready() && $cron_ready;
+	}
+
+	private static function table_schema_ready() {
+		global $wpdb; $table = self::table();
+		$exists = $table === (string) $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) );
+		if ( ! $exists || '' !== (string) $wpdb->last_error ) { return false; }
+		$columns = $wpdb->get_col( "SHOW COLUMNS FROM `{$table}`", 0 ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$required = array( 'id','public_id','user_id','credential_lookup_hash','credential_id_ciphertext','public_key_pem','algorithm','sign_count','nickname','attachment','transports','discoverable','backup_eligible','backup_state','hardware_backed','status','created_at','last_used_at','revoked_at','updated_at' );
+		return is_array( $columns ) && '' === (string) $wpdb->last_error && ! array_diff( $required, array_map( 'strval', $columns ) );
 	}
 
 	private static function ensure_manager_page() {

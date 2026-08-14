@@ -136,6 +136,26 @@ final class SA_Activator {
 		);
 	}
 
+	private static function required_table_columns() {
+		return array(
+			'rate limits'        => array( 'bucket_hash','hits','window_started','expires_at','updated_at' ),
+			'event outbox'       => array( 'id','event_id','event_name','schema_version','privacy_class','actor_user_id','subject_user_id','trace_id','payload_json','status','attempts','available_at','published_at','last_error','created_at','updated_at' ),
+			'email verification' => array( 'user_id','email_hash','token_hash','status','attempts','sent_at','expires_at','verified_at','created_at','updated_at' ),
+			'session registry'   => array( 'id','public_id','user_id','token_hash','device_hash','device_label','network_label','risk_level','status','revocation_reason','created_at','last_seen_at','expires_at','revoked_at','updated_at' ),
+			'trusted devices'    => array( 'id','public_id','user_id','fingerprint_hash','network_hash','device_label','network_label','status','risk_score','first_seen_at','last_seen_at','last_login_at','updated_at' ),
+			'risk challenges'    => array( 'id','public_id','token_hash','user_id','fingerprint_hash','risk_score','reason_code','remember_session','destination','completion_json','status','attempts','expires_at','consumed_at','created_at','updated_at' ),
+			'auth attempts'      => array( 'id','public_id','user_id','fingerprint_hash','network_hash','result','reason_code','risk_score','created_at' ),
+		);
+	}
+
+	private static function table_columns_ready( $table, array $required ) {
+		global $wpdb;
+		if ( '' === (string) $table ) { return false; }
+		$columns = $wpdb->get_col( "SHOW COLUMNS FROM `{$table}`", 0 ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		if ( ! is_array( $columns ) || '' !== (string) $wpdb->last_error ) { return false; }
+		return ! array_diff( $required, array_map( 'strval', $columns ) );
+	}
+
 	public static function create_rate_limit_table() {
 		global $wpdb;
 		$table = self::table( 'rate_limits' );
@@ -332,6 +352,7 @@ final class SA_Activator {
 		}
 		if ( $ok ) {
 			update_option( 'sauth_legacy_table_migration_version', SAUTH_DB_VERSION, false );
+			$ok = SAUTH_DB_VERSION === (string) get_option( 'sauth_legacy_table_migration_version', '' );
 		}
 		return $ok;
 	}
@@ -343,12 +364,13 @@ final class SA_Activator {
 	 */
 	public static function storage_ready() {
 		global $wpdb;
-		foreach ( self::required_tables() as $table ) {
+		$required_columns = self::required_table_columns();
+		foreach ( self::required_tables() as $key => $table ) {
 			if ( '' === $table ) {
 				return false;
 			}
 			$exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) );
-			if ( $table !== (string) $exists ) {
+			if ( $table !== (string) $exists || ! isset( $required_columns[ $key ] ) || ! self::table_columns_ready( $table, $required_columns[ $key ] ) ) {
 				return false;
 			}
 		}
