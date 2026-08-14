@@ -90,7 +90,7 @@ final class SAUTH_Login_Risk {
 		$recent_failures = $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . self::attempt_table() . " WHERE user_id=%d AND result IN ('failure','denied') AND created_at >= %s", $user_id, gmdate( 'Y-m-d H:i:s', time() - HOUR_IN_SECONDS ) ) );
 		if ( null === $recent_failures && '' !== (string) $wpdb->last_error ) { return array( 'action' => 'deny', 'score' => 100, 'reason_code' => 'risk_storage_unavailable' ); }
 		if ( (int) $recent_failures >= 5 ) { $score += 35; $reasons[] = 'recent_failures'; }
-		if ( ! SAUTH_Provider_Health::allow_request( 'membership' ) ) { $score += 30; $reasons[] = 'membership_provider_degraded'; }
+		if ( ! SAUTH_Provider_Health::available_for_ui( 'membership' ) ) { $score += 30; $reasons[] = 'membership_provider_degraded'; }
 		$score = min( 100, $score );
 		$reason = empty( $reasons ) ? 'known_context' : implode( '_', $reasons );
 		if ( $score < self::CHALLENGE_THRESHOLD ) { return array( 'action' => 'allow', 'score' => $score, 'reason_code' => $reason ); }

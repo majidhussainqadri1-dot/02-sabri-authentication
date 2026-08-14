@@ -34,6 +34,8 @@ final class SAUTH_Session_Manager {
 		$user_id = get_current_user_id();
 		self::ensure_current_registered( $user_id );
 		$sessions = self::list_for_user( $user_id );
+		$session_list_unavailable = is_wp_error( $sessions );
+		if ( $session_list_unavailable ) { $sessions = array(); }
 		$current_hash = self::current_token_hash();
 		$active_count = 0;
 		foreach ( $sessions as $session ) { if ( 'active' === $session['status'] ) { $active_count++; } }
@@ -44,9 +46,9 @@ final class SAUTH_Session_Manager {
 				<span class="sa-kicker">Account security</span><h1 id="sauth-sessions-title">Active Sessions</h1>
 				<p class="sa-intro">Review your own sessions and revoke an unfamiliar sign-in. Raw tokens, full IP addresses and precise location are never displayed.</p>
 				<?php include SA_DIR . 'templates/partials/notice.php'; ?>
-				<div class="sa-session-summary" role="status"><strong>Total active sessions:</strong> <?php echo esc_html( (string) $active_count ); ?></div>
+				<div class="sa-session-summary" role="status"><strong>Total active sessions:</strong> <?php echo esc_html( $session_list_unavailable ? 'Unavailable' : (string) $active_count ); ?></div>
 				<div class="sa-session-list">
-				<?php if ( empty( $sessions ) ) : ?><p>No session projections are available. The current session remains governed by WordPress.</p><?php endif; ?>
+				<?php if ( $session_list_unavailable ) : ?><div class="sa-notice sa-notice-error" role="alert">Session evidence is temporarily unavailable. No zero-session claim is being made; reload before taking security action.</div><?php elseif ( empty( $sessions ) ) : ?><p>No session projections are available. The current session remains governed by WordPress.</p><?php endif; ?>
 				<?php foreach ( $sessions as $session ) : $is_current = '' !== $current_hash && hash_equals( $current_hash, (string) $session['token_hash'] ); ?>
 					<article class="sa-session-card" aria-label="<?php echo esc_attr( $is_current ? 'Current session' : 'Account session' ); ?>">
 						<h2><?php echo $is_current ? 'Current session' : 'Other session'; ?></h2>
@@ -212,7 +214,10 @@ final class SAUTH_Session_Manager {
 	private static function list_for_user( $user_id ) {
 		global $wpdb;
 		$rows = $wpdb->get_results( $wpdb->prepare( 'SELECT public_id,token_hash,device_label,network_label,risk_level,status,last_seen_at,expires_at FROM ' . self::table() . " WHERE user_id=%d AND (status='active' OR updated_at>=%s) ORDER BY status='active' DESC,last_seen_at DESC LIMIT %d", absint( $user_id ), gmdate( 'Y-m-d H:i:s', time() - self::HISTORY_RETENTION ), self::MAX_LIST ), ARRAY_A );
-		return is_array( $rows ) ? $rows : array();
+		if ( ! is_array( $rows ) || '' !== (string) $wpdb->last_error ) {
+			return new WP_Error( 'session_registry_unavailable', 'Session evidence could not be read safely.' );
+		}
+		return $rows;
 	}
 
 	private static function ensure_current_registered( $user_id ) {
@@ -247,6 +252,7 @@ final class SAUTH_Session_Manager {
 	private static function current_risk_level( $user_id ) {
 		global $wpdb;
 		$score = $wpdb->get_var( $wpdb->prepare( 'SELECT risk_score FROM ' . SAUTH_Activator::table( 'auth_devices' ) . ' WHERE user_id=%d AND fingerprint_hash=%s ORDER BY last_seen_at DESC LIMIT 1', absint( $user_id ), SA_Security::client_fingerprint() ) );
+		if ( null === $score || '' !== (string) $wpdb->last_error ) { return 'unknown'; }
 		$score = absint( $score ); return $score >= 80 ? 'high' : ( $score >= 45 ? 'medium' : 'low' );
 	}
 	private static function current_token_hash() { $token = (string) wp_get_session_token(); return '' === $token ? '' : self::token_hash( $token ); }
