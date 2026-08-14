@@ -29,9 +29,9 @@
   "artifact_policy": "Exact-head review CI may lint and regression-test the source candidate, but package/staging/live claims remain separate release gates and must not be inferred from review-branch success.",
   "status": {
     "specified": "complete",
-    "coded": "passkey_index_reconciliation_candidate_r335_corrected",
-    "packaged": "not_claimed_from_review_branch",
-    "automated_qa": "exact_head_pending_after_r335",
+    "coded": "post_integration_release_candidate_r336_corrected",
+    "packaged": "pending_exact_head_release_integrity",
+    "automated_qa": "exact_head_pending_after_r336",
     "staging_accepted": false,
     "live_deployed": false,
     "operational": false
@@ -40,14 +40,31 @@
     "Owner-level repository rename",
     "Hostinger fresh install and supported upgrades",
     "Real production-domain WebAuthn authenticators and browser/device acceptance",
-    "Real Google/SMTP and File 00 integration",
+    "Real Google/SMTP integration",
     "Security/privacy/IDOR/replay/race/accessibility/performance acceptance",
     "Backup/restore and rollback rehearsal",
     "Founder staging and production authorization"
   ],
-  "review_line": "R331-R335-corrective",
-  "cross_file_blockers": [
-    "Exact File 00 1.2.44 / File 02 1.2.6 WordPress-MariaDB integration must pass the full deferred-bootstrap, taxonomy, legacy passkey-index/column upgrade and logical-identity migration sequence before cross-file release closure."
-  ],
+  "review_line": "R331-R336-corrective",
+  "cross_file_blockers": [],
+  "cross_file_integration_evidence": {
+    "status": "repository_integration_green",
+    "workflow_run_id": 31850253635,
+    "file02_sha": "f740ca65fc33031b98d7d75e5f27b7ccbeeefbf9",
+    "file02_runtime": "1.2.6",
+    "file00_sha": "1d7f215193d778b0977c8e50d738c42e1e5f66c2",
+    "file00_runtime": "1.2.44",
+    "wordpress": "7.0",
+    "mariadb": "11.4",
+    "proved": [
+      "immutable paired source inputs",
+      "File 00 queued activation and supported deferred administrator bootstrap to DB 1.4.5",
+      "File 02 fresh activation at runtime 1.2.6 / DB 1.2.1 / passkey schema 1.0.1",
+      "two-sided canonical account taxonomy parity",
+      "legacy passkey column/index upgrade",
+      "legacy logical-identity collision migration",
+      "final paired runtime/schema boundaries"
+    ]
+  },
   "r320_review_baseline": "fe66788cb6c12e966bb198b361347cb74ec490b0"
 }
