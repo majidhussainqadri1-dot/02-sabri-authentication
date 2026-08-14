@@ -27,38 +27,48 @@ final class SA_Privacy {
 		$user = get_user_by( 'email', sanitize_email( $email_address ) );
 		if ( ! $user instanceof WP_User ) { return array( 'data' => array(), 'done' => true ); }
 		$user_id = (int) $user->ID;
+		$page = max( 1, absint( $page ) );
+		$offset = ( $page - 1 ) * self::EXPORT_LIMIT;
 		$data = array();
+		$done = true;
 
-		$google = $this->google_projection( $user_id );
+		$google = 1 === $page ? $this->google_projection( $user_id ) : array();
 		if ( ! empty( $google ) ) {
 			$data[] = array( 'group_id' => 'sabri-authentication-google', 'group_label' => __( 'Google account authentication', 'sabri-authentication' ), 'item_id' => 'google-link-' . $user_id, 'data' => $this->export_pairs( $google ) );
 		}
 
-		$sessions = $wpdb->get_results( $wpdb->prepare( 'SELECT public_id,device_label,network_label,risk_level,status,last_seen_at,expires_at,revoked_at,revocation_reason FROM ' . SAUTH_Activator::table( 'auth_sessions' ) . ' WHERE user_id=%d ORDER BY id DESC LIMIT %d', $user_id, self::EXPORT_LIMIT ), ARRAY_A );
-		foreach ( is_array( $sessions ) ? $sessions : array() as $row ) {
+		$sessions = $wpdb->get_results( $wpdb->prepare( 'SELECT public_id,device_label,network_label,risk_level,status,last_seen_at,expires_at,revoked_at,revocation_reason FROM ' . SAUTH_Activator::table( 'auth_sessions' ) . ' WHERE user_id=%d ORDER BY id DESC LIMIT %d OFFSET %d', $user_id, self::EXPORT_LIMIT, $offset ), ARRAY_A );
+		$sessions = is_array( $sessions ) ? $sessions : array();
+		$done = $done && count( $sessions ) < self::EXPORT_LIMIT;
+		foreach ( $sessions as $row ) {
 			$data[] = array( 'group_id' => 'sabri-authentication-sessions', 'group_label' => __( 'Authentication sessions', 'sabri-authentication' ), 'item_id' => 'session-' . sanitize_key( (string) $row['public_id'] ), 'data' => $this->export_pairs( $row ) );
 		}
 
-		$email_row = $wpdb->get_row( $wpdb->prepare( 'SELECT status,attempts,sent_at,expires_at,verified_at,created_at,updated_at FROM ' . SAUTH_Activator::table( 'email_verifications' ) . ' WHERE user_id=%d', $user_id ), ARRAY_A );
+		$email_row = 1 === $page ? $wpdb->get_row( $wpdb->prepare( 'SELECT status,attempts,sent_at,expires_at,verified_at,created_at,updated_at FROM ' . SAUTH_Activator::table( 'email_verifications' ) . ' WHERE user_id=%d', $user_id ), ARRAY_A ) : null;
 		if ( is_array( $email_row ) ) {
 			$data[] = array( 'group_id' => 'sabri-authentication-email', 'group_label' => __( 'Email verification', 'sabri-authentication' ), 'item_id' => 'email-verification-' . $user_id, 'data' => $this->export_pairs( $email_row ) );
 		}
 
-		$attempts = $wpdb->get_results( $wpdb->prepare( 'SELECT public_id,result,reason_code,risk_score,created_at FROM ' . SAUTH_Activator::table( 'auth_attempts' ) . ' WHERE user_id=%d ORDER BY id DESC LIMIT %d', $user_id, self::EXPORT_LIMIT ), ARRAY_A );
-		foreach ( is_array( $attempts ) ? $attempts : array() as $row ) {
+		$attempts = $wpdb->get_results( $wpdb->prepare( 'SELECT public_id,result,reason_code,risk_score,created_at FROM ' . SAUTH_Activator::table( 'auth_attempts' ) . ' WHERE user_id=%d ORDER BY id DESC LIMIT %d OFFSET %d', $user_id, self::EXPORT_LIMIT, $offset ), ARRAY_A );
+		$attempts = is_array( $attempts ) ? $attempts : array();
+		$done = $done && count( $attempts ) < self::EXPORT_LIMIT;
+		foreach ( $attempts as $row ) {
 			$data[] = array( 'group_id' => 'sabri-authentication-attempts', 'group_label' => __( 'Authentication security attempts', 'sabri-authentication' ), 'item_id' => 'attempt-' . sanitize_key( (string) $row['public_id'] ), 'data' => $this->export_pairs( $row ) );
 		}
 
-		$events = $wpdb->get_results( $wpdb->prepare( 'SELECT event_id,event_name,privacy_class,trace_id,status,created_at,published_at FROM ' . SAUTH_Activator::table( 'auth_outbox' ) . ' WHERE actor_user_id=%d OR subject_user_id=%d ORDER BY id DESC LIMIT %d', $user_id, $user_id, self::EXPORT_LIMIT ), ARRAY_A );
-		foreach ( is_array( $events ) ? $events : array() as $row ) {
+		$events = $wpdb->get_results( $wpdb->prepare( 'SELECT event_id,event_name,privacy_class,trace_id,status,created_at,published_at FROM ' . SAUTH_Activator::table( 'auth_outbox' ) . ' WHERE actor_user_id=%d OR subject_user_id=%d ORDER BY id DESC LIMIT %d OFFSET %d', $user_id, $user_id, self::EXPORT_LIMIT, $offset ), ARRAY_A );
+		$events = is_array( $events ) ? $events : array();
+		$done = $done && count( $events ) < self::EXPORT_LIMIT;
+		foreach ( $events as $row ) {
 			$data[] = array( 'group_id' => 'sabri-authentication-events', 'group_label' => __( 'Authentication event evidence', 'sabri-authentication' ), 'item_id' => 'event-' . sanitize_key( (string) $row['event_id'] ), 'data' => $this->export_pairs( $row ) );
 		}
 
 		if ( class_exists( 'SAUTH_Passkeys' ) && is_callable( array( 'SAUTH_Passkeys', 'privacy_export' ) ) ) {
-			$passkeys = SAUTH_Passkeys::privacy_export( array(), sanitize_email( $email_address ), 1 );
+			$passkeys = SAUTH_Passkeys::privacy_export( sanitize_email( $email_address ), $page );
 			if ( is_array( $passkeys ) && ! empty( $passkeys['data'] ) && is_array( $passkeys['data'] ) ) { $data = array_merge( $data, $passkeys['data'] ); }
+			$done = $done && is_array( $passkeys ) && ! empty( $passkeys['done'] );
 		}
-		return array( 'data' => $data, 'done' => true );
+		return array( 'data' => $data, 'done' => $done );
 	}
 
 	/**
@@ -106,7 +116,8 @@ final class SA_Privacy {
 			$passkey_count = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$passkey_table} WHERE user_id=%d", $user_id ) );
 			if ( $passkey_count > 0 ) { $removed = true; }
 			if ( class_exists( 'SAUTH_Passkeys' ) && is_callable( array( 'SAUTH_Passkeys', 'privacy_erase' ) ) ) {
-				SAUTH_Passkeys::privacy_erase( array(), sanitize_email( $email_address ), 1 );
+				$passkey_erasure = SAUTH_Passkeys::privacy_erase( sanitize_email( $email_address ), $page );
+				if ( ! is_array( $passkey_erasure ) || ! empty( $passkey_erasure['items_retained'] ) ) { $failed = true; }
 			}
 			if ( 0 !== (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$passkey_table} WHERE user_id=%d", $user_id ) ) ) { $failed = true; }
 			delete_user_meta( $user_id, SAUTH_Passkeys::USER_HANDLE_META );

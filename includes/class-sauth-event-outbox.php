@@ -34,7 +34,9 @@ final class SAUTH_Event_Outbox {
 		global $wpdb;
 		$event = self::build_envelope( $event_name, $actor_user_id, $subject_user_id, $payload, $privacy_class, $trace_id );
 		if ( is_wp_error( $event ) ) { return $event; }
-		$payload_json = wp_json_encode( $event['payload'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+		$stored_payload = $event['payload'];
+		$stored_payload['sauth_event_meta'] = array( 'producer_version' => (string) $event['producer_version'], 'occurred_at' => (string) $event['occurred_at'] );
+		$payload_json = wp_json_encode( $stored_payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
 		if ( false === $payload_json || strlen( $payload_json ) > self::MAX_PAYLOAD_JSON ) { return new WP_Error( 'sauth_event_encoding_failed', 'Authentication event payload is invalid or too large.' ); }
 		$table = SAUTH_Activator::table( 'auth_outbox' ); $now = current_time( 'mysql', true );
 		$stored = $wpdb->insert( $table, array( 'event_id' => $event['event_id'], 'event_name' => $event['event_name'], 'schema_version' => $event['schema_version'], 'privacy_class' => $event['privacy_class'], 'actor_user_id' => $event['actor_user_id'], 'subject_user_id' => $event['subject_user_id'], 'trace_id' => $event['trace_id'], 'payload_json' => $payload_json, 'status' => 'pending', 'attempts' => 0, 'available_at' => $now, 'created_at' => $now, 'updated_at' => $now ), array( '%s','%s','%s','%s','%d','%d','%s','%s','%s','%d','%s','%s','%s' ) );
@@ -59,7 +61,13 @@ final class SAUTH_Event_Outbox {
 		if ( 1 !== (int) $claimed ) { return; }
 		$decoded = json_decode( (string) $row['payload_json'], true );
 		if ( ! is_array( $decoded ) ) { self::retry_or_dead_letter( $id, absint( $row['attempts'] ?? 0 ) + 1, 'payload_decode_invalid' ); return; }
-		$event = array( 'event_id' => (string) $row['event_id'], 'event_name' => (string) $row['event_name'], 'schema_version' => (string) $row['schema_version'], 'producer' => 'file-02-authentication', 'producer_version' => defined( 'SAUTH_VERSION' ) ? SAUTH_VERSION : '', 'actor_user_id' => absint( $row['actor_user_id'] ), 'subject_user_id' => absint( $row['subject_user_id'] ), 'privacy_class' => sanitize_key( (string) $row['privacy_class'] ), 'trace_id' => sanitize_text_field( (string) $row['trace_id'] ), 'payload' => self::sanitize_payload( $decoded ) );
+		$meta = isset( $decoded['sauth_event_meta'] ) && is_array( $decoded['sauth_event_meta'] ) ? $decoded['sauth_event_meta'] : array();
+		unset( $decoded['sauth_event_meta'] );
+		$producer_version = sanitize_text_field( (string) ( $meta['producer_version'] ?? '' ) );
+		$occurred_at = sanitize_text_field( (string) ( $meta['occurred_at'] ?? '' ) );
+		if ( '' === $producer_version ) { $producer_version = defined( 'SAUTH_VERSION' ) ? SAUTH_VERSION : ''; }
+		if ( '' === $occurred_at ) { $occurred_at = gmdate( 'c', strtotime( (string) ( $row['created_at'] ?? 'now' ) ) ?: time() ); }
+		$event = array( 'event_id' => (string) $row['event_id'], 'event_name' => (string) $row['event_name'], 'schema_version' => (string) $row['schema_version'], 'producer' => 'file-02-authentication', 'producer_version' => $producer_version, 'occurred_at' => $occurred_at, 'actor_user_id' => absint( $row['actor_user_id'] ), 'subject_user_id' => absint( $row['subject_user_id'] ), 'privacy_class' => sanitize_key( (string) $row['privacy_class'] ), 'trace_id' => sanitize_text_field( (string) $row['trace_id'] ), 'payload' => self::sanitize_payload( $decoded ) );
 		try {
 			do_action( 'sauth_event', $event );
 			do_action( 'sauth_event_' . sanitize_key( str_replace( '.', '_', $event['event_name'] ) ), $event );

@@ -129,8 +129,12 @@ final class SAUTH_Operations {
 				update_option( self::SAFE_MODE_ENTERED_AT, time(), false );
 				if ( '1' !== (string) get_option( self::SAFE_MODE_OPTION, '' ) ) { self::redirect( 'error', 'Guarded repair could not enter Safe Mode.' ); }
 			}
-			SAUTH_Activator::repair();
+			$core_repaired = SAUTH_Activator::repair();
 			SAUTH_Passkeys::maybe_install( true );
+			if ( ! $core_repaired || ! SAUTH_Activator::storage_ready() || ! SAUTH_Passkeys::authentication_ready() ) {
+				SA_Membership_Adapter::audit( 'authentication_guarded_repair_postcondition_failed', get_current_user_id() );
+				self::redirect( 'error', 'Guarded repair could not prove all core/passkey storage postconditions. Safe Mode remains enabled.' );
+			}
 			$checks = self::system_check();
 			$bad = array_filter( $checks, static function ( $check ) { return 'ok' !== ( $check['status'] ?? '' ); } );
 			if ( empty( $bad ) && ! $was_safe ) {
@@ -157,7 +161,8 @@ final class SAUTH_Operations {
 		$checks = array();
 		$checks[] = self::check( 'File 00 runtime and DB parity', SA_Membership_Adapter::available(), SA_Membership_Adapter::available() ? 'Membership Core runtime, DB and CF-01 membership assurance are ready.' : 'Membership Core runtime/DB/Safe Mode/CF-01 readiness is unavailable.' );
 		$checks[] = self::check( 'Account orchestration contract', SAUTH_Account_Contract::provider_available(), SAUTH_Account_Contract::provider_available() ? 'smc.authentication-account 1.1.0 provider is callable.' : 'Account provider unavailable or incompatible.' );
-		$checks[] = self::check( 'File 02 passkey authentication assurance', class_exists( 'SAUTH_Passkey_Runtime' ) && class_exists( 'SAUTH_Passkeys' ), 'Strong authentication is File 02-owned; File 00 MFA is retired.' );
+		$passkey_ready = class_exists( 'SAUTH_Passkey_Runtime' ) && class_exists( 'SAUTH_Passkeys' ) && SAUTH_Passkeys::authentication_ready();
+		$checks[] = self::check( 'File 02 passkey authentication assurance', $passkey_ready, $passkey_ready ? 'File 02 passkey runtime, schema, table, HTTPS/origin and dependencies are ready.' : 'File 02 passkey authentication readiness is incomplete.' );
 		$checks[] = self::check( 'Runtime version marker', SAUTH_VERSION === (string) get_option( 'sauth_version', '' ), 'Runtime=' . SAUTH_VERSION . '; stored=' . (string) get_option( 'sauth_version', '' ) );
 		$checks[] = self::check( 'Database schema marker', SAUTH_DB_VERSION === (string) get_option( 'sauth_db_version', '' ), 'Expected=' . SAUTH_DB_VERSION . '; stored=' . (string) get_option( 'sauth_db_version', '' ) );
 		foreach ( SAUTH_Activator::required_tables() as $name => $table ) {
