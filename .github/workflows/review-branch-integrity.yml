@@ -87,6 +87,7 @@ jobs:
             tests/r304-google-auth-regression.php
             tests/r305-passkey-lifecycle-regression.php
             tests/r306-session-assurance-regression.php
+            tests/r307-privacy-operations-regression.php
           )
           : > "$RUNNER_TEMP/php-suite-failures-${{ matrix.php }}.txt"
           failed=0
