@@ -49,6 +49,7 @@ require_once SAUTH_DIR . 'includes/class-sa-professional-reauthentication.php';
 require_once SAUTH_DIR . 'includes/class-sa-membership-adapter.php';
 require_once SAUTH_DIR . 'includes/class-sa-activator.php';
 require_once SAUTH_DIR . 'includes/class-sauth-storage-router.php';
+require_once SAUTH_DIR . 'includes/class-sauth-privacy-jobs.php';
 require_once SAUTH_DIR . 'includes/class-sa-registration.php';
 require_once SAUTH_DIR . 'includes/class-sa-profile.php';
 require_once SAUTH_DIR . 'includes/class-sa-google-oauth.php';
