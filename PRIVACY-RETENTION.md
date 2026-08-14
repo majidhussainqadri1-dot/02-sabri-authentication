@@ -1,4 +1,4 @@
-# File 02 Privacy and Retention Register — 1.2.1
+# File 02 Privacy and Retention Register — 1.2.2
 
 ## Governing principles
 

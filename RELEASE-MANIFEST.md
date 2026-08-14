@@ -1,23 +1,27 @@
-# File 02 — Release Manifest — 1.2.1
+# File 02 — Release Manifest — 1.2.2
 
 ## Release identity
 
 - Module: `02 — Authentication and Accounts`
-- Candidate version/schema: `1.2.1 / 1.2.0`
-- Passkey schema/assurance: `1.0.0 / 1.0.0`
+- Candidate version/schema: `1.2.2 / 1.2.1`
+- Passkey schema/assurance: `1.0.1 / 1.0.0`
 - Candidate branch: `review/file02-r311-r320-2026-08-14`
 - Current repository `main` re-verified during R319: `0f011b1876e217b7ee46f92903e5315538c1025e`
 - Historical incident baseline main: `8192c45b595b34e13e09934e3b2d554aa2d8553f`
 - Intended canonical repository name: `02-sabri-authentication-and-accounts` (owner-level rename is still external)
 - Current transport repository: `02-sabri-authentication`
 - Package root: `02-sabri-authentication`
-- Package: `02-sabri-authentication-1.2.1-SOURCE-CANDIDATE.zip`
-- Manifest: `02-sabri-authentication-1.2.1-MANIFEST.json`
+- Package: `02-sabri-authentication-1.2.2-SOURCE-CANDIDATE.zip`
+- Manifest: `02-sabri-authentication-1.2.2-MANIFEST.json`
 - Checksums: `CHECKSUMS.sha256` plus exact-head CI checksum record
 - SBOM: `SBOM.spdx.json`
 - Required File 00 provider: `smc.authentication-account 1.1.0`; R319 dependency re-verification: File 00 `c4ab298b3ba2b870d507d32b36b1b4afd2771621` / runtime 1.2.43 / DB 1.4.5
 - Advanced Trust projection: File 02 passkey assurance `1.0.0`, owner `file02`
 - Cross-file release blocker: File 00 must harmonize its canonical account taxonomy with the `smc.authentication-account 1.1.0` provider vocabulary; File 02 deliberately performs no lossy remap.
+
+## Current hardening release
+
+Version 1.2.2 is the repository/source identity for the completed R311–R320 corrective line. It advances DB identity to 1.2.1 and passkey schema identity to 1.0.1, requires material columns plus security-critical indexes before migration readiness, reconciles legacy passkey columns non-destructively, and carries the permanent regressions and real File 00/MariaDB upgrade gate. This source identity is not a staging/live claim.
 
 ## Patch correction
 
@@ -62,7 +66,7 @@ The current GitHub Actions head must:
 4. enforce the architecture guard, including File 02/File 00 ownership and rejection of client-supplied WebAuthn public keys;
 5. prove the storage-router source is loaded before File 02 startup;
 6. validate JavaScript syntax and CSS structure;
-7. build the 1.2.1 package twice from a fixed source epoch and prove byte identity before any release claim;
+7. build the 1.2.2 package twice from a fixed source epoch and prove byte identity before any release claim;
 8. reject archive traversal, unexpected roots, secrets and forbidden files;
 9. clean-extract and lint every packaged PHP file and prove the storage-router bootstrap binding survives packaging;
 10. run the separately designated real WordPress/File 00 integration gate before staging acceptance; and
@@ -72,7 +76,7 @@ The actual package digest is produced only from the immutable workflow head rath
 
 ## Source completion boundary
 
-The 1.2.1 source candidate preserves the original File 02 functional requirements plus the approved passkey/WebAuthn, device/session and recovery additions. File 02 owns password, Google and passkey authentication ceremonies and their authentication assurance. File 00 remains the membership, identity, guardian, role/capability and eligibility authority and consumes the versioned File 02 authentication assurance. Retired File 00 authenticator/recovery codes are not solicited or accepted by File 02 as an authentication ceremony.
+The 1.2.2 source candidate preserves the original File 02 functional requirements plus the approved passkey/WebAuthn, device/session and recovery additions. File 02 owns password, Google and passkey authentication ceremonies and their authentication assurance. File 00 remains the membership, identity, guardian, role/capability and eligibility authority and consumes the versioned File 02 authentication assurance. Retired File 00 authenticator/recovery codes are not solicited or accepted by File 02 as an authentication ceremony.
 
 ## External completion boundary
 

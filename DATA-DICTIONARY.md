@@ -1,4 +1,4 @@
-# File 02 Data Dictionary — Version 1.2.1
+# File 02 Data Dictionary — Version 1.2.2
 
 ## Classification legend
 

@@ -148,6 +148,51 @@ final class SA_Activator {
 		);
 	}
 
+	private static function required_table_indexes() {
+		return array(
+			'rate limits' => array(
+				'PRIMARY'=>array(0,array('bucket_hash')), 'expires_at'=>array(1,array('expires_at')),
+			),
+			'event outbox' => array(
+				'PRIMARY'=>array(0,array('id')), 'event_id'=>array(0,array('event_id')), 'dispatch_due'=>array(1,array('status','available_at','id')), 'subject_event'=>array(1,array('subject_user_id','event_name','created_at')), 'trace_id'=>array(1,array('trace_id')),
+			),
+			'email verification' => array(
+				'PRIMARY'=>array(0,array('user_id')), 'expiry_status'=>array(1,array('status','expires_at')), 'email_hash'=>array(1,array('email_hash')),
+			),
+			'session registry' => array(
+				'PRIMARY'=>array(0,array('id')), 'public_id'=>array(0,array('public_id')), 'user_token'=>array(0,array('user_id','token_hash')), 'user_status_seen'=>array(1,array('user_id','status','last_seen_at')), 'expiry_status'=>array(1,array('expires_at','status')),
+			),
+			'trusted devices' => array(
+				'PRIMARY'=>array(0,array('id')), 'public_id'=>array(0,array('public_id')), 'user_fingerprint'=>array(0,array('user_id','fingerprint_hash')), 'user_network_status'=>array(1,array('user_id','network_hash','status')), 'last_seen_at'=>array(1,array('last_seen_at')),
+			),
+			'risk challenges' => array(
+				'PRIMARY'=>array(0,array('id')), 'public_id'=>array(0,array('public_id')), 'token_hash'=>array(0,array('token_hash')), 'subject_status'=>array(1,array('user_id','status','expires_at')), 'expiry_status'=>array(1,array('expires_at','status')),
+			),
+			'auth attempts' => array(
+				'PRIMARY'=>array(0,array('id')), 'public_id'=>array(0,array('public_id')), 'subject_time'=>array(1,array('user_id','created_at')), 'result_time'=>array(1,array('result','created_at')),
+			),
+		);
+	}
+
+	private static function table_indexes_ready( $table, array $required ) {
+		global $wpdb;
+		$rows = $wpdb->get_results( "SHOW INDEX FROM `{$table}`", ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		if ( ! is_array( $rows ) || '' !== (string) $wpdb->last_error ) { return false; }
+		$actual = array();
+		foreach ( $rows as $row ) {
+			$name = (string) ( $row['Key_name'] ?? '' ); $seq = absint( $row['Seq_in_index'] ?? 0 );
+			if ( '' === $name || $seq < 1 ) { continue; }
+			if ( ! isset( $actual[ $name ] ) ) { $actual[ $name ]=array('non_unique'=>(int)( $row['Non_unique'] ?? 1 ),'columns'=>array()); }
+			$actual[ $name ]['columns'][ $seq ] = (string) ( $row['Column_name'] ?? '' );
+		}
+		foreach ( $required as $name => $spec ) {
+			if ( ! isset( $actual[ $name ] ) || (int) $actual[ $name ]['non_unique'] !== (int) $spec[0] ) { return false; }
+			ksort( $actual[ $name ]['columns'] );
+			if ( array_values( $actual[ $name ]['columns'] ) !== $spec[1] ) { return false; }
+		}
+		return true;
+	}
+
 	private static function table_columns_ready( $table, array $required ) {
 		global $wpdb;
 		if ( '' === (string) $table ) { return false; }
@@ -365,12 +410,13 @@ final class SA_Activator {
 	public static function storage_ready() {
 		global $wpdb;
 		$required_columns = self::required_table_columns();
+		$required_indexes = self::required_table_indexes();
 		foreach ( self::required_tables() as $key => $table ) {
 			if ( '' === $table ) {
 				return false;
 			}
 			$exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) );
-			if ( $table !== (string) $exists || ! isset( $required_columns[ $key ] ) || ! self::table_columns_ready( $table, $required_columns[ $key ] ) ) {
+			if ( $table !== (string) $exists || ! isset( $required_columns[ $key ], $required_indexes[ $key ] ) || ! self::table_columns_ready( $table, $required_columns[ $key ] ) || ! self::table_indexes_ready( $table, $required_indexes[ $key ] ) ) {
 				return false;
 			}
 		}

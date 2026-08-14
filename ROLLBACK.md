@@ -1,4 +1,4 @@
-# File 02 Rollback Guide — 1.2.1
+# File 02 Rollback Guide — 1.2.2
 
 ## Rollback triggers
 

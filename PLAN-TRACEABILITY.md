@@ -8,10 +8,10 @@
 4. Continuous-Value / Top-20 Superset plan, especially CV-005 Passkey/MFA, CV-006 Device/Session Center and CV-010 Account Recovery.
 5. Later cross-file ownership refinement: File 02 owns password/Google/passkey authentication ceremony and authentication assurance; File 00 owns membership, identity, guardian, roles/capabilities and eligibility and consumes the versioned File 02 assurance claim.
 
-**Candidate branch:** `review/file02-r311-r320-2026-08-14`  
-**Repository main re-verified during R319:** `0f011b1876e217b7ee46f92903e5315538c1025e`  
-**Candidate version/schema:** `1.2.1 / 1.2.0`; passkey schema `1.0.0`  
-**Paired File 00 account contract:** `smc.authentication-account 1.1.0`  
+**Candidate branch:** `review/file02-r311-r320-2026-08-14`
+**Repository main re-verified during R319:** `0f011b1876e217b7ee46f92903e5315538c1025e`
+**Candidate version/schema:** `1.2.2 / 1.2.1`; passkey schema `1.0.1`
+**Paired File 00 account contract:** `smc.authentication-account 1.1.0`
 **Authentication-assurance producer:** `smc_file02_authentication_assurance_v1` / `1.0.0`
 
 ## Ownership and constitution

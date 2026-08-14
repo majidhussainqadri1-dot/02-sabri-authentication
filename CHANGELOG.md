@@ -2,6 +2,25 @@
 
 All notable changes to Sabri Authentication and Accounts are recorded here.
 
+## 1.2.2 — R311–R320 Final Corrective Hardening Candidate
+
+### Corrected
+
+- Fail-closed risk-storage and provider-HTTPS boundaries; email/recovery provider-circuit behavior; Google half-open probe ownership.
+- Material DB/page/passkey migration postconditions, including canonical passkey-column reconciliation and security-critical index/uniqueness proof.
+- Hardened passkey runtime, Safe Mode ceremony completion, credential quarantine and epoch-aware assurance consumption.
+- Session-revocation, privacy export/erasure/anonymization and operational-system-check postconditions.
+- Canonical route/redirect encoding, evidence-honest provider UI, touch targets and release/dependency documentation truth.
+- Permanent PHP 7.4/8.3 cumulative regressions plus current File 00/real MariaDB fresh-install and legacy passkey upgrade integration.
+- Removal of temporary correction workflows and historical corrective payload files from the final candidate.
+
+### Identity
+
+- Runtime: `1.2.2`.
+- File 02 DB schema identity: `1.2.1`.
+- Passkey schema identity: `1.0.1`; passkey assurance contract remains `1.0.0`.
+- Staging/live/operational completion remains unclaimed.
+
 ## 1.2.1 — WordPress-Integration-Proven Storage Router Bootstrap Correction
 
 ### Corrected

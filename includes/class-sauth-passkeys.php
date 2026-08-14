@@ -19,7 +19,7 @@ defined( 'ABSPATH' ) || exit;
  */
 final class SAUTH_Passkeys {
 	const CONTRACT_VERSION      = '1.0.0';
-	const SCHEMA_VERSION        = '1.0.0';
+	const SCHEMA_VERSION        = '1.0.1';
 	const CHALLENGE_TTL         = 300;
 	const ASSURANCE_TTL         = 300;
 	const MAX_CREDENTIALS       = 10;
@@ -108,7 +108,29 @@ final class SAUTH_Passkeys {
 		if ( ! $exists || '' !== (string) $wpdb->last_error ) { return false; }
 		$columns = $wpdb->get_col( "SHOW COLUMNS FROM `{$table}`", 0 ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$required = array( 'id','public_id','user_id','credential_lookup_hash','credential_id_ciphertext','public_key_pem','algorithm','sign_count','nickname','attachment','transports','discoverable','backup_eligible','backup_state','hardware_backed','status','created_at','last_used_at','revoked_at','updated_at' );
-		return is_array( $columns ) && '' === (string) $wpdb->last_error && ! array_diff( $required, array_map( 'strval', $columns ) );
+		if ( ! is_array( $columns ) || '' !== (string) $wpdb->last_error || array_diff( $required, array_map( 'strval', $columns ) ) ) { return false; }
+		$required_indexes = array(
+			'PRIMARY'                => array( 0, array( 'id' ) ),
+			'public_id'              => array( 0, array( 'public_id' ) ),
+			'credential_lookup_hash' => array( 0, array( 'credential_lookup_hash' ) ),
+			'user_status'            => array( 1, array( 'user_id','status' ) ),
+			'revoked_at'             => array( 1, array( 'revoked_at' ) ),
+		);
+		$rows = $wpdb->get_results( "SHOW INDEX FROM `{$table}`", ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		if ( ! is_array( $rows ) || '' !== (string) $wpdb->last_error ) { return false; }
+		$actual = array();
+		foreach ( $rows as $row ) {
+			$name = (string) ( $row['Key_name'] ?? '' ); $seq = absint( $row['Seq_in_index'] ?? 0 );
+			if ( '' === $name || $seq < 1 ) { continue; }
+			if ( ! isset( $actual[ $name ] ) ) { $actual[ $name ] = array( 'non_unique'=>(int)( $row['Non_unique'] ?? 1 ), 'columns'=>array() ); }
+			$actual[ $name ]['columns'][ $seq ] = (string) ( $row['Column_name'] ?? '' );
+		}
+		foreach ( $required_indexes as $name => $spec ) {
+			if ( ! isset( $actual[ $name ] ) || (int) $actual[ $name ]['non_unique'] !== (int) $spec[0] ) { return false; }
+			ksort( $actual[ $name ]['columns'] );
+			if ( array_values( $actual[ $name ]['columns'] ) !== $spec[1] ) { return false; }
+		}
+		return true;
 	}
 
 	private static function prepare_legacy_credential_columns( $table ) {

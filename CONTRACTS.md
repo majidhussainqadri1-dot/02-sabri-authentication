@@ -1,4 +1,4 @@
-# File 02 Contract Register — Version 1.2.1
+# File 02 Contract Register — Version 1.2.2
 
 ## Required consumers
 

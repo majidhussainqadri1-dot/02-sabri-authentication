@@ -1,9 +1,9 @@
-# File 02 Status — Version 1.2.1
+# File 02 Status — Version 1.2.2
 
 ## Current candidate
 
 - Branch: `review/file02-r311-r320-2026-08-14`
-- Version/schema: `1.2.1 / 1.2.0`; passkey table schema `1.0.0`
+- Version/schema: `1.2.2 / 1.2.1`; passkey table schema `1.0.1`
 - Repository `main` re-verified during R319: `0f011b1876e217b7ee46f92903e5315538c1025e`
 - Governing corpus: Definitive Master Plan v3.0; `SSH-F02-PLAN-2026-v1.0`; Consolidated All-Chats Directives v2.1; Continuous-Value/Top-20 Superset plan; later cross-file ownership refinement for File 02 passkey/WebAuthn ceremony
 - Intended canonical repository name: `02-sabri-authentication-and-accounts` (rename not yet performed)
@@ -28,7 +28,7 @@
 - Privacy export/erasure for passkeys, opaque random user handles, no biometric/private-key retention, privacy-minimized passkey events and bounded revoked-credential cleanup.
 - Loop-safe completion resolver, canonical `/account/sessions/` route, canonical `SAUTH_` identifiers and bounded legacy aliases.
 - File 01/File 20 manifests, migration/rollback/backup/incident documentation and deterministic packaging pipeline.
-- File 02 1.2.1 loads `class-sauth-storage-router.php` before `sauth_start_plugin()` can invoke `SAUTH_Storage_Router::init()`.
+- File 02 1.2.2 retains the 1.2.1 storage-router bootstrap correction and adds R311–R320 fail-closed, migration/index, passkey, provider, privacy, session, UI and release-truth hardening.
 
 ## Review-cycle corrections carried into this branch
 
@@ -41,7 +41,7 @@
 7. Passkey domain events are privacy-minimized first-class events.
 8. Passkey activation/deactivation lifecycle and no-network WebAuthn regression coverage were added.
 9. The 1.2.0 storage-router bootstrap fatal was corrected in 1.2.1.
-10. R291–R300 added dependency, Safe Mode, asynchronous privacy-job, passkey assurance, Google-flow and exact-head review hardening; R301–R310 completed the prior corrective line; R311–R318 completed further sequential review/fix/retest rounds, and R319–R320 are the current closing review line.
+10. R291–R300 added dependency, Safe Mode, asynchronous privacy-job, passkey assurance, Google-flow and exact-head review hardening; R301–R310 completed the prior corrective line; R311–R318 completed further sequential review/fix/retest rounds, and R319 completed dependency/release-truth hardening; R320 completed the final adversarial review and corrective release-identity/index/CI cleanup.
 
 ## Seven separate completion gates
 

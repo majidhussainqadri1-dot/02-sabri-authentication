@@ -1,4 +1,4 @@
-# File 02 Architecture — Authentication and Accounts 1.2.1
+# File 02 Architecture — Authentication and Accounts 1.2.2
 
 ## Governing boundary
 
@@ -68,4 +68,4 @@ Pre-1.1 `SA_` classes/options/actions/page metadata and SQL literals are bounded
 - `sauth_auth_attempts`
 - `sauth_passkeys`
 
-The original seven canonical tables are additive and idempotently created through `dbDelta`; the passkey table has its own additive schema version `1.0.0` and is included in guarded repair. `SAUTH_Activator::migrate_legacy_tables()` copies old `sa_*` rows through `INSERT IGNORE` without deletion. Legacy tables remain rollback evidence and are not the active 1.2.0 source of truth.
+The original seven canonical tables are additive and idempotently created through `dbDelta`; the passkey table has its own additive schema version `1.0.1` and is included in guarded repair. `SAUTH_Activator::migrate_legacy_tables()` copies old `sa_*` rows through `INSERT IGNORE` without deletion. Legacy tables remain rollback evidence and are not the active DB 1.2.1 source of truth.

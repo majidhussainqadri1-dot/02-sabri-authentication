@@ -1,10 +1,10 @@
 # File 02 — Authentication and Accounts
 
-**Canonical repository name:** `02-sabri-authentication-and-accounts`  
-**Current historical GitHub transport repository:** `02-sabri-authentication`  
-**Package folder / WordPress slug:** `02-sabri-authentication` / `sabri-authentication`  
-**Source candidate:** `1.2.1`  
-**Database schema:** `1.2.0`  
+**Canonical repository name:** `02-sabri-authentication-and-accounts`
+**Current historical GitHub transport repository:** `02-sabri-authentication`
+**Package folder / WordPress slug:** `02-sabri-authentication` / `sabri-authentication`
+**Source candidate:** `1.2.2`
+**Database schema:** `1.2.1`
 **Governing corpus:** Definitive Master Plan v3.0, `SSH-F02-PLAN-2026-v1.0`, Consolidated All-Chats Directives v2.1, Continuous-Value/Top-20 Superset plan and the later File 00 Advanced Trust ownership boundary.
 
 ## Canonical ownership
@@ -13,9 +13,9 @@ File 02 owns email/password, Google OAuth and WebAuthn/passkey authentication ce
 
 File 00 remains the sole owner of platform identity, membership eligibility, declared account class, age/guardian truth, roles/capabilities, verification, suspension, institutional authority and MFA policy. File 24 may contribute risk/assurance policy. Authentication never grants native object authorization.
 
-## Version 1.2.1 completion scope
+## Version 1.2.2 completion scope
 
-Version 1.2.1 preserves the complete 1.2.0 four-plan feature set and corrects one WordPress-integration-proven bootstrap defect: `SAUTH_Storage_Router::init()` was invoked after activation while `includes/class-sauth-storage-router.php` had not been required by the main plugin bootstrap. The storage-router source file is now loaded before `sauth_start_plugin()` can run, and permanent exact-head/package/cross-repository checks cover the boundary.
+Version 1.2.2 carries the 1.2.1 bootstrap correction plus the sequential R311–R320 security, migration, passkey, provider, session, privacy, route/UI, dependency-contract and release-truth hardening. DB identity advances to `1.2.1` and passkey schema identity to `1.0.1` so supported upgrades explicitly reconcile canonical columns and security-critical indexes before successful markers are published.
 
 The candidate retains:
 

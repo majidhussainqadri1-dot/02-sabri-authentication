@@ -1,4 +1,4 @@
-# File 02 Backup and Restore Runbook — 1.2.1
+# File 02 Backup and Restore Runbook — 1.2.2
 
 ## Required backup set
 

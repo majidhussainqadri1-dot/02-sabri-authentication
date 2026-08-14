@@ -3,9 +3,9 @@
   "file_number": "02",
   "module": "Sabri Authentication and Accounts",
   "plan_id": "SSH-F02-PLAN-2026-v1.0",
-  "release_version": "1.2.1",
-  "database_version": "1.2.0",
-  "passkey_schema_version": "1.0.0",
+  "release_version": "1.2.2",
+  "database_version": "1.2.1",
+  "passkey_schema_version": "1.0.1",
   "candidate_branch": "review/file02-r311-r320-2026-08-14",
   "current_repository_main": "0f011b1876e217b7ee46f92903e5315538c1025e",
   "intended_canonical_repository": "02-sabri-authentication-and-accounts",
@@ -20,8 +20,8 @@
   "minimum_account_contract_version": "1.1.0",
   "passkey_assurance_contract_version": "1.0.0",
   "passkey_assurance_owner": "file02",
-  "package_name": "02-sabri-authentication-1.2.1-SOURCE-CANDIDATE.zip",
-  "manifest_name": "02-sabri-authentication-1.2.1-MANIFEST.json",
+  "package_name": "02-sabri-authentication-1.2.2-SOURCE-CANDIDATE.zip",
+  "manifest_name": "02-sabri-authentication-1.2.2-MANIFEST.json",
   "checksums_name": "CHECKSUMS.sha256",
   "sbom_name": "SBOM.spdx.json",
   "historical_incident_baseline_main": "8192c45b595b34e13e09934e3b2d554aa2d8553f",
@@ -29,7 +29,7 @@
   "artifact_policy": "Exact-head review CI may lint and regression-test the source candidate, but package/staging/live claims remain separate release gates and must not be inferred from review-branch success.",
   "status": {
     "specified": "complete",
-    "coded": "review_candidate",
+    "coded": "review_candidate_r320_corrected",
     "packaged": "not_claimed_from_review_branch",
     "automated_qa": "review_exact_head_gated",
     "staging_accepted": false,
@@ -45,8 +45,9 @@
     "Backup/restore and rollback rehearsal",
     "Founder staging and production authorization"
   ],
-  "review_line": "R311-R320",
+  "review_line": "R311-R320-complete",
   "cross_file_blockers": [
     "File 00 canonical account taxonomy and smc.authentication-account 1.1.0 provider vocabulary require owner-side harmonization before release; File 02 does not perform a lossy remap."
-  ]
+  ],
+  "r320_review_baseline": "fe66788cb6c12e966bb198b361347cb74ec490b0"
 }
