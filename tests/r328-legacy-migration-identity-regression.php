@@ -3,19 +3,23 @@ $root = dirname( __DIR__ );
 $activator = file_get_contents( $root . '/includes/class-sa-activator.php' );
 $migration = file_get_contents( $root . '/MIGRATION.md' );
 $fail = array();
-$checks = array(
-    array( $activator, '$identity_columns = array(', 'legacy migration lacks logical identity map' ),
-    array( $activator, "'auth_outbox' => 'event_id'", 'outbox logical identity missing' ),
-    array( $activator, "'email_verifications' => 'user_id'", 'email-verification logical identity missing' ),
-    array( $activator, "'auth_sessions' => 'public_id'", 'session logical identity missing' ),
-    array( $activator, "'auth_devices' => 'public_id'", 'device logical identity missing' ),
-    array( $activator, "'risk_challenges' => 'public_id'", 'risk-challenge logical identity missing' ),
-    array( $activator, "'auth_attempts' => 'public_id'", 'attempt logical identity missing' ),
-    array( $activator, 'LEFT JOIN {$canonical} AS c', 'post-copy logical reconciliation query missing' ),
-    array( $activator, 'WHERE c.`{$identity}` IS NULL', 'migration does not prove every legacy identity is represented' ),
-    array( $migration, 'stable logical identity', 'migration documentation lacks logical identity reconciliation rule' ),
+if ( false === strpos( $activator, '$identity_columns = array(' ) ) { $fail[] = 'legacy migration lacks logical identity map'; }
+$identities = array(
+    'rate_limits' => 'bucket_hash',
+    'auth_outbox' => 'event_id',
+    'email_verifications' => 'user_id',
+    'auth_sessions' => 'public_id',
+    'auth_devices' => 'public_id',
+    'risk_challenges' => 'public_id',
+    'auth_attempts' => 'public_id',
 );
-foreach ( $checks as $check ) { if ( false === strpos( $check[0], $check[1] ) ) { $fail[] = $check[2]; } }
+foreach ( $identities as $key => $identity ) {
+    $pattern = "/'" . preg_quote( $key, '/' ) . "'\\s*=>\\s*'" . preg_quote( $identity, '/' ) . "'/";
+    if ( 1 !== preg_match( $pattern, $activator ) ) { $fail[] = 'logical identity missing for ' . $key; }
+}
+if ( false === strpos( $activator, 'LEFT JOIN `{$canonical}` AS c' ) ) { $fail[] = 'post-copy logical reconciliation query missing'; }
+if ( false === strpos( $activator, 'WHERE c.`{$identity}` IS NULL' ) ) { $fail[] = 'migration does not prove every legacy identity is represented'; }
+if ( false === strpos( $migration, 'stable logical identity' ) ) { $fail[] = 'migration documentation lacks logical identity reconciliation rule'; }
 foreach ( array(
     "'auth_outbox'         => 'id,event_id",
     "'auth_sessions'       => 'id,public_id",
