@@ -81,11 +81,14 @@ final class SAUTH_Login_Risk {
 		$reasons = array();
 		if ( ! $user_id ) { return array( 'action' => 'deny', 'score' => 100, 'reason_code' => 'subject_invalid' ); }
 		$device = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . self::device_table() . " WHERE user_id=%d AND fingerprint_hash=%s AND status='trusted'", $user_id, SA_Security::client_fingerprint() ), ARRAY_A );
+		if ( '' !== (string) $wpdb->last_error ) { return array( 'action' => 'deny', 'score' => 100, 'reason_code' => 'risk_storage_unavailable' ); }
 		if ( ! is_array( $device ) || empty( $device['last_seen_at'] ) || strtotime( (string) $device['last_seen_at'] ) < time() - self::TRUST_TTL ) { $score += 50; $reasons[] = 'new_device'; }
 		$network_hash = self::network_hash();
 		$known_network = $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . self::device_table() . " WHERE user_id=%d AND network_hash=%s AND status='trusted'", $user_id, $network_hash ) );
+		if ( null === $known_network && '' !== (string) $wpdb->last_error ) { return array( 'action' => 'deny', 'score' => 100, 'reason_code' => 'risk_storage_unavailable' ); }
 		if ( 0 === (int) $known_network ) { $score += 20; $reasons[] = 'new_network'; }
 		$recent_failures = $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . self::attempt_table() . " WHERE user_id=%d AND result IN ('failure','denied') AND created_at >= %s", $user_id, gmdate( 'Y-m-d H:i:s', time() - HOUR_IN_SECONDS ) ) );
+		if ( null === $recent_failures && '' !== (string) $wpdb->last_error ) { return array( 'action' => 'deny', 'score' => 100, 'reason_code' => 'risk_storage_unavailable' ); }
 		if ( (int) $recent_failures >= 5 ) { $score += 35; $reasons[] = 'recent_failures'; }
 		if ( ! SAUTH_Provider_Health::allow_request( 'membership' ) ) { $score += 30; $reasons[] = 'membership_provider_degraded'; }
 		$score = min( 100, $score );
@@ -97,7 +100,9 @@ final class SAUTH_Login_Risk {
 		if ( ! $passkey_ready ) {
 			return array( 'action' => 'deny', 'score' => max( self::HIGH_RISK_THRESHOLD, $score ), 'reason_code' => 'strong_authentication_unavailable' );
 		}
-		if ( self::has_active_passkey( $user_id ) ) { return array( 'action' => 'challenge', 'score' => $score, 'reason_code' => $reason ); }
+		$has_active_passkey = self::has_active_passkey( $user_id );
+		if ( null === $has_active_passkey ) { return array( 'action' => 'deny', 'score' => 100, 'reason_code' => 'passkey_status_unavailable' ); }
+		if ( $has_active_passkey ) { return array( 'action' => 'challenge', 'score' => $score, 'reason_code' => $reason ); }
 		/* A first/new network alone may produce medium risk before a user has ever
 		 * enrolled a passkey. Keep that path usable but never allow high risk. */
 		if ( $score < self::HIGH_RISK_THRESHOLD ) { return array( 'action' => 'allow', 'score' => $score, 'reason_code' => 'bounded_medium_risk_no_passkey' ); }
@@ -127,7 +132,9 @@ final class SAUTH_Login_Risk {
 
 	private static function has_active_passkey( $user_id ) {
 		global $wpdb;
-		return 0 < (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}sauth_passkeys WHERE user_id=%d AND status='active'", absint( $user_id ) ) );
+		$count = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}sauth_passkeys WHERE user_id=%d AND status='active'", absint( $user_id ) ) );
+		if ( null === $count && '' !== (string) $wpdb->last_error ) { return null; }
+		return 0 < (int) $count;
 	}
 
 	private static function invalidate_challenge( $token, $reason ) {
