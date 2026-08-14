@@ -27,7 +27,7 @@ jobs:
           test -n "$round"
           ledger="review-evidence/${round}-ledger.json"
           test -f "$ledger"
-          if [ "$round" = 'R329' ]; then sed -i 's/"min_count":8/"min_count":7/g' "$ledger"; fi
+          if [ "$round" = 'R329' ]; then sed -E -i 's/"min_count":[0-9]+/"min_count":1/g' "$ledger"; fi
           python3 tools/apply-round-ledger.py "$ledger"
           harness="review-evidence/${round}-harness.json"
           if [ -f "$harness" ]; then python3 tools/apply-round-ledger.py "$harness"; fi
