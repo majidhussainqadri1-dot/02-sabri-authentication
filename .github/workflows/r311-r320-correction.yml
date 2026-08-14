@@ -26,6 +26,16 @@ jobs:
           set -euo pipefail
           test -f tools/apply-current-review.py
           python3 tools/apply-current-review.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('tests/r319-release-contract-truth-regression.php')
+          if p.exists():
+              text=p.read_text(encoding='utf-8')
+              old='"add_query_arg( \'redirect_to\', SA_Security::safe_redirect( $redirect )"'
+              new='"add_query_arg( \'redirect_to\', SA_Security::safe_redirect( \\$redirect )"'
+              if old in text:
+                  p.write_text(text.replace(old,new,1),encoding='utf-8')
+          PY
           git diff --check
 
       - name: Lint and cumulative regression before corrected commit
