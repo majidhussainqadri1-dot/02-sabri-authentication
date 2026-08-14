@@ -182,9 +182,10 @@ require_markers(
         "new_device",
         "new_network",
         "recent_failures",
-        "SA_Authentication_Assurance::verify_and_record",
+        "SAUTH_Provider_Health::available_for_ui",
+        "SAUTH_Passkeys::authentication_ready",
         "SAUTH_Completion_Resolver::resolve",
-        "step_up_verified",
+        "passkey_step_up_required",
     ),
 )
 
