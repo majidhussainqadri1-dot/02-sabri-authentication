@@ -25,8 +25,6 @@ final class SA_Plugin {
 		$this->access->hooks();
 
 		add_action( 'admin_menu', array( $this, 'admin_menu' ), 30 );
-		add_action( 'admin_post_sa_save_auth_settings', array( $this, 'save_settings' ) );
-		add_action( 'admin_post_sauth_save_auth_settings', array( $this, 'save_settings' ) );
 		add_action( 'admin_notices', array( $this, 'activation_notice' ) );
 
 		add_shortcode( 'sabri_auth_login', array( $this, 'login_shortcode' ) );
@@ -42,11 +40,18 @@ final class SA_Plugin {
 		add_shortcode( 'sabri_auth_google_verify', array( $this, 'google_verify_shortcode' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'assets' ) );
 
-		if ( ! SA_Membership_Adapter::available() ) {
+		if ( ! SA_Membership_Adapter::available() || ! SAUTH_Account_Contract::provider_available() ) {
 			add_action( 'admin_notices', array( $this, 'dependency_notice' ) );
 			return;
 		}
+
+		/* Reconcile File 02 only after the exact File 00 runtime/DB/contracts are
+		 * ready. Protected settings mutations are registered only after that
+		 * reconciliation succeeds, so a degraded dependency cannot mutate auth
+		 * provider configuration through admin-post. */
 		SA_Activator::maybe_upgrade();
+		add_action( 'admin_post_sa_save_auth_settings', array( $this, 'save_settings' ) );
+		add_action( 'admin_post_sauth_save_auth_settings', array( $this, 'save_settings' ) );
 		$this->google->hooks();
 	}
 
@@ -188,6 +193,10 @@ final class SA_Plugin {
 			wp_die( esc_html__( 'Access denied.', 'sabri-authentication' ) );
 		}
 		check_admin_referer( 'sa_save_auth_settings', 'sa_nonce' );
+		if ( ! SA_Membership_Adapter::available() || ! SAUTH_Account_Contract::provider_available() ) {
+			wp_safe_redirect( add_query_arg( 'error', 'dependency_unavailable', self::settings_url() ) );
+			exit;
+		}
 		$client_id = isset( $_POST['google_client_id'] ) ? sanitize_text_field( wp_unslash( $_POST['google_client_id'] ) ) : '';
 		if ( '' !== $client_id && ! preg_match( '/^[0-9A-Za-z._-]+\.apps\.googleusercontent\.com$/', $client_id ) ) {
 			wp_safe_redirect( add_query_arg( 'error', 'invalid_client_id', self::settings_url() ) );
@@ -213,7 +222,7 @@ final class SA_Plugin {
 		}
 
 		$enable = ! empty( $_POST['google_enabled'] );
-		if ( $enable && ( SAUTH_Operations::safe_mode() || ! SA_Membership_Adapter::available() || ! is_ssl() || '' === $client_id || '' === SA_Security::decrypt( (string) get_option( 'sauth_google_client_secret', get_option( 'sa_google_client_secret', '' ) ) ) ) ) {
+		if ( $enable && ( SAUTH_Operations::safe_mode() || ! SA_Membership_Adapter::available() || ! SAUTH_Account_Contract::provider_available() || ! is_ssl() || '' === $client_id || '' === SA_Security::decrypt( (string) get_option( 'sauth_google_client_secret', get_option( 'sa_google_client_secret', '' ) ) ) ) ) {
 			update_option( 'sauth_google_enabled', '0', false );
 			update_option( 'sa_google_enabled', '0', false );
 			wp_safe_redirect( add_query_arg( 'error', 'not_ready', self::settings_url() ) );
@@ -231,12 +240,12 @@ final class SA_Plugin {
 			return;
 		}
 		delete_transient( 'sauth_activation_notice' );
-		echo '<div class="notice notice-success is-dismissible"><p><strong>Sabri Authentication and Accounts 1.1.0 activated.</strong> File 00 remains the exclusive identity, membership, account-class, guardian, role, verification and MFA-policy authority. File 02 supplies complete password and Google-first registration, authentication orchestration, risk challenge, signed email verification, session controls, event outbox and redacted operations.</p></div>';
+		echo '<div class="notice notice-success is-dismissible"><p><strong>Sabri Authentication and Accounts ' . esc_html( SAUTH_VERSION ) . ' activated.</strong> File 00 remains the exclusive identity, membership, account-class, guardian, role, verification and MFA-policy authority. File 02 supplies password, Google-first and passkey authentication orchestration, risk challenge, signed email verification, session controls, event outbox and redacted operations.</p></div>';
 	}
 
 	public function dependency_notice() {
 		if ( current_user_can( 'activate_plugins' ) ) {
-			echo '<div class="notice notice-error"><p><strong>Sabri Authentication is in safe degraded mode:</strong> File 00 — Sabri Membership Core with the approved assurance contract and smc.authentication-account 1.1.0 is required. Public reading remains available; registration and protected sign-in actions fail closed.</p></div>';
+			echo '<div class="notice notice-error"><p><strong>Sabri Authentication is in safe degraded mode:</strong> File 00 — Sabri Membership Core 1.2.43+ with current DB migration, Safe Mode clear, the approved assurance contract and smc.authentication-account 1.1.0 is required. Public reading remains available; registration and protected sign-in actions fail closed.</p></div>';
 		}
 	}
 
