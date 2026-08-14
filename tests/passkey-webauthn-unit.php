@@ -138,14 +138,17 @@ $key = openssl_pkey_new(
 sauth_pk_assert( false !== $key, 'test EC key generated' );
 $details = openssl_pkey_get_details( $key );
 sauth_pk_assert( is_array( $details ) && ! empty( $details['key'] ) && ! empty( $details['ec']['x'] ) && ! empty( $details['ec']['y'] ), 'test EC public coordinates obtained' );
+sauth_pk_assert( strlen( $details['ec']['x'] ) <= 32 && strlen( $details['ec']['y'] ) <= 32, 'test EC coordinates fit P-256 width' );
+$test_x = str_pad( (string) $details['ec']['x'], 32, "\x00", STR_PAD_LEFT );
+$test_y = str_pad( (string) $details['ec']['y'], 32, "\x00", STR_PAD_LEFT );
 
 $cose = sauth_test_cbor_map(
 	array(
 		array( sauth_test_cbor_int( 1 ), sauth_test_cbor_int( 2 ) ),
 		array( sauth_test_cbor_int( 3 ), sauth_test_cbor_int( -7 ) ),
 		array( sauth_test_cbor_int( -1 ), sauth_test_cbor_int( 1 ) ),
-		array( sauth_test_cbor_int( -2 ), sauth_test_cbor_bytes( $details['ec']['x'] ) ),
-		array( sauth_test_cbor_int( -3 ), sauth_test_cbor_bytes( $details['ec']['y'] ) ),
+		array( sauth_test_cbor_int( -2 ), sauth_test_cbor_bytes( $test_x ) ),
+		array( sauth_test_cbor_int( -3 ), sauth_test_cbor_bytes( $test_y ) ),
 	)
 );
 $credential_id = random_bytes( 32 );

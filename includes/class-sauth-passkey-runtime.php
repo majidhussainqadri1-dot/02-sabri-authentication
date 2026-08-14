@@ -69,6 +69,7 @@ final class SAUTH_Passkey_Runtime {
 
 	public static function finish_registration() {
 		self::require_authenticated_ajax();
+		if ( class_exists( 'SAUTH_Operations' ) && SAUTH_Operations::safe_mode() ) { self::json_error( 'passkeys_unavailable', 503 ); }
 		$user_id = get_current_user_id();
 		$challenge_id = self::post_text( 'challenge_id', self::MAX_CHALLENGE_ID );
 		$challenge = self::consume_challenge( $challenge_id, 'register', $user_id );
@@ -110,12 +111,15 @@ final class SAUTH_Passkey_Runtime {
 		}
 		try {
 			global $wpdb;
-			$count = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . self::table() . " WHERE user_id=%d AND status='active'", $user_id ) );
+			$count_raw = $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . self::table() . " WHERE user_id=%d AND status='active'", $user_id ) );
+			if ( null === $count_raw || '' !== (string) $wpdb->last_error ) { self::json_error( 'credential_store_unavailable' ); }
+			$count = (int) $count_raw;
 			if ( $count >= self::MAX_CREDENTIALS ) {
 				self::json_error( 'credential_limit_reached' );
 			}
 			$credential_hash = hash( 'sha256', $raw_id );
-			$exists = $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM ' . self::table() . ' WHERE credential_hash=%s LIMIT 1', $credential_hash ) );
+			$exists = $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM ' . self::table() . ' WHERE credential_lookup_hash=%s LIMIT 1', $credential_hash ) );
+			if ( '' !== (string) $wpdb->last_error ) { self::json_error( 'credential_store_unavailable' ); }
 			if ( $exists ) {
 				self::json_error( 'credential_already_registered' );
 			}
@@ -130,8 +134,8 @@ final class SAUTH_Passkey_Runtime {
 				array(
 					'public_id' => $public_id,
 					'user_id' => $user_id,
-					'credential_hash' => $credential_hash,
-					'credential_cipher' => $cipher,
+					'credential_lookup_hash' => $credential_hash,
+					'credential_id_ciphertext' => $cipher,
 					'public_key_pem' => (string) $key['pem'],
 					'algorithm' => intval( $key['algorithm'] ),
 					'transports' => $transports,
@@ -151,8 +155,8 @@ final class SAUTH_Passkey_Runtime {
 			if ( 1 !== (int) $inserted ) {
 				self::json_error( 'credential_store_failed' );
 			}
-			$check = $wpdb->get_row( $wpdb->prepare( 'SELECT user_id,credential_hash,status FROM ' . self::table() . ' WHERE public_id=%s', $public_id ), ARRAY_A );
-			if ( ! is_array( $check ) || absint( $check['user_id'] ?? 0 ) !== $user_id || 'active' !== (string) ( $check['status'] ?? '' ) || ! hash_equals( $credential_hash, (string) ( $check['credential_hash'] ?? '' ) ) ) {
+			$check = $wpdb->get_row( $wpdb->prepare( 'SELECT user_id,credential_lookup_hash,status FROM ' . self::table() . ' WHERE public_id=%s', $public_id ), ARRAY_A );
+			if ( ! is_array( $check ) || absint( $check['user_id'] ?? 0 ) !== $user_id || 'active' !== (string) ( $check['status'] ?? '' ) || ! hash_equals( $credential_hash, (string) ( $check['credential_lookup_hash'] ?? '' ) ) ) {
 				$wpdb->delete( self::table(), array( 'public_id' => $public_id, 'user_id' => $user_id ), array( '%s', '%d' ) );
 				self::json_error( 'credential_store_postcondition_failed' );
 			}
@@ -165,6 +169,7 @@ final class SAUTH_Passkey_Runtime {
 	}
 
 	public static function finish_authentication() {
+		if ( class_exists( 'SAUTH_Operations' ) && SAUTH_Operations::safe_mode() ) { self::json_error( 'passkeys_unavailable', 503 ); }
 		if ( is_user_logged_in() ) {
 			self::json_error( 'already_authenticated', 409 );
 		}
@@ -188,7 +193,8 @@ final class SAUTH_Passkey_Runtime {
 		}
 		global $wpdb;
 		$credential_hash = hash( 'sha256', $raw_id );
-		$credential = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . self::table() . ' WHERE credential_hash=%s LIMIT 1', $credential_hash ), ARRAY_A );
+		$credential = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . self::table() . ' WHERE credential_lookup_hash=%s LIMIT 1', $credential_hash ), ARRAY_A );
+		if ( '' !== (string) $wpdb->last_error ) { self::authentication_failure( 0, 'credential_store_unavailable' ); }
 		if ( ! is_array( $credential ) || 'active' !== (string) $credential['status'] ) {
 			self::authentication_failure( 0, 'credential_unknown' );
 		}
@@ -207,8 +213,14 @@ final class SAUTH_Passkey_Runtime {
 		$stored_count = absint( $credential['sign_count'] );
 		$new_count = absint( $parsed['sign_count'] ?? 0 );
 		if ( $stored_count > 0 && $new_count > 0 && $new_count <= $stored_count ) {
-			$wpdb->update( self::table(), array( 'status' => 'compromised', 'revoked_at' => current_time( 'mysql', true ), 'updated_at' => current_time( 'mysql', true ) ), array( 'id' => absint( $credential['id'] ), 'status' => 'active' ), array( '%s','%s','%s' ), array( '%d','%s' ) );
-			self::invalidate_user_assurance( $user_id );
+			$quarantined = $wpdb->update( self::table(), array( 'status' => 'compromised', 'revoked_at' => current_time( 'mysql', true ), 'updated_at' => current_time( 'mysql', true ) ), array( 'id' => absint( $credential['id'] ), 'status' => 'active' ), array( '%s','%s','%s' ), array( '%d','%s' ) );
+			$status = (string) $wpdb->get_var( $wpdb->prepare( 'SELECT status FROM ' . self::table() . ' WHERE id=%d', absint( $credential['id'] ) ) );
+			$invalidated = self::invalidate_user_assurance( $user_id );
+			if ( 1 !== (int) $quarantined || 'compromised' !== $status || ! $invalidated ) {
+				if ( class_exists( 'SAUTH_Operations' ) ) { update_option( SAUTH_Operations::SAFE_MODE_OPTION, '1', false ); }
+				if ( class_exists( 'WP_Session_Tokens' ) ) { WP_Session_Tokens::get_instance( $user_id )->destroy_all(); }
+				self::authentication_failure( $user_id, 'credential_quarantine_failed' );
+			}
 			self::authentication_failure( $user_id, 'signature_counter_regression' );
 		}
 		$completion = SAUTH_Account_Contract::completion_state( $user_id, array( 'purpose' => 'passkey_sign_in' ) );

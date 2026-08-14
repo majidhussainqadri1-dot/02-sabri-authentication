@@ -60,6 +60,7 @@ final class SAUTH_Passkeys {
 		global $wpdb;
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		$table = self::table(); $charset = $wpdb->get_charset_collate();
+		if ( ! self::prepare_legacy_credential_columns( $table ) ) { delete_option( self::OPTION_SCHEMA_VERSION ); return false; }
 		$sql = "CREATE TABLE {$table} (
 			id bigint unsigned NOT NULL AUTO_INCREMENT,
 			public_id char(36) NOT NULL,
@@ -108,6 +109,30 @@ final class SAUTH_Passkeys {
 		$columns = $wpdb->get_col( "SHOW COLUMNS FROM `{$table}`", 0 ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$required = array( 'id','public_id','user_id','credential_lookup_hash','credential_id_ciphertext','public_key_pem','algorithm','sign_count','nickname','attachment','transports','discoverable','backup_eligible','backup_state','hardware_backed','status','created_at','last_used_at','revoked_at','updated_at' );
 		return is_array( $columns ) && '' === (string) $wpdb->last_error && ! array_diff( $required, array_map( 'strval', $columns ) );
+	}
+
+	private static function prepare_legacy_credential_columns( $table ) {
+		global $wpdb;
+		$exists = $table === (string) $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) );
+		if ( ! $exists ) { return '' === (string) $wpdb->last_error; }
+		$columns = $wpdb->get_col( "SHOW COLUMNS FROM `{$table}`", 0 ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		if ( ! is_array( $columns ) || '' !== (string) $wpdb->last_error ) { return false; }
+		$has_legacy_hash = in_array( 'credential_hash', $columns, true );
+		$has_legacy_cipher = in_array( 'credential_cipher', $columns, true );
+		if ( $has_legacy_hash && ! in_array( 'credential_lookup_hash', $columns, true ) ) {
+			if ( false === $wpdb->query( "ALTER TABLE `{$table}` ADD COLUMN credential_lookup_hash char(64) NOT NULL" ) ) { return false; } // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		}
+		if ( $has_legacy_cipher && ! in_array( 'credential_id_ciphertext', $columns, true ) ) {
+			if ( false === $wpdb->query( "ALTER TABLE `{$table}` ADD COLUMN credential_id_ciphertext longtext NOT NULL" ) ) { return false; } // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		}
+		if ( $has_legacy_hash ) {
+			if ( false === $wpdb->query( "UPDATE `{$table}` SET credential_lookup_hash=credential_hash WHERE credential_lookup_hash='' AND credential_hash<>''" ) ) { return false; } // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		}
+		if ( $has_legacy_cipher ) {
+			if ( false === $wpdb->query( "UPDATE `{$table}` SET credential_id_ciphertext=credential_cipher WHERE credential_id_ciphertext='' AND credential_cipher<>''" ) ) { return false; } // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		}
+		$unmigrated = (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$table}` WHERE credential_lookup_hash='' OR credential_id_ciphertext=''" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		return '' === (string) $wpdb->last_error && 0 === $unmigrated;
 	}
 
 	private static function ensure_manager_page() {
@@ -249,7 +274,7 @@ final class SAUTH_Passkeys {
 		}
 		$exclude = array();
 		foreach ( self::credentials_for_user( $user_id ) as $credential ) {
-			$encrypted_id = SA_Security::decrypt( (string) $credential['credential_cipher'] );
+			$encrypted_id = SA_Security::decrypt( (string) $credential['credential_id_ciphertext'] );
 			if ( false !== self::base64url_decode( $encrypted_id ) ) {
 				$exclude[] = array(
 					'type'       => 'public-key',
@@ -340,8 +365,8 @@ final class SAUTH_Passkeys {
 			array(
 				'public_id' => strtolower( wp_generate_uuid4() ),
 				'user_id' => $user_id,
-				'credential_hash' => $credential_hash,
-				'credential_cipher' => $cipher,
+				'credential_lookup_hash' => $credential_hash,
+				'credential_id_ciphertext' => $cipher,
 				'public_key_pem' => (string) $key['pem'],
 				'algorithm' => intval( $key['algorithm'] ),
 				'transports' => $transports,
@@ -940,12 +965,7 @@ final class SAUTH_Passkeys {
 		$ctx = self::rp_context();
 		$local = in_array( $ctx['rp_id'], array( 'localhost', '127.0.0.1', '::1' ), true );
 		$schema_ready = self::SCHEMA_VERSION === (string) get_option( self::OPTION_SCHEMA_VERSION, '' );
-		$table_ready = false;
-		if ( $schema_ready ) {
-			global $wpdb;
-			$table = self::table();
-			$table_ready = $table === (string) $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) );
-		}
+		$table_ready = $schema_ready && self::table_schema_ready();
 		return '' !== $ctx['rp_id']
 			&& ( 'https' === $ctx['scheme'] || ( $local && 'http' === $ctx['scheme'] ) )
 			&& function_exists( 'openssl_verify' )
@@ -986,12 +1006,12 @@ final class SAUTH_Passkeys {
 
 	private static function credential_exists( $hash ) {
 		global $wpdb;
-		return (bool) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM " . self::table() . " WHERE credential_hash=%s LIMIT 1", $hash ) );
+		return (bool) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM " . self::table() . " WHERE credential_lookup_hash=%s LIMIT 1", $hash ) );
 	}
 
 	private static function credential_by_hash( $hash ) {
 		global $wpdb;
-		$row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM " . self::table() . " WHERE credential_hash=%s LIMIT 1", $hash ), ARRAY_A );
+		$row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM " . self::table() . " WHERE credential_lookup_hash=%s LIMIT 1", $hash ), ARRAY_A );
 		return is_array( $row ) ? $row : array();
 	}
 
