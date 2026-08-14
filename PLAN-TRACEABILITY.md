@@ -8,10 +8,10 @@
 4. Continuous-Value / Top-20 Superset plan, especially CV-005 Passkey/MFA, CV-006 Device/Session Center and CV-010 Account Recovery.
 5. Later cross-file ownership refinement: File 02 owns password/Google/passkey authentication ceremony and authentication assurance; File 00 owns membership, identity, guardian, roles/capabilities and eligibility and consumes the versioned File 02 assurance claim.
 
-**Candidate branch:** `review/file02-r301-r310-2026-08-14`
-**Repository main at R301 freeze:** `0f011b1876e217b7ee46f92903e5315538c1025e`
-**Candidate version/schema:** `1.2.1 / 1.2.0`; passkey schema `1.0.0`
-**Paired File 00 account contract:** `smc.authentication-account 1.1.0`
+**Candidate branch:** `review/file02-r311-r320-2026-08-14`  
+**Repository main re-verified during R319:** `0f011b1876e217b7ee46f92903e5315538c1025e`  
+**Candidate version/schema:** `1.2.1 / 1.2.0`; passkey schema `1.0.0`  
+**Paired File 00 account contract:** `smc.authentication-account 1.1.0`  
 **Authentication-assurance producer:** `smc_file02_authentication_assurance_v1` / `1.0.0`
 
 ## Ownership and constitution
@@ -81,6 +81,10 @@
 ## Passkey management boundary
 
 Passkey enrollment and revocation use a fresh File 02 passkey assurance when one is already valid; otherwise they require current-password reauthentication. File 02 does not solicit or accept retired File 00 authenticator or recovery codes. The account/membership provider remains mandatory for membership/eligibility state and the protected mutation still fails closed when the required File 00 account contract is unavailable.
+
+## Cross-file release boundary
+
+The exact File 00 provider currently exposes the File 02 orchestration vocabulary `member`, `doctor`, `student`, `teacher`, `researcher`, `clinic_staff`, and `institution_representative`. A separate File 00 canonical taxonomy/provider-vocabulary harmonization remains an owner-side release blocker already tracked by the R288/R294 boundary. File 02 must not guess a lossy remap and therefore keeps the provider-facing vocabulary until File 00 publishes a harmonized contract.
 
 ## Completion truth
 
