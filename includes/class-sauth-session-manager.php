@@ -197,8 +197,9 @@ final class SAUTH_Session_Manager {
 		$now = current_time( 'mysql', true );
 		$db_result = $wpdb->query( $wpdb->prepare( 'UPDATE ' . self::table() . " SET status='revoked', revoked_at=%s, revocation_reason=%s, updated_at=%s WHERE user_id=%d AND status='active'", $now, sanitize_key( (string) $reason ), $now, $user_id ) );
 		WP_Session_Tokens::get_instance( $user_id )->destroy_all();
-		$remaining = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . self::table() . " WHERE user_id=%d AND status='active'", $user_id ) );
-		return false !== $db_result && 0 === $remaining;
+		$remaining_raw = $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . self::table() . " WHERE user_id=%d AND status='active'", $user_id ) );
+		if ( null === $remaining_raw || '' !== (string) $wpdb->last_error ) { return false; }
+		return false !== $db_result && 0 === (int) $remaining_raw;
 	}
 
 	public static function cleanup() {

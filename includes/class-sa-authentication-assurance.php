@@ -40,8 +40,8 @@ final class SA_Authentication_Assurance {
 	public static function provider_available() {
 		return class_exists( 'SA_Membership_Adapter' )
 			&& SA_Membership_Adapter::available()
-			&& class_exists( 'SAUTH_Passkeys' )
-			&& is_callable( array( 'SAUTH_Passkeys', 'file00_assurance' ) );
+			&& class_exists( 'SAUTH_Passkey_Runtime' )
+			&& is_callable( array( 'SAUTH_Passkey_Runtime', 'current_assurance' ) );
 	}
 
 	/**
@@ -230,7 +230,7 @@ final class SA_Authentication_Assurance {
 			return array();
 		}
 		try {
-			$result = SAUTH_Passkeys::file00_assurance( array(), absint( $user_id ) );
+			$result = SAUTH_Passkey_Runtime::current_assurance( absint( $user_id ) );
 			return is_array( $result ) ? $result : array();
 		} catch ( Throwable $error ) {
 			return array();

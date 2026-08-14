@@ -44,8 +44,8 @@ final class SA_Membership_Adapter {
 		return $GLOBALS['sa_cf01_membership'];
 	}
 }
-final class SAUTH_Passkeys {
-	public static function file00_assurance( $baseline = array(), $user_id = 0 ) {
+final class SAUTH_Passkey_Runtime {
+	public static function current_assurance( $user_id = 0 ) {
 		return $GLOBALS['sa_cf01_passkey'];
 	}
 }
