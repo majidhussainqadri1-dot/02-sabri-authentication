@@ -1,4 +1,4 @@
-# File 02 Threat Model — Version 1.0.0
+# File 02 Threat Model — Version 1.2.1
 
 ## Protected assets
 
@@ -22,15 +22,17 @@ Account credentials, authentication sessions, email ownership, provider links, s
 | Session theft/replay | WordPress secure cookies, HMAC-only registry, device binding projection, individual/all revocation and revoked-session denial. |
 | Verification/reset replay | One-time token/key, short expiry, attempt limits, atomic status claim and token rotation/zeroing. |
 | OAuth CSRF/code interception | State, OpenID nonce, PKCE, exact callback, issuer/audience/azp/time validation and minimal scopes. |
-| Silent account merge | Explicit authenticated linking, exact canonical-email match, collision checks and File 00 step-up. |
+| Silent account merge | Explicit authenticated linking, exact canonical-email match, collision checks and fresh File 02 passkey assurance for sensitive link/unlink mutations. |
 | Open redirect/phishing | Same-origin `wp_validate_redirect`, exact completion-owner route validation and auth-loop denial. |
 | Privilege escalation | File 00 canonical assertions; no role mutation; authentication never grants domain permission. |
 | IDOR | Own-user session queries/actions, opaque IDs, nonce and subject binding. |
 | Provider outage/amplification | Bounded timeouts/redirects, TLS/unsafe-URL enforcement, circuit breakers, fail-closed UX and Safe Mode. |
-| Secret leakage | Encrypted Google secret, redacted diagnostics/events, no raw tokens/passwords/full IP, secret scans. |
+| Secret leakage / key coupling | Google secret uses dedicated `SA_MASTER_KEY` AES-256-GCM v3 envelope; redacted diagnostics/events; no raw tokens/passwords/full IP; repository secret scans. |
 | Database race/duplicate effects | Unique keys, idempotency, atomic counters/status claims, outbox event IDs and replay-safe provider operations. |
 | Privacy over-collection | HMAC bindings, generalized labels, bounded risk categories, cleanup, export/erasure/anonymization. |
-| Migration/repair damage | Additive `dbDelta`, File 02-only guarded repair, non-destructive uninstall, backup/restore and rollback rules. |
+| Migration/repair damage | Additive `dbDelta`, table/page postconditions before version markers, File 02-only guarded repair, Safe Mode containment, non-destructive uninstall, backup/restore and rollback rules. |
+| WebAuthn replay/key substitution | Atomic challenge claim, exact RP/origin/UV binding, server-parsed CBOR/COSE key, signature verification and counter-regression containment. |
+| Forged success UI | Server-signed notice receipts and one-time settings-success receipt; arbitrary query strings cannot establish authoritative success. |
 
 ## Residual risks requiring staging/operations evidence
 

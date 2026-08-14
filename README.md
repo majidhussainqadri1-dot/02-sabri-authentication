@@ -15,7 +15,7 @@ File 00 remains the sole owner of platform identity, membership eligibility, dec
 
 ## Version 1.2.1 completion scope
 
-Version 1.2.1 preserves the complete 1.2.0 four-plan feature set and corrects one live-proven bootstrap defect: `SAUTH_Storage_Router::init()` was invoked after activation while `includes/class-sauth-storage-router.php` had not been required by the main plugin bootstrap. The storage-router source file is now loaded before `sauth_start_plugin()` can run, and permanent exact-head/package/cross-repository checks cover the boundary.
+Version 1.2.1 preserves the complete 1.2.0 four-plan feature set and corrects one WordPress-integration-proven bootstrap defect: `SAUTH_Storage_Router::init()` was invoked after activation while `includes/class-sauth-storage-router.php` had not been required by the main plugin bootstrap. The storage-router source file is now loaded before `sauth_start_plugin()` can run, and permanent exact-head/package/cross-repository checks cover the boundary.
 
 The candidate retains:
 
@@ -37,14 +37,14 @@ The candidate retains:
 
 File 00 must provide `smc.authentication-account 1.1.0` and the existing assurance provider. The later Advanced Trust consumer reads the File 02 passkey projection through `smc_file02_authentication_assurance_v1` contract `1.0.0` and independently validates owner/version/freshness/revalidation before any elevation.
 
-The current paired repository candidate is File 00 `1.2.43`; it remains a separate unmerged source truth until its own exact-head release gate is green against the merged File 02 correction.
+The File 00 integration dependency is a separate repository truth. R309 freezes its current `main` at `c4ab298b3ba2b870d507d32b36b1b4afd2771621` (runtime 1.2.43 / DB 1.4.5); File 02 release evidence must prove compatibility with that exact dependency or a later explicitly approved replacement.
 
 ## Truthful status
 
 | Gate | Status |
 |---|---|
 | Specified | Complete |
-| Source coding | **Complete candidate**; current exact-head CI must pass |
+| Source coding | **Review candidate**; R301–R310 closure and exact-head CI are required |
 | Packaged | Exact-head deterministic CI gate |
 | Automated QA | Exact-head CI gate, including real WordPress/File 00 integration |
 | Hostinger staging | Pending |

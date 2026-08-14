@@ -1,4 +1,4 @@
-# File 02 Data Dictionary — Version 1.2.0
+# File 02 Data Dictionary — Version 1.2.1
 
 ## Classification legend
 
@@ -47,7 +47,7 @@ Passkey privacy law:
 - `sauth_version`, `sauth_db_version` — runtime/schema versions.
 - `sauth_page_map` — managed File 02 page IDs including passkey manager.
 - `sauth_google_enabled`, `sauth_google_client_id` — non-secret provider configuration.
-- `sauth_google_client_secret` — AES-256-GCM encrypted provider secret.
+- `sauth_google_client_secret` — AES-256-GCM `v3:` provider-secret envelope derived only from a dedicated `SA_MASTER_KEY`; legacy salt-derived ciphertext is migration input only.
 - `sauth_dummy_password_hash` — dummy WordPress password hash used for anti-enumeration timing.
 - `sauth_safe_mode` — reversible operational gate.
 - `sauth_rewrite_version` — canonical nested-route rewrite version.
@@ -55,12 +55,13 @@ Passkey privacy law:
 - `sauth_passkey_schema_version` — File 02 passkey table schema version.
 - `sauth_pk_claim_*` — short-lived atomic replay-claim options for completed WebAuthn challenges; cleanup removes stale claims.
 
-Legacy `sa_*` options are bounded mirrors/read fallbacks only and are not canonical 1.2.0 configuration names.
+Legacy `sa_*` options are bounded mirrors/read fallbacks only and are not canonical 1.2.1 configuration names.
 
 ## File 02-owned user metadata
 
 - Google link projection: provider subject mapping, verified matching email, link version/timestamps and optional picture candidate. It never grants platform identity, role or verification.
 - `_sauth_passkey_user_handle_v1`: random opaque WebAuthn user handle. It is not a WordPress user ID, email, phone or deterministic salt-derived identity. It is removed by File 02 passkey privacy erasure.
+- `_sauth_passkey_assurance_epoch_v1`: File 02 passkey-assurance invalidation epoch. It is rotated/revalidated for credential changes and removed by passkey privacy erasure.
 
 ## File 00-owned private registration and trust state
 

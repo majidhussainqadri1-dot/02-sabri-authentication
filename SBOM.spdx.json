@@ -34,7 +34,7 @@
           "referenceLocator": "pkg:wordpress/sabri-authentication@1.2.1"
         }
       ],
-      "comment": "Patch release 1.2.1 preserves the 1.2.0 schemas and contracts and corrects the live-proven bootstrap omission that left SAUTH_Storage_Router unloaded on the next WordPress request. Runtime includes an internal bounded CBOR/COSE WebAuthn verifier using PHP OpenSSL; no third-party WebAuthn package or biometric component is bundled. The deterministic package manifest supplies the per-file SHA-256 inventory."
+      "comment": "Patch release 1.2.1 preserves DB schema 1.2.0 and corrects a bootstrap omission reproduced in real WordPress/File 00 integration testing; that integration evidence is not a live-deployment claim. Runtime includes bounded CBOR/COSE WebAuthn verification using PHP OpenSSL, dedicated-SA_MASTER_KEY Google secret encryption, and no bundled biometric/private-key component. The deterministic package manifest supplies the per-file SHA-256 inventory."
     },
     {
       "SPDXID": "SPDXRef-Package-WordPress",

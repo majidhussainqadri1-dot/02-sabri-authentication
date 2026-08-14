@@ -1,4 +1,4 @@
-# File 02 Contract Register — Version 1.2.0
+# File 02 Contract Register — Version 1.2.1
 
 ## Required consumers
 
@@ -39,7 +39,7 @@ Registration success additionally returns `user_id` and canonical subject identi
 
 ### `smc.cf01.membership-assurance` 1.0.0
 
-Provider: File 00. Supplies current membership, suspension, verification and MFA-readiness assertions and performs canonical step-up verification. File 02 never reads private File 00 TOTP or recovery-code storage.
+Provider: File 00. Supplies current membership, suspension, verification and eligibility assertions. File 02 never reads private File 00 TOTP/recovery-code storage and does not delegate its password/Google/passkey ceremony to retired File 00 factors.
 
 ## File 02 producers
 
@@ -108,7 +108,7 @@ File 02 publishes its module and route manifests. File 20 remains the only globa
 - server extracts COSE public key; client-supplied public key is rejected by design;
 - only ES256 (`-7`) EC2 P-256 and RS256 (`-257`) RSA are accepted;
 - unique stable SHA-256 credential-ID index prevents duplicate registration;
-- management requires fresh reauthentication; File 00 2FA-enabled accounts cannot use password-only management.
+- management requires fresh File 02 reauthentication: fresh passkey assurance when available, otherwise current-password verification; retired File 00 factor codes are not accepted.
 
 ### Authentication
 

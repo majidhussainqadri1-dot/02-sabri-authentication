@@ -2,7 +2,7 @@
 
 All notable changes to Sabri Authentication and Accounts are recorded here.
 
-## 1.2.1 — Live-Proven Storage Router Bootstrap Correction
+## 1.2.1 — WordPress-Integration-Proven Storage Router Bootstrap Correction
 
 ### Corrected
 
@@ -40,7 +40,7 @@ The defect was reproduced by a cross-repository WordPress run after corrected Fi
 - Replaced salt-dependent credential lookup with stable SHA-256 over random WebAuthn credential IDs.
 - Replaced salt-derived user handles with random opaque handles.
 - Removed false `hardware_backed` inference under `attestation=none`; hardware provenance remains false unless independently proven.
-- Prevented password-only passkey management when File 00 two-factor protection is enabled; current passkey or File 00 step-up is required.
+- Historical 1.2.0 review initially coupled passkey management to File 00 step-up; the later ownership correction retires that coupling. Current File 02 management uses fresh File 02 passkey assurance or current-password reauthentication.
 - Added passkey events to the bounded authentication event allowlist and passkey schema to System Check/repair.
 
 ### Ownership

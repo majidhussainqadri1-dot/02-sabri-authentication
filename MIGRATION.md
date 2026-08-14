@@ -10,10 +10,10 @@ File 02 never migrates or mutates File 00 roles, membership approvals, account-c
 
 ## Supported paths
 
-1. Fresh installation of 1.2.0.
-2. Upgrade from every repository-supported File 02 release to 1.2.0.
+1. Fresh installation of 1.2.1.
+2. Upgrade from every repository-supported File 02 release to 1.2.1.
 3. Upgrade from legacy `sa_*` tables/options/pages to canonical `sauth_*` storage and names.
-4. Upgrade from 1.1.0 to 1.2.0 with additive passkey table/page creation and no password/Google/session data loss.
+4. Upgrade from 1.1.0/1.2.0 to 1.2.1 with additive passkey table/page creation and no password/Google/session data loss.
 5. Deactivate/reactivate without data loss; passkey cleanup cron is safely unscheduled/recreated.
 6. Re-run the same migration/guarded repair after interruption.
 7. Roll back code while preserving newer File 02 data; destructive passkey deletion is not part of ordinary rollback/uninstall.
@@ -23,7 +23,7 @@ File 02 never migrates or mutates File 00 roles, membership approvals, account-c
 - Record exact source head, package SHA-256, manifest and SBOM.
 - Verify File 00 `smc.authentication-account 1.1.0`, current membership assurance, and the Advanced Trust consumer compatibility for File 02 passkey assurance; retired File 00 factor codes are not a File 02 ceremony.
 - Verify HTTPS canonical origin, OpenSSL support, PHP/WordPress requirements and database privileges.
-- Back up database, WordPress files and encryption-key configuration; prove isolated restore.
+- Back up database, WordPress files and encryption-key configuration; prove isolated restore. A dedicated `SA_MASTER_KEY` (32+ characters) is mandatory before enabling or migrating an encrypted Google Client Secret.
 - Enable Safe Mode before upgrading a populated environment.
 - Capture System Check, existing `sa_*`/`sauth_*` table counts, passkey table existence, routes and options.
 

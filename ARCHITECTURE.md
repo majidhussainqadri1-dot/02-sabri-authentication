@@ -1,4 +1,4 @@
-# File 02 Architecture — Authentication and Accounts 1.2.0
+# File 02 Architecture — Authentication and Accounts 1.2.1
 
 ## Governing boundary
 
@@ -10,7 +10,7 @@ File 00 remains the sole canonical owner of membership legitimacy, identity assu
 
 1. **Entry surfaces** — semantic templates for login, registration, email confirmation, risk challenge, recovery, sessions, passkeys and provider management.
 2. **Security utilities** — atomic rate limits, same-origin redirects, cryptographic tokens, encrypted provider configuration and privacy-minimized fingerprints.
-3. **File 00 contracts** — fail-closed consumers for `smc.authentication-account 1.1.0`, membership assertions and step-up assurance; File 00 consumes the fresh File 02 passkey assurance projection.
+3. **File 00 contracts** — fail-closed consumers for `smc.authentication-account 1.1.0` and membership/eligibility assertions; File 00 consumes the fresh File 02 passkey assurance projection. Retired File 00 factor codes are not authentication ceremonies.
 4. **Google-first bridge** — state, nonce, PKCE, exact claims validation and one-time context; Google proves email ownership only.
 5. **WebAuthn ceremony** — HTTPS/RP ID/origin binding, random one-time challenges, discoverable credentials, required user verification, server-side CBOR/COSE parsing, ES256/RS256 verification and credential lifecycle.
 6. **Risk and session controls** — privacy-minimized device/network projections, risk challenges and an HMAC-only opaque WordPress-session registry.
@@ -30,7 +30,7 @@ File 00 remains the sole canonical owner of membership legitimacy, identity assu
 - Non-zero signature-counter regression compromises the credential; zero counters remain valid for synchronized passkeys.
 - Successful passkey authentication issues at most a five-minute, current-session/fingerprint-bound assurance projection to File 00: owner `file02`, contract `1.0.0`, level 3, `passkey_asserted=true`.
 - `hardware_backed` remains false under `attestation=none`; no hardware provenance is invented. File 00 may keep hardware-bound policy actions closed until independently proven.
-- Passkey enrollment/revocation requires fresh reauthentication. If File 00 2FA is enabled, password-only management fails closed and File 00 step-up is required.
+- Passkey enrollment/revocation requires fresh File 02 reauthentication: a current File 02 passkey assurance when present, otherwise current-password verification. Retired File 00 Authenticator/recovery codes are neither solicited nor accepted.
 
 ## Architectural invariants
 
@@ -55,7 +55,7 @@ File 00 remains the sole canonical owner of membership legitimacy, identity assu
 | Canonical session route | `/account/sessions/` |
 | Passkey assurance contract | `1.0.0`, owner `file02` |
 
-Pre-1.1 `SA_` classes/options/actions/page metadata and SQL literals are bounded compatibility inputs. New public integrations use only the canonical values.
+Pre-1.1 `SA_` classes/options/actions/page metadata and SQL literals are bounded compatibility inputs. New public integrations use only the canonical values. Google provider secrets are written only as dedicated-`SA_MASTER_KEY` AES-256-GCM `v3:` envelopes; WordPress auth salts are migration-only legacy decrypt inputs, never the current encryption authority.
 
 ## Tables owned by File 02
 

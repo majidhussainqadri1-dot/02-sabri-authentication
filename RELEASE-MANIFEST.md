@@ -15,7 +15,7 @@
 - Manifest: `02-sabri-authentication-1.2.1-MANIFEST.json`
 - Checksums: `CHECKSUMS.sha256` plus exact-head CI checksum record
 - SBOM: `SBOM.spdx.json`
-- Required File 00 provider: `smc.authentication-account 1.1.0`
+- Required File 00 provider: `smc.authentication-account 1.1.0`; R309 integration freeze: File 00 `c4ab298b3ba2b870d507d32b36b1b4afd2771621` / runtime 1.2.43 / DB 1.4.5
 - Advanced Trust projection: File 02 passkey assurance `1.0.0`, owner `file02`
 
 ## Patch correction
