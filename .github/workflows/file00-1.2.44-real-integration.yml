@@ -82,10 +82,14 @@ jobs:
           cp -R file00/source/sabri-membership-core /tmp/wordpress/wp-content/plugins/sabri-membership-core
           mkdir -p /tmp/wordpress/wp-content/plugins/sabri-authentication
           rsync -a --exclude='.git' --exclude='.github' --exclude='tests' --exclude='tools' --exclude='review-evidence' file02/ /tmp/wordpress/wp-content/plugins/sabri-authentication/
-      - name: Activate and prove fresh-install material postconditions
+      - name: Activate File 00 and print exact non-secret readiness predicates
         run: |
           set -euo pipefail
           /tmp/wp plugin activate sabri-membership-core --path=/tmp/wordpress
+          /tmp/wp eval '$facts=array(); $facts["SMC_VERSION"]=defined("SMC_VERSION")?SMC_VERSION:"<undefined>"; $facts["SMC_DB_VERSION"]=defined("SMC_DB_VERSION")?SMC_DB_VERSION:"<undefined>"; $facts["stored_smc_db_version"]=(string)get_option("smc_db_version",""); $facts["smc_page_url"]=function_exists("smc_page_url"); $facts["smc_user_status"]=function_exists("smc_user_status"); $facts["SMC_Security"]=class_exists("SMC_Security"); $facts["SMC_Completion"]=class_exists("SMC_Completion"); $facts["safe_mode_callable"]=is_callable(array("SMC_Completion","safe_mode")); try{$facts["safe_mode"]=$facts["safe_mode_callable"]?(bool)SMC_Completion::safe_mode():null;}catch(Throwable $e){$facts["safe_mode"]="throw:".get_class($e);} $facts["SMC_CF01_Contract"]=class_exists("SMC_CF01_Contract"); $facts["SMC_CF01_CONTRACT_VERSION"]=defined("SMC_CF01_CONTRACT_VERSION")?SMC_CF01_CONTRACT_VERSION:"<undefined>"; $facts["membership_assertion_callable"]=is_callable(array("SMC_CF01_Contract","membership_assertion")); $facts["activation_state"]=get_option("smc_activation_bootstrap_state_v2",array()); echo wp_json_encode($facts,JSON_PRETTY_PRINT)."\n";' --path=/tmp/wordpress
+      - name: Activate File 02 and prove fresh-install material postconditions
+        run: |
+          set -euo pipefail
           /tmp/wp eval 'if (!class_exists("SMC_Authentication_Contract_V11")) exit(1);' --path=/tmp/wordpress
           /tmp/wp plugin activate sabri-authentication --path=/tmp/wordpress
           /tmp/wp eval 'if (!SAUTH_Account_Contract::provider_available()) exit(1); if ((string)get_option("sauth_version","")!=="1.2.4"||(string)get_option("sauth_db_version","")!=="1.2.1"||(string)get_option("sauth_passkey_schema_version","")!=="1.0.1") exit(1); if(!SAUTH_Activator::storage_ready()||!SAUTH_Passkeys::installation_ready()) exit(1);' --path=/tmp/wordpress
