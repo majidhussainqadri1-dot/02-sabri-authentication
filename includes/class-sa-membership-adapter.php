@@ -7,12 +7,12 @@ defined( 'ABSPATH' ) || exit;
  *
  * File 02 must never create platform roles, approve identities, alter
  * institutional status, read File 00 private metadata, or maintain a parallel
- * member profile.
+ * member profile. Authentication factors are owned by File 02.
  */
 final class SA_Membership_Adapter {
 	const PLUGIN_BASENAME = 'sabri-membership-core/sabri-membership-core.php';
 	const MIN_VERSION     = '1.2.43';
-	const CF01_VERSION    = '1.0.0';
+	const CF01_VERSION    = '1.1.0';
 
 	public static function plugin_active() {
 		return self::available();
@@ -33,8 +33,7 @@ final class SA_Membership_Adapter {
 				|| ! class_exists( 'SMC_CF01_Contract' )
 				|| ! defined( 'SMC_CF01_CONTRACT_VERSION' )
 				|| version_compare( (string) SMC_CF01_CONTRACT_VERSION, self::CF01_VERSION, '<' )
-				|| ! is_callable( array( 'SMC_CF01_Contract', 'membership_assertion' ) )
-				|| ! is_callable( array( 'SMC_CF01_Contract', 'verify_step_up' ) ) ) {
+				|| ! is_callable( array( 'SMC_CF01_Contract', 'membership_assertion' ) ) ) {
 				return false;
 			}
 			return true;
@@ -127,17 +126,27 @@ final class SA_Membership_Adapter {
 			&& empty( $assertion['membership']['suspended'] );
 	}
 
+	/** Historical helper now reflects current File 02 passkey assurance only. */
 	public static function two_factor_enabled( $user_id ) {
-		$assertion = self::membership_assertion( $user_id );
-		return in_array( $assertion['result'] ?? '', array( 'allow', 'deny' ), true )
-			&& ! empty( $assertion['membership']['two_factor_ready'] );
+		$user_id = absint( $user_id );
+		if ( ! $user_id || ! class_exists( 'SAUTH_Passkeys' ) || ! is_callable( array( 'SAUTH_Passkeys', 'file00_assurance' ) ) ) {
+			return false;
+		}
+		try {
+			$assurance = SAUTH_Passkeys::file00_assurance( array(), $user_id );
+			return is_array( $assurance ) && 'file02' === ( $assurance['owner'] ?? '' ) && ! empty( $assurance['passkey_asserted'] );
+		} catch ( Throwable $error ) {
+			return false;
+		}
 	}
 
+	/** Google OIDC eligibility is membership eligibility; link/unlink have their own passkey gate. */
 	public static function can_use_google( $user_id ) {
 		$user_id = absint( $user_id );
-		return $user_id > 0 && self::approved( $user_id ) && self::two_factor_enabled( $user_id );
+		return $user_id > 0 && self::approved( $user_id );
 	}
 
+	/** Compatibility alias for historical callers; current provider is File 02 passkey assurance. */
 	public static function verify_second_factor( $user_id, $code, $context = array() ) {
 		$result = self::verify_second_factor_result( $user_id, $code, $context );
 		return 'valid' === ( $result['result'] ?? '' );
@@ -156,7 +165,16 @@ final class SA_Membership_Adapter {
 		if ( empty( $context['purpose'] ) || empty( $context['scope'] ) ) {
 			$context = self::request_second_factor_context( absint( $user_id ) );
 		}
-		return SA_Authentication_Assurance::verify_and_record( absint( $user_id ), (string) $code, $context );
+		try {
+			return SA_Authentication_Assurance::verify_and_record( absint( $user_id ), (string) $code, $context );
+		} catch ( Throwable $error ) {
+			return array(
+				'contract'         => 'sa.cf01.authentication-assurance',
+				'contract_version' => '1.0.0',
+				'result'           => 'unknown',
+				'reason_code'      => 'provider_exception',
+			);
+		}
 	}
 
 	public static function authentication_assertion( $user_id, $purpose, $scope ) {
@@ -168,25 +186,25 @@ final class SA_Membership_Adapter {
 				'reason_code'      => 'provider_unavailable',
 			);
 		}
-		return SA_Authentication_Assurance::assertion( absint( $user_id ), sanitize_key( $purpose ), (string) $scope );
+		try {
+			return SA_Authentication_Assurance::assertion( absint( $user_id ), sanitize_key( $purpose ), (string) $scope );
+		} catch ( Throwable $error ) {
+			return array(
+				'contract'         => 'sa.cf01.authentication-assurance',
+				'contract_version' => '1.0.0',
+				'result'           => 'unknown',
+				'reason_code'      => 'provider_exception',
+			);
+		}
 	}
 
 	private static function request_second_factor_context( $user_id ) {
 		$action = isset( $_REQUEST['action'] ) ? sanitize_key( wp_unslash( $_REQUEST['action'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		if ( 'sa_google_verify' === $action ) {
-			$token = isset( $_REQUEST['challenge'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['challenge'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			$data  = $token && class_exists( 'SA_Google_OAuth' ) ? SA_Google_OAuth::challenge( $token ) : array();
-			if ( ! $token || ! is_array( $data ) || empty( $data['user_id'] ) || absint( $data['user_id'] ) !== absint( $user_id ) || empty( $data['operation'] ) || ! in_array( $data['operation'], array( 'login', 'link' ), true ) ) {
-				return array( 'purpose' => '', 'scope' => '' );
-			}
-			$operation = (string) $data['operation'];
-			return array(
-				'purpose' => 'link' === $operation ? 'authentication_link' : 'clinical_sign_in',
-				'scope'   => 'google-' . $operation . '|' . hash( 'sha256', $token ),
-			);
-		}
 		if ( 'sa_google_unlink' === $action ) {
-			$sub = (string) get_user_meta( $user_id, '_sa_google_sub', true );
+			$sub = (string) get_user_meta( $user_id, '_sauth_google_sub', true );
+			if ( '' === $sub ) {
+				$sub = (string) get_user_meta( $user_id, '_sa_google_sub', true );
+			}
 			if ( '' === $sub ) {
 				return array( 'purpose' => '', 'scope' => '' );
 			}
