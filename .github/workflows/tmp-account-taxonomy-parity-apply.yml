@@ -1,0 +1,108 @@
+name: Temporary File 02 Account Taxonomy Parity Apply
+
+on:
+  push:
+    branches:
+      - fix/file02-account-taxonomy-parity-1.2.4
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Apply canonical File 00 taxonomy to File 02 consumer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('includes/class-sa-registration.php')
+          s = p.read_text()
+          old = """\t/**
+\t * File 00 currently exposes these provider values. R288/R294 separately
+\t * blocks release until File 00 canonical taxonomy and provider vocabulary are
+\t * harmonized; File 02 deliberately does not invent a lossy remap here.
+\t */
+\tpublic static function account_types() {
+\t\treturn array(
+\t\t\t'member'                     => 'Member / Patient / General User',
+\t\t\t'doctor'                     => 'Homeopathic Doctor',
+\t\t\t'student'                    => 'Student',
+\t\t\t'teacher'                    => 'Teacher / Trainer',
+\t\t\t'researcher'                 => 'Researcher / Author',
+\t\t\t'clinic_staff'                => 'Clinic Staff',
+\t\t\t'institution_representative' => 'Institution Representative',
+\t\t);
+\t}
+"""
+          new = """\t/** File 00 canonical account taxonomy; File 02 performs no aliases or lossy remap. */
+\tpublic static function account_types() {
+\t\treturn array(
+\t\t\t'member'     => 'Member / General User',
+\t\t\t'patient'    => 'Patient',
+\t\t\t'student'    => 'Student',
+\t\t\t'doctor'     => 'Homeopathic Doctor',
+\t\t\t'teacher'    => 'Teacher / Trainer',
+\t\t\t'researcher' => 'Researcher / Author',
+\t\t\t'pharmacy'   => 'Pharmacy',
+\t\t\t'clinic'     => 'Clinic',
+\t\t\t'publisher'  => 'Publisher',
+\t\t);
+\t}
+"""
+          if old in s:
+              if s.count(old) != 1:
+                  raise SystemExit('File02 account_types preimage count mismatch')
+              p.write_text(s.replace(old, new))
+          elif new not in s:
+              raise SystemExit('File02 account_types state is neither old nor corrected')
+
+          test = Path('tests/r331-account-taxonomy-parity-regression.php')
+          if not test.exists():
+              test.write_text("""<?php
+$root = dirname( __DIR__ );
+$registration = file_get_contents( $root . '/includes/class-sa-registration.php' );
+$fail = array();
+$canonical = array( 'member', 'patient', 'student', 'doctor', 'teacher', 'researcher', 'pharmacy', 'clinic', 'publisher' );
+foreach ( $canonical as $type ) {
+    if ( false === strpos( $registration, "'" . $type . "'" ) ) { $fail[] = 'missing canonical account type: ' . $type; }
+}
+foreach ( array( 'clinic_staff', 'institution_representative' ) as $legacy ) {
+    if ( false !== strpos( $registration, "'" . $legacy . "'" ) ) { $fail[] = 'legacy provider-only alias remains: ' . $legacy; }
+}
+if ( false === strpos( $registration, 'File 00 canonical account taxonomy' ) ) { $fail[] = 'canonical ownership comment missing'; }
+if ( $fail ) { fwrite( STDERR, "R331 taxonomy regressions:\n- " . implode( "\n- ", $fail ) . "\n" ); exit( 1 ); }
+echo 'R331 account taxonomy parity regression PASS (12 assertions).' . PHP_EOL;
+""")
+          PY
+          git diff --check
+          php -l includes/class-sa-registration.php
+          php tests/r331-account-taxonomy-parity-regression.php
+          php tests/registration-authentication-unit.php
+          php tests/plan-harmonization-unit.php
+      - name: Record current runtime-version references
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -RIn --exclude-dir=.git '1\.2\.3' . || true
+      - name: Commit tested source correction if needed
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add includes/class-sa-registration.php tests/r331-account-taxonomy-parity-regression.php
+          if git diff --cached --quiet; then
+            echo 'Correction already present; nothing to commit.'
+            exit 0
+          fi
+          git config user.name 'majidhussainqadri1-dot'
+          git config user.email 'majidhussainqadri1@gmail.com'
+          git diff --cached --check
+          git commit -m 'fix: align File 02 account choices with File 00 canonical taxonomy'
+          git push origin HEAD:fix/file02-account-taxonomy-parity-1.2.4
