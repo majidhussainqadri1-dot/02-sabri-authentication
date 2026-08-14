@@ -1,0 +1,42 @@
+name: R309 Batch Correction
+
+on:
+  push:
+    branches:
+      - review/file02-r301-r310-2026-08-14
+
+permissions:
+  contents: write
+
+jobs:
+  correct:
+    if: startsWith(github.event.head_commit.message, 'R309 fixer bootstrap')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+          ref: ${{ github.sha }}
+      - name: Apply frozen R309 ledger
+        run: |
+          set -euo pipefail
+          python3 tools/r309-fix.py
+          git diff --check
+          php -l tests/r309-release-truth-regression.php
+      - name: Commit non-workflow R309 corrections
+        run: |
+          set -euo pipefail
+          mkdir -p review-evidence/r309-workflows
+          cp .github/workflows/baseline-integrity.yml review-evidence/r309-workflows/baseline-integrity.yml
+          cp .github/workflows/canonical-storage-and-docs.yml review-evidence/r309-workflows/canonical-storage-and-docs.yml
+          cp .github/workflows/file00-1.2.43-real-integration.yml review-evidence/r309-workflows/file00-1.2.43-real-integration.yml
+          git checkout HEAD -- .github/workflows/baseline-integrity.yml .github/workflows/canonical-storage-and-docs.yml .github/workflows/file00-1.2.43-real-integration.yml
+          git rm tools/r309-fix.py
+          git config user.name 'majidhussainqadri1-dot'
+          git config user.email 'majidhussainqadri1@gmail.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'R309: correct release truth, documentation and dependency evidence'
+          git push origin HEAD:review/file02-r301-r310-2026-08-14
