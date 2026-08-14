@@ -52,7 +52,7 @@ final class SA_Google_OAuth {
 	}
 
 	public function start() {
-		if ( SAUTH_Operations::safe_mode() || ! self::configured() || ! SAUTH_Provider_Health::allow_request( 'google' ) ) {
+		if ( SAUTH_Operations::safe_mode() || ! self::configured() || ! SAUTH_Provider_Health::available_for_ui( 'google' ) ) {
 			$this->fail( 'Google authentication is temporarily unavailable.' );
 		}
 		if ( ! is_ssl() ) {

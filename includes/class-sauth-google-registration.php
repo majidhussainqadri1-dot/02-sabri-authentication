@@ -34,7 +34,7 @@ final class SAUTH_Google_Registration {
 		return ! SAUTH_Operations::safe_mode()
 			&& SA_Google_OAuth::configured()
 			&& SAUTH_Account_Contract::provider_available()
-			&& SAUTH_Provider_Health::allow_request( 'google' );
+			&& SAUTH_Provider_Health::available_for_ui( 'google' );
 	}
 
 	public static function start() {

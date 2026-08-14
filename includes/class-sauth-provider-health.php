@@ -32,10 +32,14 @@ final class SAUTH_Provider_Health {
 		return true;
 	}
 
-	/** Non-mutating projection for buttons/status surfaces. */
+	/**
+	 * Non-mutating projection for an interactive provider flow. A cooled-down
+	 * circuit is visible again in half-open state, but only the actual outbound
+	 * HTTP request may claim the single probe lease via allow_request().
+	 */
 	public static function available_for_ui( $provider ) {
 		$status = (string) self::state( $provider )['status'];
-		return ! in_array( $status, array( 'open', 'half_open' ), true );
+		return 'open' !== $status;
 	}
 
 	public static function record_success( $provider, $latency_ms = 0 ) {
