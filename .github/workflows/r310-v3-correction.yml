@@ -26,11 +26,16 @@ jobs:
           from pathlib import Path
           p = Path('tools/r310-apply-v3.py')
           text = p.read_text(encoding='utf-8')
-          old = 'notice=one(r"\\tpublic static function message_url\\(.*?(?=\\n\\tpublic static function page_url\\()",s,\'notice block\')'
-          new = 'notice=one(r"\\tpublic static function message_url\\(.*?(?=\\n\\tpublic static function random_token\\()",s,\'notice block\')'
-          if old not in text:
-              raise SystemExit('R310 notice matcher patch point missing')
-          p.write_text(text.replace(old, new, 1), encoding='utf-8')
+          replacements = {
+              'notice=one(r"\\tpublic static function message_url\\(.*?(?=\\n\\tpublic static function page_url\\()",s,\'notice block\')': 'notice=one(r"\\tpublic static function message_url\\(.*?(?=\\n\\tpublic static function random_token\\()",s,\'notice block\')',
+              'repair=one(r"\\tpublic static function repair\\(\\) \\{.*?(?=\\n\\tprivate static function acquire_migration_lock\\()",s,\'repair\')': 'repair=one(r"\\tpublic static function repair\\(\\) \\{.*?(?=\\n\\tpublic static function table\\()",s,\'repair\')',
+              'mig=one(r"\\tprivate static function migrate_google_secret\\(\\) \\{.*?(?=\\n\\tprivate static function ensure_dummy_password_hash\\()",s,\'migrate_google_secret\')': 'mig=one(r"\\tpublic static function migrate_google_secret\\(\\) \\{.*?(?=\\n\\tpublic static function ensure_dummy_password_hash\\()",s,\'migrate_google_secret\')',
+          }
+          for old, new in replacements.items():
+              if old not in text:
+                  raise SystemExit('R310 structure patch point missing: ' + old[:80])
+              text = text.replace(old, new, 1)
+          p.write_text(text, encoding='utf-8')
           PY
           python3 tools/r310-apply-v3.py
           git diff --check
