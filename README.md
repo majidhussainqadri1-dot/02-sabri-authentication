@@ -3,7 +3,7 @@
 **Canonical repository name:** `02-sabri-authentication-and-accounts`
 **Current historical GitHub transport repository:** `02-sabri-authentication`
 **Package folder / WordPress slug:** `02-sabri-authentication` / `sabri-authentication`
-**Source candidate:** `1.2.5`
+**Source candidate:** `1.2.6`
 **Database schema:** `1.2.1`
 **Governing corpus:** Definitive Master Plan v3.0, `SSH-F02-PLAN-2026-v1.0`, Consolidated All-Chats Directives v2.1, Continuous-Value/Top-20 Superset plan and the later File 00 Advanced Trust ownership boundary.
 
@@ -13,9 +13,9 @@ File 02 owns email/password, Google OAuth and WebAuthn/passkey authentication ce
 
 File 00 remains the sole owner of platform identity, membership eligibility, declared account class, age/guardian truth, roles/capabilities, verification, suspension, institutional authority and MFA policy. File 24 may contribute risk/assurance policy. Authentication never grants native object authorization.
 
-## Version 1.2.5 completion scope
+## Version 1.2.6 completion scope
 
-Version 1.2.5 carries the 1.2.1 bootstrap correction plus the sequential R321–R330 security, migration, passkey, provider, session, privacy, route/UI, dependency-contract and release-truth hardening. DB identity advances to `1.2.1` and passkey schema identity to `1.0.1` so supported upgrades explicitly reconcile canonical columns and security-critical indexes before successful markers are published.
+Version 1.2.6 carries the 1.2.1 bootstrap correction plus the sequential R321–R330 security, migration, passkey, provider, session, privacy, route/UI, dependency-contract and release-truth hardening. DB identity advances to `1.2.1` and passkey schema identity to `1.0.1` so supported upgrades explicitly reconcile canonical columns and security-critical indexes before successful markers are published.
 
 The candidate retains:
 

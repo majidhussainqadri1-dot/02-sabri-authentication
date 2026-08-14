@@ -145,6 +145,7 @@ final class SAUTH_Passkeys {
 		if ( ! is_array( $columns ) || '' !== (string) $wpdb->last_error ) { return false; }
 		$has_legacy_hash = in_array( 'credential_hash', $columns, true );
 		$has_legacy_cipher = in_array( 'credential_cipher', $columns, true );
+		if ( $has_legacy_hash && ! self::reconcile_legacy_credential_hash_index( $table ) ) { return false; }
 		if ( $has_legacy_hash && ! in_array( 'credential_lookup_hash', $columns, true ) ) {
 			if ( false === $wpdb->query( "ALTER TABLE `{$table}` ADD COLUMN credential_lookup_hash char(64) NOT NULL" ) ) { return false; } // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		}
@@ -159,6 +160,53 @@ final class SAUTH_Passkeys {
 		}
 		$unmigrated = (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$table}` WHERE credential_lookup_hash='' OR credential_id_ciphertext=''" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		return '' === (string) $wpdb->last_error && 0 === $unmigrated;
+	}
+
+	/**
+	 * MariaDB keeps an index name when CHANGE renames its indexed column. A
+	 * legacy credential_lookup_hash index can therefore remain uniquely bound
+	 * to credential_hash and collide with dbDelta's canonical index creation.
+	 * Preserve legacy uniqueness while freeing the canonical key name.
+	 */
+	private static function reconcile_legacy_credential_hash_index( $table ) {
+		global $wpdb;
+		$rows = $wpdb->get_results( "SHOW INDEX FROM `{$table}`", ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		if ( ! is_array( $rows ) || '' !== (string) $wpdb->last_error ) { return false; }
+		$indexes = array();
+		foreach ( $rows as $row ) {
+			$name = (string) ( $row['Key_name'] ?? '' );
+			$seq  = absint( $row['Seq_in_index'] ?? 0 );
+			if ( '' === $name || $seq < 1 ) { continue; }
+			if ( ! isset( $indexes[ $name ] ) ) { $indexes[ $name ] = array( 'non_unique' => (int) ( $row['Non_unique'] ?? 1 ), 'columns' => array() ); }
+			$indexes[ $name ]['columns'][ $seq ] = (string) ( $row['Column_name'] ?? '' );
+		}
+		foreach ( $indexes as &$index ) { ksort( $index['columns'] ); $index['columns'] = array_values( $index['columns'] ); }
+		unset( $index );
+		if ( ! isset( $indexes['credential_lookup_hash'] ) ) { return true; }
+		$current = $indexes['credential_lookup_hash'];
+		if ( 0 === (int) $current['non_unique'] && array( 'credential_lookup_hash' ) === $current['columns'] ) { return true; }
+		if ( 0 !== (int) $current['non_unique'] || array( 'credential_hash' ) !== $current['columns'] ) { return false; }
+		$legacy_unique_exists = false;
+		foreach ( $indexes as $name => $index ) {
+			if ( 'credential_lookup_hash' !== $name && 0 === (int) $index['non_unique'] && array( 'credential_hash' ) === $index['columns'] ) { $legacy_unique_exists = true; break; }
+		}
+		$legacy_name = 'credential_hash_legacy';
+		if ( isset( $indexes[ $legacy_name ] ) && ( 0 !== (int) $indexes[ $legacy_name ]['non_unique'] || array( 'credential_hash' ) !== $indexes[ $legacy_name ]['columns'] ) ) { return false; }
+		if ( $legacy_unique_exists ) {
+			$sql = "ALTER TABLE `{$table}` DROP INDEX `credential_lookup_hash`"; // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		} else {
+			$sql = "ALTER TABLE `{$table}` DROP INDEX `credential_lookup_hash`, ADD UNIQUE KEY `{$legacy_name}` (`credential_hash`)"; // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		}
+		if ( false === $wpdb->query( $sql ) ) { return false; }
+		$verify = $wpdb->get_results( "SHOW INDEX FROM `{$table}`", ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		if ( ! is_array( $verify ) || '' !== (string) $wpdb->last_error ) { return false; }
+		$canonical_name_free = true;
+		$legacy_unique = false;
+		foreach ( $verify as $row ) {
+			if ( 'credential_lookup_hash' === (string) ( $row['Key_name'] ?? '' ) ) { $canonical_name_free = false; }
+			if ( 'credential_hash' === (string) ( $row['Column_name'] ?? '' ) && 0 === (int) ( $row['Non_unique'] ?? 1 ) ) { $legacy_unique = true; }
+		}
+		return $canonical_name_free && $legacy_unique;
 	}
 
 	private static function ensure_manager_page() {

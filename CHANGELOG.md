@@ -2,6 +2,22 @@
 
 All notable changes to Sabri Authentication and Accounts are recorded here.
 
+## 1.2.6 — Legacy Passkey Index Reconciliation Candidate
+
+### Corrected
+
+- MariaDB 11.4 proof established that renaming `credential_lookup_hash` to legacy `credential_hash` preserves the unique key name `credential_lookup_hash` while rebinding that key to the legacy column.
+- Before dbDelta, File 02 now detects only that exact misbound unique-index state, fails closed on unexpected bindings, preserves legacy uniqueness under a legacy key name when necessary, and frees the canonical key name for the canonical column/index.
+- The correction is idempotent and data-preserving; the intended physical schema is unchanged.
+
+### Identity
+
+- Runtime: `1.2.6`.
+- File 02 DB schema: `1.2.1` unchanged.
+- Passkey schema: `1.0.1` unchanged.
+- Passkey assurance contract: `1.0.0` unchanged.
+- Staging-Accepted, Live-Deployed and Operational remain unclaimed.
+
 ## 1.2.5 — Passkey dbDelta Migration Compatibility Candidate
 
 ### Corrected

@@ -3,10 +3,10 @@
   "file_number": "02",
   "module": "Sabri Authentication and Accounts",
   "plan_id": "SSH-F02-PLAN-2026-v1.0",
-  "release_version": "1.2.5",
+  "release_version": "1.2.6",
   "database_version": "1.2.1",
   "passkey_schema_version": "1.0.1",
-  "candidate_branch": "fix/file02-passkey-dbdelta-migration-1.2.5",
+  "candidate_branch": "fix/file02-passkey-index-reconciliation-1.2.6",
   "current_repository_main": "0f011b1876e217b7ee46f92903e5315538c1025e",
   "intended_canonical_repository": "02-sabri-authentication-and-accounts",
   "transport_repository": "02-sabri-authentication",
@@ -20,8 +20,8 @@
   "minimum_account_contract_version": "1.1.0",
   "passkey_assurance_contract_version": "1.0.0",
   "passkey_assurance_owner": "file02",
-  "package_name": "02-sabri-authentication-1.2.5-SOURCE-CANDIDATE.zip",
-  "manifest_name": "02-sabri-authentication-1.2.5-MANIFEST.json",
+  "package_name": "02-sabri-authentication-1.2.6-SOURCE-CANDIDATE.zip",
+  "manifest_name": "02-sabri-authentication-1.2.6-MANIFEST.json",
   "checksums_name": "CHECKSUMS.sha256",
   "sbom_name": "SBOM.spdx.json",
   "historical_incident_baseline_main": "8192c45b595b34e13e09934e3b2d554aa2d8553f",
@@ -29,9 +29,9 @@
   "artifact_policy": "Exact-head review CI may lint and regression-test the source candidate, but package/staging/live claims remain separate release gates and must not be inferred from review-branch success.",
   "status": {
     "specified": "complete",
-    "coded": "passkey_dbdelta_candidate_r334_corrected",
+    "coded": "passkey_index_reconciliation_candidate_r335_corrected",
     "packaged": "not_claimed_from_review_branch",
-    "automated_qa": "exact_head_pending_after_r334",
+    "automated_qa": "exact_head_pending_after_r335",
     "staging_accepted": false,
     "live_deployed": false,
     "operational": false
@@ -45,9 +45,9 @@
     "Backup/restore and rollback rehearsal",
     "Founder staging and production authorization"
   ],
-  "review_line": "R331-R334-corrective",
+  "review_line": "R331-R335-corrective",
   "cross_file_blockers": [
-    "Exact File 00 1.2.44 taxonomy/provider compatibility must remain blocked until the complete File 00 1.2.44 / File 02 1.2.5 WordPress-MariaDB integration sequence passes after the R334 passkey migration correction."
+    "Exact File 00 1.2.44 / File 02 1.2.6 WordPress-MariaDB integration must pass the full deferred-bootstrap, taxonomy, legacy passkey-index/column upgrade and logical-identity migration sequence before cross-file release closure."
   ],
   "r320_review_baseline": "fe66788cb6c12e966bb198b361347cb74ec490b0"
 }

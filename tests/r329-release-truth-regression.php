@@ -12,15 +12,15 @@ $review = file_get_contents( $root . '/.github/workflows/review-branch-integrity
 $architecture = file_get_contents( $root . '/ARCHITECTURE.md' );
 $fail = array();
 $checks = array(
-    array( $main, 'Version: 1.2.5', 'plugin header release identity stale' ),
-    array( $main, "SAUTH_VERSION', '1.2.5", 'runtime release identity stale' ),
+    array( $main, 'Version: 1.2.6', 'plugin header release identity stale' ),
+    array( $main, "SAUTH_VERSION', '1.2.6", 'runtime release identity stale' ),
     array( $main, "SAUTH_DB_VERSION', '1.2.1", 'DB identity unexpectedly changed' ),
-    array( $lock, '"release_version": "1.2.5"', 'release lock runtime stale' ),
-    array( $lock, 'fix/file02-passkey-dbdelta-migration-1.2.5', 'release lock branch stale' ),
-    array( $readme, 'Stable tag: 1.2.5', 'WordPress stable tag stale' ),
-    array( $status, 'Version 1.2.5', 'status runtime stale' ),
-    array( $manifest, '1.2.5 / 1.2.1', 'release manifest identity stale' ),
-    array( $baseline, "RELEASE_VERSION: '1.2.5'", 'baseline release workflow version stale' ),
+    array( $lock, '"release_version": "1.2.6"', 'release lock runtime stale' ),
+    array( $lock, 'fix/file02-passkey-index-reconciliation-1.2.6', 'release lock branch stale' ),
+    array( $readme, 'Stable tag: 1.2.6', 'WordPress stable tag stale' ),
+    array( $status, 'Version 1.2.6', 'status runtime stale' ),
+    array( $manifest, '1.2.6 / 1.2.1', 'release manifest identity stale' ),
+    array( $baseline, "RELEASE_VERSION: '1.2.6'", 'baseline release workflow version stale' ),
     array( $baseline, 'tests/r33*-regression.php', 'baseline release workflow omits final R33x regressions' ),
     array( $docs, 'tests/r33*-regression.php', 'documentation workflow omits final R33x regressions' ),
     array( $review, 'tests/r33*-regression.php', 'review workflow omits final R33x regressions' ),

@@ -1,4 +1,4 @@
-# File 02 Architecture — Authentication and Accounts 1.2.5
+# File 02 Architecture — Authentication and Accounts 1.2.6
 
 ## Governing boundary
 
