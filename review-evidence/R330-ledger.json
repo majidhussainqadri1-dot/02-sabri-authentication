@@ -54,6 +54,12 @@
       "max_count": 4
     },
     {
+      "path": "tests/r319-release-contract-truth-regression.php",
+      "old": "array($status,'R321–R329','status document names stale review line'),\n array($readme,'R321–R329 corrective review','README names stale review line'),",
+      "new": "array($status,'R321–R330','status document names stale review line'),\n array($readme,'R321–R330','README names stale review line'),",
+      "count": 1
+    },
+    {
       "path": "RELEASE-LOCK.json",
       "old": "\"coded\": \"review_candidate_r329_corrected\"",
       "new": "\"coded\": \"review_candidate_r330_corrected\"",
