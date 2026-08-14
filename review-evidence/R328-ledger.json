@@ -1,5 +1,6 @@
 {
   "round": "R328",
+  "correction_harness_version": 2,
   "replacements": [
     {
       "path": "includes/class-sa-activator.php",
