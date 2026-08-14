@@ -78,14 +78,16 @@
 | CV-006 | Device/session center | `/account/sessions/`, active sessions, generalized device/network, revoke one/others/all | Implemented |
 | CV-010 | Account recovery | non-enumerating password recovery/reset, throttling, all-session revocation and support-safe copy | Implemented |
 
-## Passkey management boundary
+## Passkey migration hardening
 
-Passkey enrollment and revocation use a fresh File 02 passkey assurance when one is already valid; otherwise they require current-password reauthentication. File 02 does not solicit or accept retired File 00 authenticator or recovery codes. The account/membership provider remains mandatory for membership/eligibility state and the protected mutation still fails closed when the required File 00 account contract is unavailable.
+R334 corrected dbDelta-incompatible combined key definitions by placing every passkey index definition on its own CREATE TABLE line. R335 then used direct MariaDB schema evidence to prove and correct the stale-index-name condition where unique key `credential_lookup_hash` remains bound to renamed legacy column `credential_hash`. The migration recognizes only that exact state, preserves legacy uniqueness, frees the canonical key name, fails closed on unexpected conflicts, and leaves DB identity `1.2.1` / passkey schema `1.0.1` unchanged because the intended final schema is unchanged.
 
 ## Cross-file release boundary
 
-R331 aligns File 02 public account choices to the File 00 canonical taxonomy: `member`, `patient`, `student`, `doctor`, `teacher`, `researcher`, `pharmacy`, `clinic`, and `publisher`; File 02 performs no aliases or lossy remap. The corresponding File 00 provider correction is source-tested on its dedicated branch, but release closure remains blocked until that correction has a distinct File 00 1.2.44 runtime identity and the two repositories are exact-pinned and integration-tested against one another.
+R331 aligned File 02 public account choices to the File 00 canonical taxonomy: `member`, `patient`, `student`, `doctor`, `teacher`, `researcher`, `pharmacy`, `clinic`, and `publisher`, with no aliases or lossy remap. File 00 runtime `1.2.44` corrected its `smc.authentication-account 1.1.0` provider to derive from the same canonical taxonomy.
+
+The former taxonomy/provider cross-file release blocker is now **closed at repository/integration level** by exact WordPress 7.0 / MariaDB 11.4 run `31850253635`, pairing File 02 `f740ca65fc33031b98d7d75e5f27b7ccbeeefbf9` with File 00 `1d7f215193d778b0977c8e50d738c42e1e5f66c2`. That run also proved File 00 deferred bootstrap, File 02 fresh activation, legacy passkey column/index upgrade, legacy logical-identity collision migration and final paired runtime/schema boundaries.
 
 ## Completion truth
 
-This traceability file describes the repository source candidate only. It does not establish a package, staging, live or operational state. Those gates require their own exact evidence and may not be inferred from source review success.
+This traceability file describes repository/source and exact repository-integration evidence only. It does not establish the final package, Hostinger staging, live deployment or operational state. Those gates require their own exact evidence and may not be inferred from source/integration success.
