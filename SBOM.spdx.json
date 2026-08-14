@@ -2,8 +2,8 @@
   "SPDXID": "SPDXRef-DOCUMENT",
   "spdxVersion": "SPDX-2.3",
   "dataLicense": "CC0-1.0",
-  "name": "Sabri Authentication and Accounts 1.2.2 SBOM",
-  "documentNamespace": "https://sabrihomeopathy.com/spdx/file02-authentication-and-accounts/1.2.2/2026-08-14",
+  "name": "Sabri Authentication and Accounts 1.2.3 SBOM",
+  "documentNamespace": "https://sabrihomeopathy.com/spdx/file02-authentication-and-accounts/1.2.3/2026-08-14",
   "creationInfo": {
     "created": "2026-08-14T14:30:00Z",
     "creators": [
@@ -20,7 +20,7 @@
     {
       "SPDXID": "SPDXRef-Package-File02",
       "name": "Sabri Authentication and Accounts",
-      "versionInfo": "1.2.2",
+      "versionInfo": "1.2.3",
       "downloadLocation": "NOASSERTION",
       "filesAnalyzed": false,
       "licenseConcluded": "GPL-2.0-or-later",
@@ -31,10 +31,10 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:wordpress/sabri-authentication@1.2.2"
+          "referenceLocator": "pkg:wordpress/sabri-authentication@1.2.3"
         }
       ],
-      "comment": "R311–R320 repository/source hardening candidate. Runtime 1.2.2 / DB 1.2.1 / passkey schema 1.0.1; includes canonical legacy-passkey migration, material index postconditions and current exact-head/integration gates. Repository CI evidence is not a staging or live-deployment claim."
+      "comment": "R321–R329 repository/source hardening candidate. Runtime 1.2.3 / DB 1.2.1 / passkey schema 1.0.1; includes canonical legacy-passkey migration, material index postconditions and current exact-head/integration gates. Repository CI evidence is not a staging or live-deployment claim."
     },
     {
       "SPDXID": "SPDXRef-Package-WordPress",

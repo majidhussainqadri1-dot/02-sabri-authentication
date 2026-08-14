@@ -4,14 +4,14 @@ Tags: authentication, passkeys, webauthn, google login, registration, accounts, 
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.2.2
+Stable tag: 1.2.3
 License: GPLv2 or later
 
 Complete authentication and account-entry orchestration for the Sabri Social Homeopathy Platform. File 00 — Sabri Membership Core remains the exclusive identity, membership, account-class, guardian, role, verification and MFA-policy authority; File 02 owns password, Google OAuth and WebAuthn/passkey authentication ceremonies.
 
 == Truthful release status ==
 
-Version 1.2.2 is the current R311–R320 repository/source candidate. It retains the 1.2.1 storage-router bootstrap correction and adds fail-closed risk/provider/privacy/session hardening, canonical passkey migration with material index postconditions, hardened assurance consumption, route/UI corrections and current release/integration gates. DB identity is 1.2.1 and passkey schema identity is 1.0.1. Source/CI completion does not by itself prove Hostinger staging, deployment or operations.
+Version 1.2.3 is the current R321–R329 repository/source candidate. It retains the 1.2.2 schema/passkey foundations and adds centralized Safe Mode containment, evidence-honest recovery/session behavior, bounded asynchronous retries, Google/passkey containment hardening, privacy-erasure continuation and stable logical-identity legacy migration. DB identity remains 1.2.1 and passkey schema identity remains 1.0.1. Source/CI completion does not by itself prove Hostinger staging, deployment or operations.
 
 == Canonical constitution ==
 
@@ -78,6 +78,12 @@ If a required contract is missing, malformed or circuit-open, protected mutation
 Passwords, reset keys, verification tokens, OAuth tokens, TOTP/recovery codes, passkey private keys, biometric templates, raw session tokens, full IP addresses and provider secrets are excluded from events and public diagnostics. Authentication success is never authorization.
 
 == Changelog ==
+
+= 1.2.3 =
+* Completes the sequential R321–R329 corrective source line before the final R330 adversarial review.
+* Centralizes Safe Mode/session containment, hardens recovery/resend retry lifecycle, Google OIDC/passkey containment, session/risk evidence and settings rollback.
+* Adds privacy-erasure continuation and stable logical-identity legacy migration without changing DB 1.2.1 or passkey schema 1.0.1.
+* Keeps staging/live/operational completion explicitly unclaimed.
 
 = 1.2.2 =
 * Completes the sequential R311–R320 review/fix/retest line.

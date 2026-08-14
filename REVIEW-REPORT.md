@@ -1,4 +1,4 @@
-> **Historical evidence notice:** This root report records the earlier 1.1.0 four-round candidate and is retained for provenance only. It is **not** the current release/review status. Current source truth is the R311–R320 review line and version 1.2.2 / DB 1.2.1 / passkey schema 1.0.1, subject to the separate release/staging/live gates.
+> **Historical evidence notice:** This root report records the earlier 1.1.0 four-round candidate and is retained for provenance only. It is **not** the current release/review status. Current source truth is the R321–R329 corrective line and version 1.2.3 / DB 1.2.1 / passkey schema 1.0.1, subject to the separate release/staging/live gates.
 
 # File 02 — Four-Round Three-Plan Review, Correction and Retest Report
 
