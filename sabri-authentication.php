@@ -102,6 +102,21 @@ register_activation_hook( SAUTH_FILE, array( 'SAUTH_Passkeys', 'maybe_install' )
 register_deactivation_hook( SAUTH_FILE, array( 'SAUTH_Passkeys', 'deactivate' ) );
 register_deactivation_hook( SAUTH_FILE, array( 'SAUTH_Activator', 'deactivate' ) );
 
+/**
+ * Rotating the passkey assurance epoch is a security-containment event. Destroy
+ * every WordPress session so historical direct consumers cannot retain a stale
+ * five-minute passkey assertion after credential revoke/compromise.
+ */
+function sauth_passkey_assurance_epoch_rotated( $meta_id, $user_id, $meta_key, $meta_value ) {
+	if ( SAUTH_Passkey_Runtime::EPOCH_META !== (string) $meta_key || ! $user_id || '' === (string) $meta_value ) {
+		return;
+	}
+	if ( class_exists( 'WP_Session_Tokens' ) ) {
+		WP_Session_Tokens::get_instance( absint( $user_id ) )->destroy_all();
+	}
+}
+add_action( 'updated_user_meta', 'sauth_passkey_assurance_epoch_rotated', 10, 4 );
+
 function sauth_start_plugin() {
 	SAUTH_Storage_Router::init();
 	SAUTH_Provider_Health::init();
