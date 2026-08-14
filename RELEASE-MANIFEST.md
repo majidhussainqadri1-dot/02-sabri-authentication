@@ -15,17 +15,33 @@
 - Manifest: `02-sabri-authentication-1.2.6-MANIFEST.json`
 - Checksums: `CHECKSUMS.sha256` plus exact-head CI checksum record
 - SBOM: `SBOM.spdx.json`
-- Required File 00 provider: `smc.authentication-account 1.1.0`; R319 dependency re-verification: File 00 `c4ab298b3ba2b870d507d32b36b1b4afd2771621` / runtime 1.2.43 / DB 1.4.5
+- Required File 00 provider: `smc.authentication-account 1.1.0`
+- Exact paired File 00 repository candidate: `1d7f215193d778b0977c8e50d738c42e1e5f66c2`, runtime `1.2.44`, DB `1.4.5`
 - Advanced Trust projection: File 02 passkey assurance `1.0.0`, owner `file02`
-- Cross-file release blocker: File 00 must harmonize its canonical account taxonomy with the `smc.authentication-account 1.1.0` provider vocabulary; File 02 deliberately performs no lossy remap.
+- Former taxonomy/provider cross-file blocker: **closed at repository/integration level** by exact run `31850253635`; this is not a staging/live claim.
 
 ## Current hardening release
 
-Version 1.2.6 is the repository/source identity for the completed R321–R330 corrective line. It advances DB identity to 1.2.1 and passkey schema identity to 1.0.1, requires material columns plus security-critical indexes before migration readiness, reconciles legacy passkey columns non-destructively, and carries the permanent regressions and real File 00/MariaDB upgrade gate. This source identity is not a staging/live claim.
+Version 1.2.6 carries the R321–R336 source/release hardening line. R334 corrected dbDelta-incompatible passkey index formatting discovered by real MariaDB upgrade rehearsal. R335 then corrected the proven MariaDB state in which the unique key name `credential_lookup_hash` survives a legacy column rename while becoming bound to `credential_hash`; File 02 now reconciles only that exact stale binding before dbDelta, preserves uniqueness, and fails closed on unexpected conflicts. DB identity remains 1.2.1 and passkey schema identity remains 1.0.1 because the intended physical schema did not change.
 
-## Patch correction
+R336 records the successful exact paired File 00/File 02 integration and replaces the stale hard-coded architecture release identity with `RELEASE-LOCK.json`-driven identity. This source identity remains separate from staging/live completion.
 
-File 02 1.2.0 contained `includes/class-sauth-storage-router.php` and invoked `SAUTH_Storage_Router::init()` during `plugins_loaded`, but the main plugin file did not require that class. Real WordPress cross-repository testing therefore activated the plugin and then reproduced a fatal on the next WordPress request. Version 1.2.1 loads the storage-router source before startup registration and adds permanent source, package and real WordPress reload guards.
+## Exact cross-file integration evidence
+
+GitHub Actions run `31850253635` passed against File 02 `f740ca65fc33031b98d7d75e5f27b7ccbeeefbf9` and File 00 `1d7f215193d778b0977c8e50d738c42e1e5f66c2`:
+
+1. immutable paired input verification;
+2. WordPress 7.0 / MariaDB 11.4 installation;
+3. File 00 activation in queued state plus supported deferred administrator bootstrap to DB 1.4.5;
+4. File 02 fresh activation at runtime 1.2.6 / DB 1.2.1 / passkey schema 1.0.1;
+5. two-sided canonical account taxonomy parity for `member`, `patient`, `student`, `doctor`, `teacher`, `researcher`, `pharmacy`, `clinic`, `publisher`;
+6. legacy passkey column/index upgrade on real MariaDB;
+7. legacy logical-identity collision migration; and
+8. final paired runtime/schema boundary verification.
+
+## Historical bootstrap correction
+
+File 02 1.2.0 contained `includes/class-sauth-storage-router.php` and invoked `SAUTH_Storage_Router::init()` during `plugins_loaded`, but the main plugin file did not require that class. Real WordPress cross-repository testing therefore activated the plugin and then reproduced a fatal on the next WordPress request. Version 1.2.1 loaded the storage-router source before startup registration and added permanent source, package and real WordPress reload guards.
 
 ## Installable runtime inventory
 
@@ -54,30 +70,28 @@ SBOM.spdx.json
 PACKAGE-MANIFEST.json (generated)
 ```
 
-The runtime inventory includes `includes/class-sauth-storage-router.php`, `includes/class-sauth-passkeys.php` and the browser WebAuthn client in `assets/js/authentication.js`. Tests, CI workflows, historical baseline locks, development reports and committed archives are excluded from the installable ZIP.
+Tests, CI workflows, historical review evidence, development reports and committed archives are excluded from the installable ZIP.
 
 ## Exact-head evidence rule
 
-The current GitHub Actions head must:
+The corrected current GitHub Actions head must:
 
 1. prove checkout equals the immutable source HEAD;
 2. lint every PHP source file on PHP 7.4 and 8.3;
-3. execute all security, assurance, registration, completion, prior plan and WebAuthn CBOR/COSE/signature suites;
-4. enforce the architecture guard, including File 02/File 00 ownership and rejection of client-supplied WebAuthn public keys;
+3. execute all security, assurance, registration, completion, plan, WebAuthn and R29x–R336 permanent regressions;
+4. enforce the release-lock-driven architecture guard, including File 02/File 00 ownership and rejection of client-supplied WebAuthn public keys;
 5. prove the storage-router source is loaded before File 02 startup;
 6. validate JavaScript syntax and CSS structure;
-7. build the 1.2.6 package twice from a fixed source epoch and prove byte identity before any release claim;
+7. build the 1.2.6 package twice from a fixed source epoch and prove byte identity;
 8. reject archive traversal, unexpected roots, secrets and forbidden files;
-9. clean-extract and lint every packaged PHP file and prove the storage-router bootstrap binding survives packaging;
-10. run the separately designated real WordPress/File 00 integration gate before staging acceptance; and
-11. retain exact-head evidence without implying staging/live completion.
+9. clean-extract and lint every packaged PHP file and prove bootstrap/migration invariants survive packaging;
+10. retain the separate exact WordPress/File 00 integration evidence; and
+11. never infer staging/live completion from repository/package success.
 
-The actual package digest is produced only from the immutable workflow head rather than guessed or copied from an earlier release.
-
-## Source completion boundary
-
-The 1.2.6 source candidate preserves the original File 02 functional requirements plus the approved passkey/WebAuthn, device/session and recovery additions. File 02 owns password, Google and passkey authentication ceremonies and their authentication assurance. File 00 remains the membership, identity, guardian, role/capability and eligibility authority and consumes the versioned File 02 authentication assurance. Retired File 00 authenticator/recovery codes are not solicited or accepted by File 02 as an authentication ceremony.
+The actual package digest may be claimed only from the successful immutable workflow head.
 
 ## External completion boundary
 
-This manifest can prove repository/source and automated evidence only after the relevant exact-head gates succeed. Hostinger staging, real production-domain WebAuthn authenticators, SMTP/Google, File 00 integration, browser/RTL/WCAG, performance/load, backup/restore, rollback, Founder acceptance, live deployment and operations remain separate gates.
+Repository/source integration with File 00 is proven as described above. Hostinger staging, real production-domain WebAuthn authenticators, real SMTP/Google, browser/RTL/WCAG, other cross-file/theme/LiteSpeed integrations, performance/load, backup/restore, rollback, Founder acceptance, live deployment and operations remain separate gates.
+
+Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔
