@@ -45,10 +45,27 @@ jobs:
 
       - name: Lint every PHP file
         run: |
-          set -euo pipefail
+          set -uo pipefail
           mapfile -t php_files < <(find . -type f -name '*.php' -not -path './.git/*' -print | sort)
-          test "${#php_files[@]}" -ge 40
-          for file in "${php_files[@]}"; do php -l "$file"; done
+          test "${#php_files[@]}" -ge 40 || exit 1
+          : > "$RUNNER_TEMP/php-lint-failures-${{ matrix.php }}.txt"
+          failed=0
+          for file in "${php_files[@]}"; do
+            if ! output="$(php -l "$file" 2>&1)"; then
+              printf '%s\n%s\n\n' "$file" "$output" | tee -a "$RUNNER_TEMP/php-lint-failures-${{ matrix.php }}.txt"
+              failed=1
+            fi
+          done
+          exit "$failed"
+
+      - name: Retain lint diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: file02-review-lint-${{ matrix.php }}-${{ github.sha }}
+          if-no-files-found: warn
+          retention-days: 7
+          path: ${{ runner.temp }}/php-lint-failures-${{ matrix.php }}.txt
 
       - name: Run cumulative no-network source suites
         run: |
