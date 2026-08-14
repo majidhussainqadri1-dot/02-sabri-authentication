@@ -3,7 +3,7 @@
  * Plugin Name: Sabri Authentication and Accounts
  * Plugin URI: https://www.sabrihomeopathy.com/
  * Description: Email/password, Google OAuth and WebAuthn/passkey authentication orchestration, registration, recovery, risk challenge, session controls and authentication assurance for the Sabri Social Homeopathy Platform. Requires Sabri Membership Core.
- * Version: 1.2.2
+ * Version: 1.2.3
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: Dr. Allama Majid Hussain Sabri
@@ -14,7 +14,7 @@
 defined( 'ABSPATH' ) || exit;
 
 /* Canonical File 02 constitution. */
-define( 'SAUTH_VERSION', '1.2.2' );
+define( 'SAUTH_VERSION', '1.2.3' );
 define( 'SAUTH_DB_VERSION', '1.2.1' );
 define( 'SAUTH_ACCOUNT_CONTRACT_VERSION', '1.1.0' );
 define( 'SAUTH_AUTH_EVENT_SCHEMA_VERSION', '1.0.0' );
@@ -118,6 +118,10 @@ function sauth_passkey_assurance_epoch_rotated( $meta_id, $user_id, $meta_key, $
 }
 add_action( 'updated_user_meta', 'sauth_passkey_assurance_epoch_rotated', 10, 4 );
 
+/**
+ * Canonical startup entrypoint. The idempotency guard prevents the legacy
+ * compatibility wrapper from registering hooks/cron twice in one request.
+ */
 function sauth_start_plugin() {
 	static $started = false;
 	if ( $started ) {
@@ -126,26 +130,20 @@ function sauth_start_plugin() {
 	$started = true;
 	SAUTH_Storage_Router::init();
 	SAUTH_Provider_Health::init();
-	SAUTH_Provider_HTTP_Guard::init();
 	SAUTH_Event_Outbox::init();
 	SAUTH_Email_Verification::init();
-	SAUTH_Authentication_Assurance::init();
-	SAUTH_Login_Risk::init();
 	SAUTH_Session_Manager::init();
+	SAUTH_Login_Risk::init();
 	SAUTH_Passkeys::init();
 	SAUTH_Passkey_Runtime::init();
-	SAUTH_Professional_Reauthentication::init();
-	SAUTH_Google_Registration::init();
-	SAUTH_Canonical_Routes::init();
 	SAUTH_Operations::init();
-	$plugin = new SAUTH_Plugin();
-	$plugin->run();
+	SAUTH_Canonical_Routes::init();
+	SAUTH_Privacy_Jobs::init();
+	SA_Plugin::instance()->run();
 }
-add_action( 'plugins_loaded', 'sauth_start_plugin', 30 );
 
-/* Legacy bootstrap hook retained for integrations that explicitly call it. */
-if ( ! function_exists( 'sa_start_plugin' ) ) {
-	function sa_start_plugin() {
-		return sauth_start_plugin();
-	}
+function sa_start_plugin() {
+	return sauth_start_plugin();
 }
+
+add_action( 'plugins_loaded', 'sauth_start_plugin', 20 );
