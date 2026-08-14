@@ -2,292 +2,177 @@
 
 defined( 'ABSPATH' ) || exit;
 
-/**
- * File 02 operational controls: redacted System Check, reversible repair,
- * safe-mode gating and File 01/File 20 integration manifests.
- */
+/** File 02 operational safety, Safe Mode and guarded repair. */
 final class SAUTH_Operations {
-	const SAFE_MODE_OPTION = 'sauth_safe_mode';
+	const SAFE_MODE_OPTION      = 'sauth_safe_mode';
+	const SAFE_MODE_ENTERED_AT  = 'sauth_safe_mode_last_entered';
+	const REPAIR_LOCK_OPTION    = 'sauth_guarded_repair_lock';
+	const REPAIR_LOCK_TTL       = 120;
 
 	public static function init() {
-		add_action( 'admin_menu', array( __CLASS__, 'admin_menu' ), 40 );
-		add_action( 'admin_post_sauth_run_repair', array( __CLASS__, 'handle_repair' ) );
+		add_action( 'admin_menu', array( __CLASS__, 'admin_menu' ), 35 );
 		add_action( 'admin_post_sauth_toggle_safe_mode', array( __CLASS__, 'toggle_safe_mode' ) );
-		add_filter( 'spf_module_manifests', array( __CLASS__, 'foundation_manifest' ) );
-		add_filter( 'sabri_shell_route_manifests', array( __CLASS__, 'shell_manifest' ) );
-		add_action( 'init', array( __CLASS__, 'announce_contracts' ), 5 );
+		add_action( 'admin_post_sauth_guarded_repair', array( __CLASS__, 'run_repair' ) );
+		/* admin_init runs before admin-ajax action dispatch, so a pre-issued passkey
+		 * challenge cannot mutate while Safe Mode is active. */
+		add_action( 'admin_init', array( __CLASS__, 'enforce_safe_mode_request_gate' ), 0 );
 	}
 
 	public static function safe_mode() {
 		return '1' === (string) get_option( self::SAFE_MODE_OPTION, '0' );
 	}
 
+	/** Timestamp of the latest Safe Mode entry; retained after exit to kill pre-entry challenges. */
+	public static function safe_mode_entered_at() {
+		return absint( get_option( self::SAFE_MODE_ENTERED_AT, 0 ) );
+	}
+
 	public static function high_risk_actions_available() {
-		return ! self::safe_mode() && SA_Membership_Adapter::available();
+		return ! self::safe_mode()
+			&& SA_Membership_Adapter::available()
+			&& SAUTH_Account_Contract::provider_available();
+	}
+
+	public static function enforce_safe_mode_request_gate() {
+		if ( ! self::safe_mode() ) { return; }
+		$action = isset( $_REQUEST['action'] ) ? sanitize_key( wp_unslash( $_REQUEST['action'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( '' === $action ) { return; }
+		$blocked = array(
+			'sauth_passkey_begin_registration',
+			'sauth_passkey_finish_registration',
+			'sauth_passkey_begin_authentication',
+			'sauth_passkey_finish_authentication',
+			'sauth_passkey_revoke',
+			'sa_google_start',
+			'sa_google_callback',
+			'sauth_google_registration_start',
+			'sauth_google_registration_callback',
+			'sa_register',
+			'sauth_register',
+		);
+		if ( ! in_array( $action, $blocked, true ) ) { return; }
+		if ( function_exists( 'wp_doing_ajax' ) && wp_doing_ajax() ) {
+			wp_send_json_error( array( 'code' => 'safe_mode_active', 'message' => 'This authentication mutation is paused by Safe Mode.' ), 503 );
+		}
+		wp_die( esc_html__( 'This authentication mutation is paused by Safe Mode.', 'sabri-authentication' ), esc_html__( 'Safe Mode active', 'sabri-authentication' ), array( 'response' => 503, 'back_link' => true ) );
 	}
 
 	public static function admin_menu() {
-		$parent = defined( 'SABRI_SHELL_VERSION' ) ? 'sabri-shell' : 'options-general.php';
-		add_submenu_page(
-			$parent,
-			'Sabri Authentication System Check',
-			'Authentication Health',
-			'manage_options',
-			'sabri-authentication-health',
-			array( __CLASS__, 'render_admin' )
-		);
+		$parent = defined( 'SABRI_SHELL_VERSION' ) ? 'sabri-shell' : 'tools.php';
+		add_submenu_page( $parent, __( 'Authentication System Check', 'sabri-authentication' ), __( 'Authentication System Check', 'sabri-authentication' ), 'manage_options', 'sabri-authentication-system-check', array( __CLASS__, 'render_page' ) );
 	}
 
-	public static function render_admin() {
-		if ( ! current_user_can( 'manage_options' ) ) {
-			return;
-		}
-		$report = self::system_check();
+	public static function render_page() {
+		if ( ! current_user_can( 'manage_options' ) ) { return; }
+		$checks = self::system_check();
 		?>
 		<div class="wrap">
-			<h1>Sabri Authentication — System Check</h1>
-			<p>This report is privacy-minimized. It never exposes passwords, reset keys, OAuth tokens, passkey credential IDs, raw session tokens, full IP addresses, database credentials or private File 00 evidence.</p>
-			<p><strong>Overall state:</strong> <?php echo esc_html( strtoupper( $report['overall'] ) ); ?></p>
-			<table class="widefat striped">
-				<thead><tr><th>Check</th><th>Status</th><th>Reason</th></tr></thead>
-				<tbody>
-				<?php foreach ( $report['checks'] as $check ) : ?>
-					<tr>
-						<td><?php echo esc_html( $check['label'] ); ?></td>
-						<td><?php echo esc_html( strtoupper( $check['status'] ) ); ?></td>
-						<td><?php echo esc_html( $check['reason'] ); ?></td>
-					</tr>
-				<?php endforeach; ?>
-				</tbody>
-			</table>
-
-			<h2>Safe Mode</h2>
-			<p>Safe Mode disables registration, provider linking, passkey enrollment/sign-in and other high-risk authentication mutations while preserving public reading and safe local account recovery where WordPress can perform it correctly.</p>
-			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-				<input type="hidden" name="action" value="sauth_toggle_safe_mode">
-				<input type="hidden" name="enabled" value="<?php echo self::safe_mode() ? '0' : '1'; ?>">
-				<?php wp_nonce_field( 'sauth_toggle_safe_mode', 'sauth_nonce' ); ?>
-				<?php submit_button( self::safe_mode() ? 'Disable Safe Mode' : 'Enable Safe Mode', 'secondary', 'submit', false ); ?>
-			</form>
-
-			<h2>Guarded Repair</h2>
-			<p>The repair is idempotent and limited to File 02 tables, managed pages, passkey schema, expired local challenges, stale session projections and provider-health counters. It never edits File 00 membership, roles, guardian, verification or identity records.</p>
-			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-				<input type="hidden" name="action" value="sauth_run_repair">
-				<?php wp_nonce_field( 'sauth_run_repair', 'sauth_nonce' ); ?>
-				<label><input type="checkbox" name="confirm" value="1" required> I understand the repair scope.</label>
-				<?php submit_button( 'Run File 02 Repair', 'primary', 'submit', false ); ?>
-			</form>
+			<h1><?php echo esc_html__( 'Sabri Authentication — System Check', 'sabri-authentication' ); ?></h1>
+			<p><strong><?php echo esc_html__( 'Safe Mode:', 'sabri-authentication' ); ?></strong> <?php echo self::safe_mode() ? '<span style="color:#b42318">ON</span>' : '<span style="color:#067647">OFF</span>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></p>
+			<table class="widefat striped"><thead><tr><th>Check</th><th>Status</th><th>Evidence</th></tr></thead><tbody>
+			<?php foreach ( $checks as $check ) : ?><tr><td><?php echo esc_html( $check['label'] ); ?></td><td><strong><?php echo esc_html( strtoupper( $check['status'] ) ); ?></strong></td><td><?php echo esc_html( $check['evidence'] ); ?></td></tr><?php endforeach; ?>
+			</tbody></table>
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin-top:20px"><input type="hidden" name="action" value="sauth_toggle_safe_mode"><?php wp_nonce_field( 'sauth_toggle_safe_mode', 'sauth_nonce' ); ?><input type="hidden" name="enable" value="<?php echo self::safe_mode() ? '0' : '1'; ?>"><button class="button <?php echo self::safe_mode() ? 'button-primary' : ''; ?>" type="submit"><?php echo esc_html( self::safe_mode() ? 'Exit Safe Mode' : 'Enter Safe Mode' ); ?></button></form>
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin-top:12px"><input type="hidden" name="action" value="sauth_guarded_repair"><?php wp_nonce_field( 'sauth_guarded_repair', 'sauth_nonce' ); ?><button class="button" type="submit">Run Guarded Repair</button></form>
+			<p><em>Guarded Repair is additive/idempotent. It reconciles File 02 schema, passkey schema and private pages; it does not purge File 00 identity or File 02 authentication evidence.</em></p>
 		</div>
 		<?php
 	}
 
-	/**
-	 * @return array<string,mixed>
-	 */
+	public static function toggle_safe_mode() {
+		if ( ! current_user_can( 'manage_options' ) ) { wp_die( esc_html__( 'Access denied.', 'sabri-authentication' ) ); }
+		check_admin_referer( 'sauth_toggle_safe_mode', 'sauth_nonce' );
+		$enable = ! empty( $_POST['enable'] );
+		$expected = $enable ? '1' : '0';
+		if ( $enable ) {
+			$entered = time();
+			update_option( self::SAFE_MODE_ENTERED_AT, $entered, false );
+			if ( $entered !== absint( get_option( self::SAFE_MODE_ENTERED_AT, 0 ) ) ) {
+				self::redirect( 'error', 'Safe Mode could not establish its challenge-revocation epoch.' );
+			}
+		}
+		update_option( self::SAFE_MODE_OPTION, $expected, false );
+		if ( $expected !== (string) get_option( self::SAFE_MODE_OPTION, '' ) ) {
+			self::redirect( 'error', 'Safe Mode state could not be stored safely.' );
+		}
+		if ( $enable ) {
+			/* Contain active authenticated state immediately. Any pre-entry WebAuthn
+			 * challenge is also rejected later by its created_at vs entered_at check. */
+			if ( is_user_logged_in() && class_exists( 'WP_Session_Tokens' ) ) {
+				WP_Session_Tokens::get_instance( get_current_user_id() )->destroy_others( wp_get_session_token() );
+			}
+			SAUTH_Provider_Health::reset( 'google' );
+		}
+		SA_Membership_Adapter::audit( $enable ? 'authentication_safe_mode_enabled' : 'authentication_safe_mode_disabled', get_current_user_id() );
+		self::redirect( 'success', $enable ? 'Safe Mode enabled. Provider and strong-auth mutations are paused.' : 'Safe Mode disabled. New authentication challenges may be issued; pre-Safe-Mode challenges remain invalid.' );
+	}
+
+	public static function run_repair() {
+		if ( ! current_user_can( 'manage_options' ) ) { wp_die( esc_html__( 'Access denied.', 'sabri-authentication' ) ); }
+		check_admin_referer( 'sauth_guarded_repair', 'sauth_nonce' );
+		$lock = self::claim_repair_lock();
+		if ( '' === $lock ) { self::redirect( 'error', 'Another guarded repair is already running. Wait and retry.' ); }
+		try {
+			if ( ! SA_Membership_Adapter::available() || ! SAUTH_Account_Contract::provider_available() ) {
+				self::redirect( 'error', 'File 00 readiness/contracts are unavailable; repair stopped before mutation.' );
+			}
+			$was_safe = self::safe_mode();
+			if ( ! $was_safe ) {
+				update_option( self::SAFE_MODE_OPTION, '1', false );
+				update_option( self::SAFE_MODE_ENTERED_AT, time(), false );
+				if ( '1' !== (string) get_option( self::SAFE_MODE_OPTION, '' ) ) { self::redirect( 'error', 'Guarded repair could not enter Safe Mode.' ); }
+			}
+			SAUTH_Activator::repair();
+			SAUTH_Passkeys::maybe_install( true );
+			$checks = self::system_check();
+			$bad = array_filter( $checks, static function ( $check ) { return 'ok' !== ( $check['status'] ?? '' ); } );
+			if ( empty( $bad ) && ! $was_safe ) {
+				update_option( self::SAFE_MODE_OPTION, '0', false );
+			}
+			if ( ! empty( $bad ) ) {
+				SA_Membership_Adapter::audit( 'authentication_guarded_repair_incomplete', get_current_user_id(), array( 'failed_checks' => count( $bad ) ) );
+				self::redirect( 'error', 'Guarded repair completed with unresolved checks. Safe Mode remains enabled.' );
+			}
+			SA_Membership_Adapter::audit( 'authentication_guarded_repair_completed', get_current_user_id() );
+			self::redirect( 'success', 'Guarded repair completed and all checked postconditions passed.' );
+		} catch ( Throwable $error ) {
+			update_option( self::SAFE_MODE_OPTION, '1', false );
+			SA_Membership_Adapter::audit( 'authentication_guarded_repair_failed', get_current_user_id(), array( 'reference' => substr( hash( 'sha256', get_class( $error ) . '|' . $error->getMessage() ), 0, 20 ) ) );
+			self::redirect( 'error', 'Guarded repair failed safely. Safe Mode remains enabled.' );
+		} finally {
+			self::release_repair_lock( $lock );
+		}
+	}
+
+	/** Current source/runtime checks only; staging/live acceptance is separate. */
 	public static function system_check() {
 		global $wpdb;
 		$checks = array();
-		$checks[] = self::check( 'plugin_version', 'Plugin and database version', defined( 'SA_VERSION' ) && SA_VERSION === (string) get_option( 'sa_version', '' ) && defined( 'SA_DB_VERSION' ) && SA_DB_VERSION === (string) get_option( 'sa_db_version', '' ), 'Runtime and stored versions match.', 'Run guarded repair after verifying the deployed package.' );
-		$checks[] = self::check( 'membership', 'File 00 membership dependency', SA_Membership_Adapter::available(), 'Required File 00 assurance contract is available.', 'Required File 00 assurance contract is unavailable or incompatible.' );
-		$checks[] = self::check( 'account_contract', 'File 00 account-orchestration contract', SAUTH_Account_Contract::provider_available(), 'Registration, email completion and completion-state contract is available.', 'The smc.authentication-account provider contract is unavailable or incompatible.' );
-		$checks[] = self::check( 'assurance', 'File 00 step-up assurance contract', SA_Authentication_Assurance::provider_available(), 'File 00 step-up verification is available.', 'Risk challenges, passkey management and provider linking will fail closed where step-up is required.' );
-		$checks[] = self::check( 'https', 'HTTPS', is_ssl(), 'HTTPS is active for this request.', 'Authentication providers and sensitive account surfaces require HTTPS.' );
-		$checks[] = self::check( 'passkey_crypto', 'Passkey/WebAuthn cryptography', function_exists( 'openssl_verify' ) && function_exists( 'openssl_pkey_get_public' ), 'OpenSSL verification support is available.', 'Passkey authentication is unavailable without OpenSSL verification support.', function_exists( 'openssl_verify' ) ? 'pass' : 'warning' );
-		$home_scheme = strtolower( (string) wp_parse_url( home_url( '/' ), PHP_URL_SCHEME ) );
-		$checks[] = self::check( 'passkey_origin', 'Passkey canonical origin', 'https' === $home_scheme, 'Canonical home origin is HTTPS.', 'Production WebAuthn requires an HTTPS canonical home origin.', 'https' === $home_scheme ? 'pass' : 'warning' );
-		$checks[] = self::check( 'safe_mode', 'Safe Mode', ! self::safe_mode(), 'Normal high-risk actions are enabled.', 'Safe Mode is active; high-risk mutations are intentionally disabled.', self::safe_mode() ? 'warning' : 'pass' );
-
-		foreach ( SA_Activator::required_tables() as $label => $table ) {
-			$exists = $table === $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) );
-			$checks[] = self::check( 'table_' . sanitize_key( $label ), 'Database table: ' . $label, $exists, 'Present.', 'Missing; run guarded repair.' );
+		$checks[] = self::check( 'File 00 runtime and DB parity', SA_Membership_Adapter::available(), SA_Membership_Adapter::available() ? 'Membership Core runtime, DB and CF-01 membership assurance are ready.' : 'Membership Core runtime/DB/Safe Mode/CF-01 readiness is unavailable.' );
+		$checks[] = self::check( 'Account orchestration contract', SAUTH_Account_Contract::provider_available(), SAUTH_Account_Contract::provider_available() ? 'smc.authentication-account 1.1.0 provider is callable.' : 'Account provider unavailable or incompatible.' );
+		$checks[] = self::check( 'File 02 passkey authentication assurance', class_exists( 'SAUTH_Passkey_Runtime' ) && class_exists( 'SAUTH_Passkeys' ), 'Strong authentication is File 02-owned; File 00 MFA is retired.' );
+		$checks[] = self::check( 'Runtime version marker', SAUTH_VERSION === (string) get_option( 'sauth_version', '' ), 'Runtime=' . SAUTH_VERSION . '; stored=' . (string) get_option( 'sauth_version', '' ) );
+		$checks[] = self::check( 'Database schema marker', SAUTH_DB_VERSION === (string) get_option( 'sauth_db_version', '' ), 'Expected=' . SAUTH_DB_VERSION . '; stored=' . (string) get_option( 'sauth_db_version', '' ) );
+		foreach ( SAUTH_Activator::required_tables() as $name => $table ) {
+			$exists = $table === (string) $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) );
+			$checks[] = self::check( 'Table ' . $name, $exists, $exists ? $table . ' exists.' : $table . ' is missing.' );
 		}
 		$passkey_table = $wpdb->prefix . 'sauth_passkeys';
-		$passkey_table_exists = $passkey_table === $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $passkey_table ) ) );
-		$checks[] = self::check( 'table_passkeys', 'Database table: passkeys', $passkey_table_exists, 'Present.', 'Missing; run guarded repair.' );
-
-		$page_map = (array) get_option( 'sa_page_map', array() );
-		$canonical_page_map = (array) get_option( 'sauth_page_map', array() );
-		$page_map = array_merge( $page_map, $canonical_page_map );
-		$required_pages = array_keys( SA_Activator::page_specs() );
-		$required_pages[] = 'passkeys';
-		$missing_pages = array();
-		foreach ( array_values( array_unique( $required_pages ) ) as $key ) {
-			$page_id = isset( $page_map[ $key ] ) ? absint( $page_map[ $key ] ) : 0;
-			if ( ! $page_id || 'publish' !== get_post_status( $page_id ) ) {
-				$missing_pages[] = $key;
-			}
-		}
-		$checks[] = self::check( 'routes', 'Managed authentication routes', empty( $missing_pages ), 'All managed routes are published.', 'Missing: ' . implode( ', ', $missing_pages ) );
-
-		$scheduled = array(
-			SAUTH_Event_Outbox::CRON_HOOK,
-			SAUTH_Email_Verification::CLEANUP_HOOK,
-			SAUTH_Passkeys::CLEANUP_HOOK,
-			'sauth_login_risk_cleanup',
-			'sauth_session_registry_cleanup',
-			'sauth_provider_health_cleanup',
-		);
-		$missing_cron = array();
-		foreach ( $scheduled as $hook ) {
-			if ( ! wp_next_scheduled( $hook ) ) {
-				$missing_cron[] = $hook;
-			}
-		}
-		$checks[] = self::check( 'cron', 'Scheduled maintenance hooks', empty( $missing_cron ), 'All required hooks are scheduled.', 'Missing: ' . implode( ', ', $missing_cron ), empty( $missing_cron ) ? 'pass' : 'warning' );
-
-		$google_ready = SA_Google_OAuth::configured();
-		$checks[] = self::check( 'google', 'Google OAuth', $google_ready, 'Configured and dependency-ready.', 'Optional provider is disabled, incomplete or unavailable.', $google_ready ? 'pass' : 'warning' );
-
-		$providers = SAUTH_Provider_Health::all();
-		foreach ( $providers as $provider => $state ) {
-			$status = (string) $state['status'];
-			$healthy = in_array( $status, array( 'healthy', 'unknown', 'half_open' ), true );
-			$checks[] = self::check( 'provider_' . $provider, ucfirst( $provider ) . ' provider circuit', $healthy, 'State: ' . $status . '.', 'State: ' . $status . '; reason category: ' . ( $state['last_reason'] ?: 'unavailable' ) . '.', 'open' === $status ? 'fail' : ( 'degraded' === $status ? 'warning' : 'pass' ) );
-		}
-
-		$overall = 'pass';
-		foreach ( $checks as $check ) {
-			if ( 'fail' === $check['status'] ) {
-				$overall = 'fail';
-				break;
-			}
-			if ( 'warning' === $check['status'] ) {
-				$overall = 'warning';
-			}
-		}
-		return array(
-			'contract'         => 'sauth.system-check',
-			'contract_version' => '1.1.0',
-			'generated_at'     => gmdate( 'c' ),
-			'overall'          => $overall,
-			'checks'           => $checks,
-		);
+		$passkey_exists = $passkey_table === (string) $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $passkey_table ) ) );
+		$checks[] = self::check( 'Passkey table', $passkey_exists, $passkey_exists ? $passkey_table . ' exists.' : $passkey_table . ' is missing.' );
+		$checks[] = self::check( 'HTTPS origin', is_ssl(), is_ssl() ? 'HTTPS detected.' : 'HTTPS is required for Google OIDC and WebAuthn.' );
+		return $checks;
 	}
 
-	public static function handle_repair() {
-		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'Access denied.', 'sabri-authentication' ) );
-		}
-		check_admin_referer( 'sauth_run_repair', 'sauth_nonce' );
-		if ( empty( $_POST['confirm'] ) ) {
-			wp_safe_redirect( add_query_arg( array( 'page' => 'sabri-authentication-health', 'repair' => 'not_confirmed' ), admin_url( 'options-general.php' ) ) );
-			exit;
-		}
-		SA_Activator::repair();
-		/* Force idempotent passkey schema/page reconciliation even if its version option is stale. */
-		delete_option( SAUTH_Passkeys::OPTION_SCHEMA_VERSION );
-		SAUTH_Passkeys::maybe_install();
-		SAUTH_Email_Verification::cleanup();
-		SAUTH_Login_Risk::cleanup();
-		SAUTH_Session_Manager::cleanup();
-		SAUTH_Passkeys::cleanup();
-		foreach ( array_keys( SAUTH_Provider_Health::all() ) as $provider ) {
-			SAUTH_Provider_Health::reset( $provider );
-		}
-		SA_Membership_Adapter::audit( 'authentication_guarded_repair_completed', get_current_user_id(), array( 'passkey_schema' => SAUTH_Passkeys::SCHEMA_VERSION ) );
-		wp_safe_redirect( add_query_arg( array( 'page' => 'sabri-authentication-health', 'repair' => 'complete' ), admin_url( 'options-general.php' ) ) );
-		exit;
+	private static function check( $label, $ok, $evidence ) { return array( 'label' => (string) $label, 'status' => $ok ? 'ok' : 'fail', 'evidence' => (string) $evidence ); }
+	private static function claim_repair_lock() {
+		$token = SA_Security::random_token( 16 ); if ( '' === $token ) { return ''; }
+		$value = array( 'token' => $token, 'expires' => time() + self::REPAIR_LOCK_TTL );
+		if ( add_option( self::REPAIR_LOCK_OPTION, $value, '', false ) ) { return $token; }
+		$current = get_option( self::REPAIR_LOCK_OPTION, array() );
+		if ( is_array( $current ) && absint( $current['expires'] ?? 0 ) < time() ) { delete_option( self::REPAIR_LOCK_OPTION ); if ( add_option( self::REPAIR_LOCK_OPTION, $value, '', false ) ) { return $token; } }
+		return '';
 	}
-
-	public static function toggle_safe_mode() {
-		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'Access denied.', 'sabri-authentication' ) );
-		}
-		check_admin_referer( 'sauth_toggle_safe_mode', 'sauth_nonce' );
-		$enabled = ! empty( $_POST['enabled'] ) ? '1' : '0';
-		update_option( self::SAFE_MODE_OPTION, $enabled, false );
-		SA_Membership_Adapter::audit( 'authentication_safe_mode_changed', get_current_user_id(), array( 'enabled' => '1' === $enabled ) );
-		wp_safe_redirect( add_query_arg( 'page', 'sabri-authentication-health', admin_url( 'options-general.php' ) ) );
-		exit;
-	}
-
-	/**
-	 * @param array<int|string,mixed> $manifests Existing foundation manifests.
-	 * @return array<int|string,mixed>
-	 */
-	public static function foundation_manifest( $manifests ) {
-		$manifests = is_array( $manifests ) ? $manifests : array();
-		$manifests['file02-authentication'] = self::module_manifest();
-		return $manifests;
-	}
-
-	/**
-	 * @param array<int|string,mixed> $manifests Existing shell manifests.
-	 * @return array<int|string,mixed>
-	 */
-	public static function shell_manifest( $manifests ) {
-		$manifests = is_array( $manifests ) ? $manifests : array();
-		$manifests['file02-authentication'] = array(
-			'owner'      => 'File 02',
-			'version'    => SA_VERSION,
-			'layout'     => 'single-column-account',
-			'cache'      => 'private-no-store',
-			'routes'     => self::route_manifest(),
-			'safe_mode'  => self::safe_mode(),
-			'health_url' => admin_url( 'options-general.php?page=sabri-authentication-health' ),
-		);
-		return $manifests;
-	}
-
-	public static function announce_contracts() {
-		do_action( 'sauth_contract_manifest_ready', self::module_manifest() );
-		do_action( 'spf_register_module_manifest', 'file02-authentication', self::module_manifest() );
-		do_action( 'sabri_shell_register_route_manifest', 'file02-authentication', self::route_manifest() );
-	}
-
-	public static function module_manifest() {
-		return array(
-			'file'             => '02',
-			'owner'            => 'Authentication and Accounts',
-			'version'          => SA_VERSION,
-			'database_version' => SA_DB_VERSION,
-			'contracts'        => array(
-				'consumer' => array( SAUTH_Account_Contract::CONTRACT_NAME => SAUTH_Account_Contract::CONTRACT_VERSION ),
-				'producer' => array(
-					'sauth.system-check' => '1.1.0',
-					'sauth.account-completion-resolver' => '1.0.0',
-					'sa.cf01.authentication-assurance' => SA_Authentication_Assurance::CONTRACT_VERSION,
-					'file02.passkey-assurance' => SAUTH_Passkeys::CONTRACT_VERSION,
-				),
-			),
-			'routes'    => self::route_manifest(),
-			'safe_mode' => self::safe_mode(),
-		);
-	}
-
-	public static function route_manifest() {
-		$output = array();
-		foreach ( SA_Activator::page_specs() as $key => $spec ) {
-			$output[ $key ] = array(
-				'owner'     => 'File 02',
-				'route'     => '/' . trim( $spec['slug'], '/' ) . '/',
-				'access'    => in_array( $key, array( 'sessions', 'google_account' ), true ) ? 'authenticated' : 'public-or-token',
-				'index'     => 'noindex',
-				'cache'     => 'no-store',
-				'layout'    => 'single-column-account',
-				'shortcode' => $spec['shortcode'],
-			);
-		}
-		$output['passkeys'] = array(
-			'owner'     => 'File 02',
-			'route'     => '/account-passkeys/',
-			'access'    => 'authenticated',
-			'index'     => 'noindex',
-			'cache'     => 'no-store',
-			'layout'    => 'single-column-account',
-			'shortcode' => '[sabri_auth_passkeys]',
-		);
-		return $output;
-	}
-
-	private static function check( $id, $label, $passed, $pass_reason, $fail_reason, $forced_status = '' ) {
-		$status = $forced_status ? $forced_status : ( $passed ? 'pass' : 'fail' );
-		return array(
-			'id'     => sanitize_key( (string) $id ),
-			'label'  => sanitize_text_field( (string) $label ),
-			'status' => $status,
-			'reason' => sanitize_text_field( $passed ? (string) $pass_reason : (string) $fail_reason ),
-		);
-	}
+	private static function release_repair_lock( $token ) { $current = get_option( self::REPAIR_LOCK_OPTION, array() ); if ( is_array( $current ) && isset( $current['token'] ) && hash_equals( (string) $current['token'], (string) $token ) ) { delete_option( self::REPAIR_LOCK_OPTION ); } }
+	private static function redirect( $type, $message ) { wp_safe_redirect( SA_Security::message_url( 'system_check', $type, $message, admin_url( 'admin.php?page=sabri-authentication-system-check' ) ) ); exit; }
 }
