@@ -72,7 +72,7 @@ final class SA_Plugin {
 		return $this->template(
 			'login',
 			array(
-				'google_ready'   => ! SAUTH_Operations::safe_mode() && SAUTH_Provider_Health::allow_request( 'google' ) && SA_Google_OAuth::configured(),
+				'google_ready'   => ! SAUTH_Operations::safe_mode() && SAUTH_Provider_Health::available_for_ui( 'google' ) && SA_Google_OAuth::configured(),
 				'password_ready' => SA_Membership_Adapter::available() && SAUTH_Account_Contract::provider_available(),
 				'redirect_to'    => $redirect,
 				'form_action'     => admin_url( 'admin-post.php' ),
@@ -142,7 +142,7 @@ final class SA_Plugin {
 				'linked'       => SA_Google_OAuth::explicitly_linked( $user->ID ),
 				'google_email' => (string) get_user_meta( $user->ID, '_sa_google_email', true ),
 				'linked_at'    => (string) get_user_meta( $user->ID, '_sa_google_linked_at', true ),
-				'google_ready' => ! SAUTH_Operations::safe_mode() && SAUTH_Provider_Health::allow_request( 'google' ) && SA_Google_OAuth::configured(),
+				'google_ready' => ! SAUTH_Operations::safe_mode() && SAUTH_Provider_Health::available_for_ui( 'google' ) && SA_Google_OAuth::configured(),
 				'eligible'     => SA_Membership_Adapter::can_use_google( $user->ID ),
 				'security_url' => SA_Membership_Adapter::security_url(),
 				'verify_url'   => SA_Membership_Adapter::verification_url(),

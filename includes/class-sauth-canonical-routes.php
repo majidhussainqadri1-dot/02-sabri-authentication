@@ -62,7 +62,7 @@ final class SAUTH_Canonical_Routes {
 			wp_safe_redirect(
 				add_query_arg(
 					'redirect_to',
-					rawurlencode( home_url( '/account/sessions/' ) ),
+					home_url( '/account/sessions/' ),
 					SA_Security::page_url( 'login', wp_login_url() )
 				)
 			);

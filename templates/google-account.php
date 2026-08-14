@@ -10,7 +10,7 @@
 			<a class="sa-primary-button" href="<?php echo esc_url( $verify_url ); ?>">View Membership Verification</a>
 			<a class="sa-secondary-button" href="<?php echo esc_url( $security_url ); ?>">Open Security Center</a>
 		<?php elseif ( ! $google_ready ) : ?>
-			<div class="sa-notice sa-notice-error">Google sign-in is not enabled by the platform administrator.</div>
+			<div class="sa-notice sa-notice-error">Google sign-in and account linking are currently unavailable. This can occur while the provider is disabled, temporarily unhealthy, or authentication Safe Mode is active.</div>
 		<?php elseif ( ! $linked ) : ?>
 			<p class="sa-intro">Link a Google account whose verified email exactly matches <strong><?php echo esc_html( $user->user_email ); ?></strong>. For this sensitive account change, first verify a File 02 passkey in the current session; the passkey is checked again when Google returns.</p>
 			<a class="sa-google-button" href="<?php echo esc_url( wp_nonce_url( add_query_arg( array( 'action' => 'sa_google_start', 'flow' => 'link', 'redirect_to' => SA_Security::page_url( 'google_account' ) ), admin_url( 'admin-post.php' ) ), 'sa_google_link_start' ) ); ?>"><span>Link Matching Google Account</span></a>
