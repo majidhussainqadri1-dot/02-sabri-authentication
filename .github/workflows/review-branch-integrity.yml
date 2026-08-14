@@ -72,9 +72,14 @@ jobs:
             tests/r308-route-ui-regression.php
             tests/r309-release-truth-regression.php
             tests/r310-final-adversarial-regression.php
-            tests/r311-security-boundary-regression.php
           )
-          for test_file in "${tests[@]}"; do php "$test_file"; done
+          for extra in tests/r31*-regression.php tests/r32*-regression.php; do
+            [ -e "$extra" ] && tests+=("$extra")
+          done
+          declare -A seen=()
+          for test_file in "${tests[@]}"; do
+            if [ -z "${seen[$test_file]+x}" ]; then php "$test_file"; seen[$test_file]=1; fi
+          done
 
       - name: Validate JavaScript and CSS source
         run: |
