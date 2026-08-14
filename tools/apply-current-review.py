@@ -8,7 +8,6 @@ def one(s,old,new,label):
     if n!=1: raise SystemExit(f'{label}: expected 1 patch point, found {n}')
     return s.replace(old,new,1)
 
-# R314: interactive Google flow start must not consume the half-open provider probe.
 p='includes/class-sauth-provider-health.php'; s=read(p)
 old="""\t/** Non-mutating projection for buttons/status surfaces. */
 \tpublic static function available_for_ui( $provider ) {
@@ -50,12 +49,12 @@ write(p,s)
 write('tests/r314-google-provider-health-regression.php',r'''<?php
 $root=dirname(__DIR__); $h=file_get_contents($root.'/includes/class-sauth-provider-health.php'); $g=file_get_contents($root.'/includes/class-sa-google-oauth.php'); $r=file_get_contents($root.'/includes/class-sauth-google-registration.php'); $guard=file_get_contents($root.'/includes/class-sauth-provider-http-guard.php'); $fail=array();
 $checks=array(
- array($h,"return 'open' !== $status",'half-open Google circuit cannot become visible for a recovery attempt'),
+ array($h,'return \'open\' !== $status','half-open Google circuit cannot become visible for a recovery attempt'),
  array($g,"available_for_ui( 'google' )",'Google login/link start still consumes the half-open probe'),
  array($r,"available_for_ui( 'google' )",'Google registration start still consumes the half-open probe'),
- array($guard,"allow_request( $provider )",'actual provider HTTP boundary does not own probe acquisition'),
- array($guard,"record_success( $provider",'Google provider success is not recorded centrally'),
- array($guard,"record_failure( $provider",'Google provider failure is not recorded centrally')
+ array($guard,'allow_request( $provider )','actual provider HTTP boundary does not own probe acquisition'),
+ array($guard,'record_success( $provider','Google provider success is not recorded centrally'),
+ array($guard,'record_failure( $provider','Google provider failure is not recorded centrally')
 );
 foreach($checks as $c){if(false===strpos($c[0],$c[1]))$fail[]=$c[2];}
 if(false!==strpos($g,"allow_request( 'google' )"))$fail[]='Google OAuth start retains a direct mutating health gate';
