@@ -1,0 +1,92 @@
+{
+  "round": "R330",
+  "replacements": [
+    {
+      "path": "README.md",
+      "old": "| Source coding | **Review candidate**; R321–R329 corrective review is the current source line |",
+      "new": "| Source coding | **Review candidate**; R321–R330 ten-round corrective review is complete at source level |",
+      "count": 1
+    },
+    {
+      "path": "README.md",
+      "old": "R321–R329",
+      "new": "R321–R330",
+      "replace_all": true,
+      "min_count": 1,
+      "max_count": 4
+    },
+    {
+      "path": "STATUS.md",
+      "old": "Reviewable branch source only; subject to the current R321–R329 cycle",
+      "new": "Reviewable branch source reviewed through the completed R321–R330 ten-round cycle",
+      "count": 1
+    },
+    {
+      "path": "STATUS.md",
+      "old": "R321–R329",
+      "new": "R321–R330",
+      "replace_all": true,
+      "min_count": 1,
+      "max_count": 8
+    },
+    {
+      "path": "RELEASE-MANIFEST.md",
+      "old": "R321–R329",
+      "new": "R321–R330",
+      "replace_all": true,
+      "min_count": 1,
+      "max_count": 8
+    },
+    {
+      "path": "CHANGELOG.md",
+      "old": "R321–R329",
+      "new": "R321–R330",
+      "replace_all": true,
+      "min_count": 1,
+      "max_count": 8
+    },
+    {
+      "path": "REVIEW-REPORT.md",
+      "old": "R321–R329",
+      "new": "R321–R330",
+      "replace_all": true,
+      "min_count": 1,
+      "max_count": 4
+    },
+    {
+      "path": "RELEASE-LOCK.json",
+      "old": "\"coded\": \"review_candidate_r329_corrected\"",
+      "new": "\"coded\": \"review_candidate_r330_corrected\"",
+      "count": 1
+    },
+    {
+      "path": "RELEASE-LOCK.json",
+      "old": "\"review_line\": \"R321-R329-complete\"",
+      "new": "\"review_line\": \"R321-R330-complete\"",
+      "count": 1
+    },
+    {
+      "path": ".github/workflows/baseline-integrity.yml",
+      "old": "required=['README.md','STATUS.md','PLAN-TRACEABILITY.md','RELEASE-MANIFEST.md','RELEASE-LOCK.json','SBOM.spdx.json','tests/r320-final-release-regression.php','tests/r329-release-truth-regression.php']",
+      "new": "required=['README.md','STATUS.md','PLAN-TRACEABILITY.md','RELEASE-MANIFEST.md','RELEASE-LOCK.json','SBOM.spdx.json','tests/r320-final-release-regression.php','tests/r329-release-truth-regression.php','tests/r330-final-adversarial-regression.php']",
+      "count": 1
+    },
+    {
+      "path": ".github/workflows/review-branch-integrity.yml",
+      "old": "          test ! -f tools/apply-current-review.py\n          echo 'Review head contains no installable archive or temporary correction machinery.'",
+      "new": "          test ! -f tools/apply-current-review.py\n          if [ -f .github/workflows/round-ledger-apply.yml ] || [ -f tools/apply-round-ledger.py ]; then\n            echo 'Temporary round-ledger correction machinery remains in final review source.' >&2\n            exit 1\n          fi\n          echo 'Review head contains no installable archive or temporary correction machinery.'",
+      "count": 1
+    }
+  ],
+  "creates": [
+    {
+      "path": "tests/r330-final-adversarial-regression.php",
+      "content": "<?php\n$root = dirname( __DIR__ );\n$fail = array();\n$main = file_get_contents( $root . '/sabri-authentication.php' );\n$lock = json_decode( file_get_contents( $root . '/RELEASE-LOCK.json' ), true );\n$readme = file_get_contents( $root . '/README.md' );\n$status = file_get_contents( $root . '/STATUS.md' );\n$manifest = file_get_contents( $root . '/RELEASE-MANIFEST.md' );\n$changelog = file_get_contents( $root . '/CHANGELOG.md' );\n$report = file_get_contents( $root . '/REVIEW-REPORT.md' );\n$baseline = file_get_contents( $root . '/.github/workflows/baseline-integrity.yml' );\n$review = file_get_contents( $root . '/.github/workflows/review-branch-integrity.yml' );\n$req = static function ( $ok, $message ) use ( &$fail ) { if ( ! $ok ) { $fail[] = $message; } };\n$req( ! file_exists( $root . '/.github/workflows/round-ledger-apply.yml' ), 'temporary round-ledger workflow remains' );\n$req( ! file_exists( $root . '/tools/apply-round-ledger.py' ), 'temporary round-ledger applicator remains' );\n$req( false !== strpos( $review, 'round-ledger-apply.yml' ) && false !== strpos( $review, 'tools/apply-round-ledger.py' ), 'review integrity gate does not reject temporary round-ledger machinery' );\n$req( false !== strpos( $baseline, 'round-ledger-apply.yml' ) && false !== strpos( $baseline, 'tools/apply-round-ledger.py' ), 'release integrity gate does not reject temporary round-ledger machinery' );\n$req( false !== strpos( $baseline, 'tests/r330-final-adversarial-regression.php' ), 'release constitution does not require R330 final regression' );\n$req( false !== strpos( $main, 'Version: 1.2.3' ) && false !== strpos( $main, \"SAUTH_VERSION', '1.2.3\" ), 'runtime release identity changed during R330 cleanup' );\n$req( false !== strpos( $main, \"SAUTH_DB_VERSION', '1.2.1\" ), 'DB identity changed during R330 cleanup' );\n$req( is_array( $lock ) && 'review_candidate_r330_corrected' === ( $lock['status']['coded'] ?? '' ), 'release lock coded status not synchronized to R330' );\n$req( 'R321-R330-complete' === ( $lock['review_line'] ?? '' ), 'release lock review line not synchronized to R330' );\n$req( false === ( $lock['status']['staging_accepted'] ?? true ) && false === ( $lock['status']['live_deployed'] ?? true ) && false === ( $lock['status']['operational'] ?? true ), 'R330 cleanup falsely advances external completion gates' );\nforeach ( array( $readme, $status, $manifest, $changelog, $report ) as $evidence ) { $req( false !== strpos( $evidence, 'R321–R330' ), 'release-facing evidence remains one review round stale' ); }\n$req( false !== strpos( $status, 'Live-Deployed | No' ), 'status must continue to deny live-deployed completion' );\nif ( $fail ) { fwrite( STDERR, \"R330 regressions:\\n- \" . implode( \"\\n- \", $fail ) . \"\\n\" ); exit( 1 ); }\necho 'R330 final adversarial regression PASS (16 assertions).' . PHP_EOL;\n"
+    }
+  ],
+  "deletes": [
+    {"path": ".github/workflows/round-ledger-apply.yml"},
+    {"path": "tools/apply-round-ledger.py"},
+    {"path": "review-evidence/R330-trigger.md"}
+  ]
+}
