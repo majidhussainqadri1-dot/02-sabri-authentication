@@ -82,7 +82,11 @@ final class SAUTH_Passkeys {
 			last_used_at datetime DEFAULT NULL,
 			revoked_at datetime DEFAULT NULL,
 			updated_at datetime NOT NULL,
-			PRIMARY KEY  (id), UNIQUE KEY public_id (public_id), UNIQUE KEY credential_lookup_hash (credential_lookup_hash), KEY user_status (user_id,status), KEY revoked_at (revoked_at)
+			PRIMARY KEY  (id),
+			UNIQUE KEY public_id (public_id),
+			UNIQUE KEY credential_lookup_hash (credential_lookup_hash),
+			KEY user_status (user_id,status),
+			KEY revoked_at (revoked_at)
 		) {$charset};";
 		dbDelta( $sql ); self::ensure_manager_page();
 		$table_ready = self::table_schema_ready();

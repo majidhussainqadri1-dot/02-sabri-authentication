@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 env:
-  RELEASE_VERSION: '1.2.4'
+  RELEASE_VERSION: '1.2.5'
   DB_VERSION: '1.2.1'
   PASSKEY_SCHEMA_VERSION: '1.0.1'
   BASELINE_COMMIT: 8ce0653b6f1de3beb6899642c4446653c40f0501
@@ -52,10 +52,10 @@ jobs:
           lock=json.loads((root/'RELEASE-LOCK.json').read_text())
           def req(ok,msg):
               if not ok: print('ERROR:',msg,file=sys.stderr); raise SystemExit(1)
-          req('Version: 1.2.4' in main and "SAUTH_VERSION', '1.2.4" in main,'runtime release identity mismatch')
+          req('Version: 1.2.5' in main and "SAUTH_VERSION', '1.2.5" in main,'runtime release identity mismatch')
           req("SAUTH_DB_VERSION', '1.2.1" in main,'DB release identity mismatch')
-          req('Stable tag: 1.2.4' in readme,'readme stable tag mismatch')
-          req(lock.get('release_version')=='1.2.4','release lock runtime mismatch')
+          req('Stable tag: 1.2.5' in readme,'readme stable tag mismatch')
+          req(lock.get('release_version')=='1.2.5','release lock runtime mismatch')
           req(lock.get('database_version')=='1.2.1','release lock DB mismatch')
           req(lock.get('passkey_schema_version')=='1.0.1','release lock passkey schema mismatch')
           required=['README.md','STATUS.md','PLAN-TRACEABILITY.md','RELEASE-MANIFEST.md','RELEASE-LOCK.json','SBOM.spdx.json','tests/r320-final-release-regression.php','tests/r329-release-truth-regression.php','tests/r330-final-adversarial-regression.php']

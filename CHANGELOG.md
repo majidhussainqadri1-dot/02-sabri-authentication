@@ -2,6 +2,21 @@
 
 All notable changes to Sabri Authentication and Accounts are recorded here.
 
+## 1.2.5 — Passkey dbDelta Migration Compatibility Candidate
+
+### Corrected
+
+- Real WordPress 7.0 / MariaDB 11.4 upgrade rehearsal proved that the passkey CREATE TABLE statement placed all index definitions on one line, causing `dbDelta()` to misparse later `UNIQUE KEY` / `KEY` tokens into an invalid primary-key ALTER.
+- Each passkey index definition is now emitted on its own SQL line, preserving the exact intended schema while making existing-table reconciliation dbDelta-compatible.
+- Permanent R334 regression coverage rejects the former combined-key line and preserves the one-index-per-line invariant.
+
+### Identity
+
+- Runtime: `1.2.5`.
+- File 02 DB schema remains `1.2.1`.
+- Passkey schema remains `1.0.1`; passkey assurance contract remains `1.0.0`.
+- Staging-Accepted, Live-Deployed and Operational remain unclaimed.
+
 ## 1.2.4 — Canonical Account Taxonomy Parity Candidate
 
 ### Corrected

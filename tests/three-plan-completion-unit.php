@@ -1,7 +1,7 @@
 <?php
 /**
  * Source-level preservation guard: all prior three-plan requirements must remain
- * present in File 02 v1.2.4 while the fourth-plan passkey extension, the
+ * present in File 02 v1.2.5 while the fourth-plan passkey extension, the
  * live-proven storage-router bootstrap correction and R321-R329 hardening remain intact.
  */
 
@@ -29,8 +29,8 @@ $main = sauth_three_plan_read( $root, 'sabri-authentication.php' );
 sauth_three_plan_require(
 	$main,
 	array(
-		'Version: 1.2.4',
-		"define( 'SAUTH_VERSION', '1.2.4' );",
+		'Version: 1.2.5',
+		"define( 'SAUTH_VERSION', '1.2.5' );",
 		"define( 'SAUTH_DB_VERSION', '1.2.1' );",
 		"define( 'SAUTH_ACCOUNT_CONTRACT_VERSION', '1.1.0' );",
 		'class-sauth-storage-router.php',
@@ -82,12 +82,12 @@ $passkeys = sauth_three_plan_read( $root, 'includes/class-sauth-passkeys.php' );
 sauth_three_plan_require( $passkeys, array("const SCHEMA_VERSION        = '1.0.1';",'smc_file02_authentication_assurance_v1','webauthn.create','webauthn.get','parse_attestation_object','cose_public_key_to_pem','challenge_claim_key'), 'fourth-plan passkey extension' );
 
 $readme = sauth_three_plan_read( $root, 'readme.txt' );
-sauth_three_plan_require( $readme, array( 'Stable tag: 1.2.4', '/account/sessions/', 'Google-first registration', 'Passkey', 'city', 'ethical' ), 'readme' );
+sauth_three_plan_require( $readme, array( 'Stable tag: 1.2.5', '/account/sessions/', 'Google-first registration', 'Passkey', 'city', 'ethical' ), 'readme' );
 
 $status = sauth_three_plan_read( $root, 'STATUS.md' );
-sauth_three_plan_require( $status, array( 'Version 1.2.4', 'Source coding', 'Automated-QA', 'Staging-Accepted', 'Operational', 'Passkey' ), 'status truth' );
+sauth_three_plan_require( $status, array( 'Version 1.2.5', 'Source coding', 'Automated-QA', 'Staging-Accepted', 'Operational', 'Passkey' ), 'status truth' );
 
 $workflow = sauth_three_plan_read( $root, '.github/workflows/baseline-integrity.yml' );
-sauth_three_plan_require( $workflow, array( 'three-plan-completion-unit.php', 'passkey-webauthn-unit.php', 'tests/r32*-regression.php', 'deterministic-package', 'upload-artifact', '1.2.4' ), 'release workflow' );
+sauth_three_plan_require( $workflow, array( 'three-plan-completion-unit.php', 'passkey-webauthn-unit.php', 'tests/r32*-regression.php', 'deterministic-package', 'upload-artifact', '1.2.5' ), 'release workflow' );
 
-echo "File 02 prior three-plan requirements preserved inside 1.2.4 R321-R329 hardened candidate.\n";
+echo "File 02 prior three-plan requirements preserved inside 1.2.5 R321-R329 hardened candidate.\n";

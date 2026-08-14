@@ -1,4 +1,4 @@
-# File 02 Staging Acceptance — Version 1.2.4
+# File 02 Staging Acceptance — Version 1.2.5
 
 This checklist proves real-environment acceptance; repository CI alone cannot complete it.
 

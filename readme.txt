@@ -4,14 +4,14 @@ Tags: authentication, passkeys, webauthn, google login, registration, accounts, 
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.2.4
+Stable tag: 1.2.5
 License: GPLv2 or later
 
 Complete authentication and account-entry orchestration for the Sabri Social Homeopathy Platform. File 00 — Sabri Membership Core remains the exclusive identity, membership, account-class, guardian, role, verification and MFA-policy authority; File 02 owns password, Google OAuth and WebAuthn/passkey authentication ceremonies.
 
 == Truthful release status ==
 
-Version 1.2.4 is the current post-R331 repository/source candidate. It retains the R321–R330 hardening and adds canonical File 00 account-taxonomy parity without aliases or lossy remapping. DB identity remains 1.2.1 and passkey schema identity remains 1.0.1. Source/CI completion does not by itself prove Hostinger staging, deployment or operations.
+Version 1.2.5 is the current post-R331 repository/source candidate. It retains the R321–R330 hardening and adds canonical File 00 account-taxonomy parity without aliases or lossy remapping. DB identity remains 1.2.1 and passkey schema identity remains 1.0.1. Source/CI completion does not by itself prove Hostinger staging, deployment or operations.
 
 == Canonical constitution ==
 
@@ -78,6 +78,12 @@ If a required contract is missing, malformed or circuit-open, protected mutation
 Passwords, reset keys, verification tokens, OAuth tokens, TOTP/recovery codes, passkey private keys, biometric templates, raw session tokens, full IP addresses and provider secrets are excluded from events and public diagnostics. Authentication success is never authorization.
 
 == Changelog ==
+
+= 1.2.5 =
+* Corrects the real MariaDB/WebAuthn upgrade defect in the passkey table definition by emitting every dbDelta index definition on its own CREATE TABLE line.
+* Preserves DB schema identity 1.2.1, passkey schema identity 1.0.1 and passkey assurance contract 1.0.0 because the intended physical schema is unchanged.
+* Retains canonical File 00 account-taxonomy parity and the exact File 00 1.2.44 integration boundary. Repository success does not establish staging or live deployment.
+
 
 = 1.2.4 =
 * Aligns File 02 declared account choices with File 00 canonical account taxonomy: member, patient, student, doctor, teacher, researcher, pharmacy, clinic and publisher.
