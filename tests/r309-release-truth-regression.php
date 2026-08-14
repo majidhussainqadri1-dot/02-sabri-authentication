@@ -10,10 +10,12 @@ $staging = file_get_contents( $root . '/STAGING-ACCEPTANCE.md' );
 $sbom = file_get_contents( $root . '/SBOM.spdx.json' );
 $fail = array();
 $checks = array(
-  array($baseline, "'intended_canonical_repository': '02-sabri-authentication-and-accounts'", 'release CI expects obsolete lock schema'),
-  array($baseline, 'tests/r308-route-ui-regression.php', 'release CI omits latest permanent regressions'),
-  array($docs, 'SAUTH_Passkeys::maybe_install( true )', 'storage/docs gate asserts obsolete repair call'),
-  array($integration, 'c4ab298b3ba2b870d507d32b36b1b4afd2771621', 'integration gate is not pinned to R309 File00 main truth'),
+  array($baseline, "lock.get('release_version')=='1.2.2'", 'release CI does not enforce current release-lock runtime identity'),
+  array($baseline, 'tests/r32*-regression.php', 'release CI omits final corrective regressions'),
+  array($docs, 'table_indexes_ready', 'storage/docs gate does not assert material index readiness'),
+  array($docs, 'tests/r32*-regression.php', 'storage/docs gate omits final corrective regressions'),
+  array($integration, 'c4ab298b3ba2b870d507d32b36b1b4afd2771621', 'integration gate is not pinned to current File00 main truth'),
+  array($integration, 'Rehearse legacy 1.2.1 passkey-column upgrade on real MariaDB', 'integration gate lacks supported passkey upgrade rehearsal'),
   array($incident, 'live symptom → live evidence → exact deployed version → DB/schema state → deployment parity → root cause → repository code', 'incident runbook lacks Live-First order'),
   array($incident, 'Repository HEAD / Deployed Version / DB Version / Migration State / Live Verification Status', 'incident report lacks mandatory truth fields'),
   array($architecture, 'dedicated-`SA_MASTER_KEY`', 'architecture omits dedicated provider-secret key authority'),
