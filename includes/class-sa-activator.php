@@ -27,12 +27,20 @@ final class SA_Activator {
 		if ( ! SA_Membership_Adapter::plugin_active() ) {
 			deactivate_plugins( plugin_basename( SAUTH_FILE ) );
 			wp_die(
-				esc_html__( 'Sabri Authentication requires File 00 — Sabri Membership Core 1.2.11 or later with smc.authentication-account 1.1.0 and the approved assurance contract. No account, role, guardian or verification authority will be created independently.', 'sabri-authentication' ),
+				esc_html__( 'Sabri Authentication requires File 00 — Sabri Membership Core 1.2.43 or later with its current database migration complete, Safe Mode clear, smc.authentication-account 1.1.0 and the current membership-assurance contract. No account, role, guardian or verification authority will be created independently.', 'sabri-authentication' ),
 				esc_html__( 'Required dependency missing', 'sabri-authentication' ),
 				array( 'back_link' => true )
 			);
 		}
-		self::repair();
+		if ( ! self::repair() ) {
+			update_option( SAUTH_Operations::SAFE_MODE_OPTION, '1', false );
+			deactivate_plugins( plugin_basename( SAUTH_FILE ) );
+			wp_die(
+				esc_html__( 'File 02 activation stopped because its database/page migration postconditions were not satisfied. Safe Mode was enabled and no successful version marker was published.', 'sabri-authentication' ),
+				esc_html__( 'Authentication migration incomplete', 'sabri-authentication' ),
+				array( 'back_link' => true )
+			);
+		}
 		add_option( 'sauth_google_enabled', '0', '', false );
 		add_option( 'sauth_google_client_id', '', '', false );
 		add_option( SAUTH_Operations::SAFE_MODE_OPTION, '0', '', false );
@@ -59,7 +67,9 @@ final class SA_Activator {
 		$stored_db = (string) get_option( 'sauth_db_version', get_option( 'sa_db_version', '' ) );
 		$stored    = (string) get_option( 'sauth_version', get_option( 'sa_version', '' ) );
 		if ( SAUTH_DB_VERSION !== $stored_db || SAUTH_VERSION !== $stored ) {
-			self::repair();
+			if ( ! self::repair() ) {
+				update_option( SAUTH_Operations::SAFE_MODE_OPTION, '1', false );
+			}
 		}
 	}
 
@@ -74,13 +84,25 @@ final class SA_Activator {
 		self::create_device_table();
 		self::create_risk_challenge_table();
 		self::create_attempt_table();
-		self::migrate_legacy_tables();
+		$migration_ok = self::migrate_legacy_tables();
 		self::create_pages();
 		self::migrate_google_secret();
 		self::ensure_dummy_password_hash();
+
+		/* Never publish a successful runtime/schema marker merely because dbDelta
+		 * returned. Prove every required table and managed page exists first and
+		 * preserve retryability on partial/failed deployment. */
+		if ( ! $migration_ok || ! self::storage_ready() ) {
+			return false;
+		}
+
 		update_option( 'sauth_version', SAUTH_VERSION, false );
 		update_option( 'sauth_db_version', SAUTH_DB_VERSION, false );
-		/* Compatibility mirrors are retained only for old integrations. */
+		if ( SAUTH_VERSION !== (string) get_option( 'sauth_version', '' ) || SAUTH_DB_VERSION !== (string) get_option( 'sauth_db_version', '' ) ) {
+			return false;
+		}
+		/* Compatibility mirrors are retained only for old integrations; they are
+		 * not accepted as proof of a completed canonical migration. */
 		update_option( 'sa_version', SAUTH_VERSION, false );
 		update_option( 'sa_db_version', SAUTH_DB_VERSION, false );
 		return true;
@@ -282,6 +304,7 @@ final class SA_Activator {
 	 */
 	public static function migrate_legacy_tables() {
 		global $wpdb;
+		$ok = true;
 		$columns = array(
 			'rate_limits'         => 'bucket_hash,hits,window_started,expires_at,updated_at',
 			'auth_outbox'         => 'id,event_id,event_name,schema_version,privacy_class,actor_user_id,subject_user_id,trace_id,payload_json,status,attempts,available_at,published_at,last_error,created_at,updated_at',
@@ -301,9 +324,42 @@ final class SA_Activator {
 			if ( $legacy !== $exists ) {
 				continue;
 			}
-			$wpdb->query( "INSERT IGNORE INTO {$canonical} ({$column_list}) SELECT {$column_list} FROM {$legacy}" ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+			$result = $wpdb->query( "INSERT IGNORE INTO {$canonical} ({$column_list}) SELECT {$column_list} FROM {$legacy}" ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+			if ( false === $result ) {
+				$ok = false;
+			}
 		}
-		update_option( 'sauth_legacy_table_migration_version', SAUTH_DB_VERSION, false );
+		if ( $ok ) {
+			update_option( 'sauth_legacy_table_migration_version', SAUTH_DB_VERSION, false );
+		}
+		return $ok;
+	}
+
+
+	/**
+	 * Canonical migration postcondition. Version markers are evidence only after
+	 * every File 02 table and every managed core page is materially present.
+	 */
+	public static function storage_ready() {
+		global $wpdb;
+		foreach ( self::required_tables() as $table ) {
+			if ( '' === $table ) {
+				return false;
+			}
+			$exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) );
+			if ( $table !== (string) $exists ) {
+				return false;
+			}
+		}
+		$map = (array) get_option( 'sauth_page_map', array() );
+		foreach ( self::page_specs() as $key => $spec ) {
+			$page_id = isset( $map[ $key ] ) ? absint( $map[ $key ] ) : 0;
+			$page = $page_id ? get_post( $page_id ) : null;
+			if ( ! $page instanceof WP_Post || 'page' !== $page->post_type || 'trash' === $page->post_status || ! self::is_owned_page( $page ) || ! self::exact_shortcode_page( $page, $spec['shortcode'] ) ) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	public static function create_pages() {
