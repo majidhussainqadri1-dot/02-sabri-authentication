@@ -23,6 +23,9 @@ function home_url( $path = '/' ) {
 function wp_validate_redirect( $url, $fallback = '' ) {
 	return 0 === strpos( (string) $url, 'https://example.test/' ) ? $url : $fallback;
 }
+function apply_filters( $hook, $value ) {
+	return $value;
+}
 function add_query_arg( $args, $url ) {
 	$args = is_array( $args ) ? $args : array();
 	$query = http_build_query( $args );
