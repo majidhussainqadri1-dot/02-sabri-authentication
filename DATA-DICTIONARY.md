@@ -71,4 +71,4 @@ File 00 Advanced Trust also remains the policy owner for MFA/identity assurance.
 
 ## Storage migration and rollback compatibility
 
-Pre-1.1 installations may contain corresponding `wp_sa_*` tables. Activation/repair creates the canonical `wp_sauth_*` baseline and copies legacy rows idempotently through `INSERT IGNORE`. Version 1.2.0 adds `wp_sauth_passkeys` without rewriting File 00 data. Legacy tables are not deleted automatically and remain rollback evidence until a separately approved purge.
+Pre-1.1 installations may contain corresponding `wp_sa_*` tables. Activation/repair creates the canonical `wp_sauth_*` baseline and copies legacy rows idempotently through `INSERT IGNORE`. Version 1.2.0 adds `wp_sauth_passkeys` without rewriting File 00 data. Current review hardening also reconciles legacy File 02 passkey columns `credential_hash` / `credential_cipher` into canonical `credential_lookup_hash` / `credential_id_ciphertext` before passkey schema readiness can succeed. Legacy tables and source columns are not destructively purged automatically and remain rollback evidence until a separately approved purge.

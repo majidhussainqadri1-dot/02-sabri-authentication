@@ -6,7 +6,7 @@
   "release_version": "1.2.1",
   "database_version": "1.2.0",
   "passkey_schema_version": "1.0.0",
-  "candidate_branch": "review/file02-r301-r310-2026-08-14",
+  "candidate_branch": "review/file02-r311-r320-2026-08-14",
   "current_repository_main": "0f011b1876e217b7ee46f92903e5315538c1025e",
   "intended_canonical_repository": "02-sabri-authentication-and-accounts",
   "transport_repository": "02-sabri-authentication",
@@ -44,5 +44,9 @@
     "Security/privacy/IDOR/replay/race/accessibility/performance acceptance",
     "Backup/restore and rollback rehearsal",
     "Founder staging and production authorization"
+  ],
+  "review_line": "R311-R320",
+  "cross_file_blockers": [
+    "File 00 canonical account taxonomy and smc.authentication-account 1.1.0 provider vocabulary require owner-side harmonization before release; File 02 does not perform a lossy remap."
   ]
 }

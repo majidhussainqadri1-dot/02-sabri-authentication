@@ -5,8 +5,8 @@
 - Module: `02 — Authentication and Accounts`
 - Candidate version/schema: `1.2.1 / 1.2.0`
 - Passkey schema/assurance: `1.0.0 / 1.0.0`
-- Candidate branch: `review/file02-r301-r310-2026-08-14`
-- Current repository `main` at R301 freeze: `0f011b1876e217b7ee46f92903e5315538c1025e`
+- Candidate branch: `review/file02-r311-r320-2026-08-14`
+- Current repository `main` re-verified during R319: `0f011b1876e217b7ee46f92903e5315538c1025e`
 - Historical incident baseline main: `8192c45b595b34e13e09934e3b2d554aa2d8553f`
 - Intended canonical repository name: `02-sabri-authentication-and-accounts` (owner-level rename is still external)
 - Current transport repository: `02-sabri-authentication`
@@ -15,8 +15,9 @@
 - Manifest: `02-sabri-authentication-1.2.1-MANIFEST.json`
 - Checksums: `CHECKSUMS.sha256` plus exact-head CI checksum record
 - SBOM: `SBOM.spdx.json`
-- Required File 00 provider: `smc.authentication-account 1.1.0`; R309 integration freeze: File 00 `c4ab298b3ba2b870d507d32b36b1b4afd2771621` / runtime 1.2.43 / DB 1.4.5
+- Required File 00 provider: `smc.authentication-account 1.1.0`; R319 dependency re-verification: File 00 `c4ab298b3ba2b870d507d32b36b1b4afd2771621` / runtime 1.2.43 / DB 1.4.5
 - Advanced Trust projection: File 02 passkey assurance `1.0.0`, owner `file02`
+- Cross-file release blocker: File 00 must harmonize its canonical account taxonomy with the `smc.authentication-account 1.1.0` provider vocabulary; File 02 deliberately performs no lossy remap.
 
 ## Patch correction
 

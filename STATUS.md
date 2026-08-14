@@ -2,9 +2,9 @@
 
 ## Current candidate
 
-- Branch: `review/file02-r301-r310-2026-08-14`
+- Branch: `review/file02-r311-r320-2026-08-14`
 - Version/schema: `1.2.1 / 1.2.0`; passkey table schema `1.0.0`
-- Repository `main` at R301 freeze: `0f011b1876e217b7ee46f92903e5315538c1025e`
+- Repository `main` re-verified during R319: `0f011b1876e217b7ee46f92903e5315538c1025e`
 - Governing corpus: Definitive Master Plan v3.0; `SSH-F02-PLAN-2026-v1.0`; Consolidated All-Chats Directives v2.1; Continuous-Value/Top-20 Superset plan; later cross-file ownership refinement for File 02 passkey/WebAuthn ceremony
 - Intended canonical repository name: `02-sabri-authentication-and-accounts` (rename not yet performed)
 - Current transport repository: `02-sabri-authentication`
@@ -41,14 +41,14 @@
 7. Passkey domain events are privacy-minimized first-class events.
 8. Passkey activation/deactivation lifecycle and no-network WebAuthn regression coverage were added.
 9. The 1.2.0 storage-router bootstrap fatal was corrected in 1.2.1.
-10. R291–R300 added dependency, Safe Mode, asynchronous privacy-job, passkey assurance, Google-flow and exact-head review hardening; R301 began a fresh review line from that corrected source.
+10. R291–R300 added dependency, Safe Mode, asynchronous privacy-job, passkey assurance, Google-flow and exact-head review hardening; R301–R310 completed the prior corrective line; R311–R318 completed further sequential review/fix/retest rounds, and R319–R320 are the current closing review line.
 
 ## Seven separate completion gates
 
 | Gate | Status | Evidence boundary |
 |---|---|---|
 | Specified | Complete | Governing File 02 + central/Continuous-Value + cross-file ownership traced |
-| Source coding | **Review candidate** | Reviewable branch source only; subject to the current R301–R310 cycle |
+| Source coding | **Review candidate** | Reviewable branch source only; subject to the current R311–R320 cycle |
 | Packaged | Not claimed from review branch | Release packaging is a separate gate |
 | Automated-QA | Review exact-head gate | Review CI may prove lint/regression only for its exact head |
 | Staging-Accepted | No | Real Hostinger/WebAuthn/provider/browser evidence absent |
@@ -57,6 +57,7 @@
 
 ## External owner and environment gates
 
+- Cross-file release blocker: File 00 canonical account taxonomy and its `smc.authentication-account 1.1.0` provider vocabulary still require owner-side harmonization; File 02 intentionally does not invent a lossy account-type remap.
 - Hostinger fresh install and supported upgrade tests, including `dbDelta` creation of the passkey table and private manager page.
 - Real production-domain WebAuthn tests with platform authenticators, synced passkeys and cross-platform security keys; real Google and SMTP providers.
 - Accepted File 00 account/membership integration plus File 01/File 20/File 03/File 24/theme/LiteSpeed integrations.

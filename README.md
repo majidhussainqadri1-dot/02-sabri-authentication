@@ -37,16 +37,16 @@ The candidate retains:
 
 File 00 must provide `smc.authentication-account 1.1.0` and the existing assurance provider. The later Advanced Trust consumer reads the File 02 passkey projection through `smc_file02_authentication_assurance_v1` contract `1.0.0` and independently validates owner/version/freshness/revalidation before any elevation.
 
-The File 00 integration dependency is a separate repository truth. R309 freezes its current `main` at `c4ab298b3ba2b870d507d32b36b1b4afd2771621` (runtime 1.2.43 / DB 1.4.5); File 02 release evidence must prove compatibility with that exact dependency or a later explicitly approved replacement.
+The File 00 integration dependency is a separate repository truth. R319 re-verifies its current `main` at `c4ab298b3ba2b870d507d32b36b1b4afd2771621` (runtime 1.2.43 / DB 1.4.5); File 02 release evidence must prove compatibility with that exact dependency or a later explicitly approved replacement.
 
 ## Truthful status
 
 | Gate | Status |
 |---|---|
 | Specified | Complete |
-| Source coding | **Review candidate**; R301–R310 closure and exact-head CI are required |
-| Packaged | Exact-head deterministic CI gate |
-| Automated QA | Exact-head CI gate, including real WordPress/File 00 integration |
+| Source coding | **Review candidate**; R311–R320 corrective review is the current source line |
+| Packaged | Not claimed from this review branch; separate deterministic release gate |
+| Automated QA | Review exact-head lint/regression gate only; real WordPress/File 00 integration remains separate |
 | Hostinger staging | Pending |
 | Real WebAuthn/SMTP/Google/browser/RTL/WCAG/load | Pending |
 | Backup/restore and rollback rehearsal | Pending |

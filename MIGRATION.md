@@ -45,8 +45,9 @@ File 02 never migrates or mutates File 00 roles, membership approvals, account-c
 - Existing users remain valid under their prior approved authentication methods; passkey enrollment is an explicit authenticated action.
 - Passkey registration generates a random opaque user handle and derives the public key only from server-parsed authenticator data.
 - Existing WordPress salts can be rotated without changing the stable credential-ID lookup hash; encrypted exclusion/presentation copies fail closed if key material changes unexpectedly.
+- Legacy File 02 passkey rows using `credential_hash` / `credential_cipher` are reconciled non-destructively into canonical `credential_lookup_hash` / `credential_id_ciphertext` columns before schema completion is accepted; incomplete copies fail the migration postcondition.
 - File 00 receives only the versioned fresh passkey-assurance projection; no File 00 private MFA storage is imported into File 02.
-- If passkey table creation fails, password/Google authentication can remain available where their own dependencies are healthy, but passkey operations remain disabled and the System Check reports the missing schema.
+- Passkey storage, canonical manager-page and cleanup-schedule postconditions are mandatory activation/guarded-repair postconditions. If they fail, File 02 fails closed, does not publish a successful version/schema marker, enters/retains containment as applicable, and must not claim password/Google authentication availability from that incomplete migration.
 
 ## Reconciliation
 

@@ -44,7 +44,7 @@ final class SA_Membership_Adapter {
 
 	public static function login_url( $redirect = '' ) {
 		$url = SA_Security::page_url( 'login', wp_login_url() );
-		return $redirect ? add_query_arg( 'redirect_to', rawurlencode( SA_Security::safe_redirect( $redirect ) ), $url ) : $url;
+		return $redirect ? add_query_arg( 'redirect_to', SA_Security::safe_redirect( $redirect ), $url ) : $url;
 	}
 
 	public static function register_url() {
@@ -126,15 +126,15 @@ final class SA_Membership_Adapter {
 			&& empty( $assertion['membership']['suspended'] );
 	}
 
-	/** Historical helper now reflects current File 02 passkey assurance only. */
+	/** Historical helper now reflects current hardened File 02 passkey assurance only. */
 	public static function two_factor_enabled( $user_id ) {
 		$user_id = absint( $user_id );
-		if ( ! $user_id || ! class_exists( 'SAUTH_Passkeys' ) || ! is_callable( array( 'SAUTH_Passkeys', 'file00_assurance' ) ) ) {
+		if ( ! $user_id || ! class_exists( 'SAUTH_Passkey_Runtime' ) || ! is_callable( array( 'SAUTH_Passkey_Runtime', 'current_assurance' ) ) ) {
 			return false;
 		}
 		try {
-			$assurance = SAUTH_Passkeys::file00_assurance( array(), $user_id );
-			return is_array( $assurance ) && 'file02' === ( $assurance['owner'] ?? '' ) && ! empty( $assurance['passkey_asserted'] );
+			$assurance = SAUTH_Passkey_Runtime::current_assurance( $user_id );
+			return is_array( $assurance ) && 'file02' === ( $assurance['owner'] ?? '' ) && ! empty( $assurance['passkey_asserted'] ) && (int) ( $assurance['level'] ?? 0 ) >= 3;
 		} catch ( Throwable $error ) {
 			return false;
 		}

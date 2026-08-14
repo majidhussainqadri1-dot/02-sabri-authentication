@@ -49,7 +49,7 @@ Session-, purpose- and scope-bound authentication assurance for approved clinica
 
 ### `smc_file02_authentication_assurance_v1` / File 02 Advanced Trust projection 1.0.0
 
-Consumer: File 00 Advanced Trust. Producer: `SAUTH_Passkeys::file00_assurance()`.
+Consumer: File 00 Advanced Trust. Public compatibility/filter projection: `SAUTH_Passkeys::file00_assurance()`. Current File 02 assurance consumers use the hardened epoch-aware `SAUTH_Passkey_Runtime::current_assurance()` projection so credential changes invalidate stale receipts.
 
 A successful fresh passkey sign-in may project only:
 
