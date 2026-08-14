@@ -17,7 +17,9 @@ $req( false !== strpos( $passkeys, "const SCHEMA_VERSION        = '1.0.1'" ), 'p
 $req( false !== strpos( $main, "SAUTH_PASSKEY_CONTRACT_VERSION', '1.0.0" ), 'passkey assurance contract changed during R335' );
 $req( is_array( $lock ) && '1.2.6' === ( $lock['release_version'] ?? '' ), 'release lock runtime stale' );
 $req( 'fix/file02-passkey-index-reconciliation-1.2.6' === ( $lock['candidate_branch'] ?? '' ), 'release lock branch stale' );
-$req( ! empty( $lock['cross_file_blockers'] ), 'cross-file blocker cleared before exact R335 integration retest' );
+$integration_evidence = is_array( $lock['cross_file_integration_evidence'] ?? null ) ? $lock['cross_file_integration_evidence'] : array();
+$req( empty( $lock['cross_file_blockers'] ) && 'repository_integration_green' === (string) ( $integration_evidence['status'] ?? '' ), 'R335 blocker closure lacks green post-integration evidence' );
+$req( 31850253635 === (int) ( $integration_evidence['workflow_run_id'] ?? 0 ), 'R335 closure points at the wrong integration run' );
 $req( false === ( $lock['status']['staging_accepted'] ?? true ) && false === ( $lock['status']['live_deployed'] ?? true ) && false === ( $lock['status']['operational'] ?? true ), 'external completion falsely advanced' );
 $req( false !== strpos( $integration, "FILE00_VERSION: '1.2.44'" ) && false !== strpos( $integration, "FILE02_VERSION: '1.2.6'" ), 'paired integration identities stale' );
 $req( false !== strpos( $integration, '1d7f215193d778b0977c8e50d738c42e1e5f66c2' ), 'File 00 exact integration pin stale' );
@@ -25,4 +27,4 @@ $req( file_exists( $root . '/review-evidence/R335-REVIEW-FROZEN.md' ) && file_ex
 $req( ! file_exists( $root . '/.github/workflows/r335-passkey-index-diagnostic.yml' ), 'temporary R335 diagnostic workflow remains' );
 $req( ! file_exists( $root . '/tools/apply-r335-passkey-index-reconciliation.py' ), 'temporary R335 applicator remains' );
 if ( $fail ) { fwrite( STDERR, "R335 regressions:\n- " . implode( "\n- ", $fail ) . "\n" ); exit( 1 ); }
-echo 'R335 passkey index reconciliation regression PASS (18 assertions).' . PHP_EOL;
+echo 'R335 passkey index reconciliation invariants PASS (19 assertions).' . PHP_EOL;
