@@ -1,6 +1,6 @@
 <?php
 /**
- * No-network policy tests for F02-FR-007 through F02-FR-012.
+ * No-network policy tests for completion, provider health, login risk and sessions.
  */
 
 define( 'ABSPATH', __DIR__ . '/' );
@@ -10,6 +10,7 @@ define( 'MINUTE_IN_SECONDS', 60 );
 define( 'SA_VERSION', '1.0.0' );
 
 $GLOBALS['sauth_test_transients'] = array();
+$GLOBALS['sauth_test_options'] = array();
 $GLOBALS['sauth_test_pages'] = array(
 	'login'          => 'https://example.test/login/',
 	'signup'         => 'https://example.test/register/',
@@ -44,9 +45,18 @@ function set_transient( $key, $value, $ttl ) { $GLOBALS['sauth_test_transients']
 function get_transient( $key ) {
 	if ( ! isset( $GLOBALS['sauth_test_transients'][ $key ] ) ) { return false; }
 	$record = $GLOBALS['sauth_test_transients'][ $key ];
-	return $record['expires'] > time() ? $record['value'] : false;
+	if ( $record['expires'] <= time() ) { unset( $GLOBALS['sauth_test_transients'][ $key ] ); return false; }
+	return $record['value'];
 }
 function delete_transient( $key ) { unset( $GLOBALS['sauth_test_transients'][ $key ] ); return true; }
+function add_option( $key, $value, $deprecated = '', $autoload = null ) {
+	if ( array_key_exists( $key, $GLOBALS['sauth_test_options'] ) ) { return false; }
+	$GLOBALS['sauth_test_options'][ $key ] = $value;
+	return true;
+}
+function get_option( $key, $default = false ) { return array_key_exists( $key, $GLOBALS['sauth_test_options'] ) ? $GLOBALS['sauth_test_options'][ $key ] : $default; }
+function update_option( $key, $value, $autoload = null ) { $GLOBALS['sauth_test_options'][ $key ] = $value; return true; }
+function delete_option( $key ) { unset( $GLOBALS['sauth_test_options'][ $key ] ); return true; }
 function wp_generate_uuid4() { return '123e4567-e89b-42d3-a456-426614174000'; }
 function is_wp_error( $value ) { return $value instanceof WP_Error; }
 
@@ -54,6 +64,7 @@ class SA_Security {
 	public static function client_fingerprint() { return str_repeat( 'a', 64 ); }
 	public static function safe_redirect( $url, $fallback = '' ) { return wp_validate_redirect( $url, $fallback ?: home_url( '/' ) ); }
 	public static function page_url( $key, $fallback = '' ) { return $GLOBALS['sauth_test_pages'][ $key ] ?? $fallback; }
+	public static function random_token( $bytes = 16 ) { return substr( hash( 'sha256', 'provider-health-test|' . $bytes . '|' . microtime( true ) ), 0, max( 16, min( 64, $bytes * 2 ) ) ); }
 }
 class SA_Membership_Adapter {
 	public static function profile_url() { return 'https://example.test/sabri-profile/'; }
