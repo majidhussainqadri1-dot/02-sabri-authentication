@@ -36,9 +36,10 @@ jobs:
 
           p = Path('tests/professional-reauthentication-unit.php')
           text = p.read_text(encoding='utf-8')
+          text = text.replace("define( 'SAUTH_VERSION', '1.2.1' );\n", "define( 'SAUTH_VERSION', '1.2.1' );\nclass WP_User { public $ID; public $user_pass; public function __construct( $id, $hash ) { $this->ID = $id; $this->user_pass = $hash; } }\n", 1)
           text = text.replace("$GLOBALS['sa_password_ok'] = true;\n", "$GLOBALS['sa_password_ok'] = true;\n$GLOBALS['sa_user_pass'] = 'stored-hash';\n", 1)
           old = "function get_userdata( $user_id ) { return 7 === (int) $user_id ? (object) array( 'ID' => 7, 'user_pass' => 'stored-hash' ) : false; }\nfunction wp_check_password( $password, $hash, $user_id ) { return (bool) $GLOBALS['sa_password_ok'] && 'stored-hash' === $hash && 7 === (int) $user_id; }"
-          new = "function get_userdata( $user_id ) { return 7 === (int) $user_id ? (object) array( 'ID' => 7, 'user_pass' => (string) $GLOBALS['sa_user_pass'] ) : false; }\nfunction wp_check_password( $password, $hash, $user_id ) { return (bool) $GLOBALS['sa_password_ok'] && (string) $GLOBALS['sa_user_pass'] === (string) $hash && 7 === (int) $user_id; }"
+          new = "function get_userdata( $user_id ) { return 7 === (int) $user_id ? new WP_User( 7, (string) $GLOBALS['sa_user_pass'] ) : false; }\nfunction wp_check_password( $password, $hash, $user_id ) { return (bool) $GLOBALS['sa_password_ok'] && (string) $GLOBALS['sa_user_pass'] === (string) $hash && 7 === (int) $user_id; }"
           if old not in text: raise SystemExit('professional password fixture anchor missing')
           text = text.replace(old, new, 1)
           anchor = "sa_prof_assert( true === $result['password_verified'], 'existing receipt retains verified-password evidence' );\n"
