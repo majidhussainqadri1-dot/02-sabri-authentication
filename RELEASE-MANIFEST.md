@@ -21,7 +21,7 @@
 
 ## Current hardening release
 
-Version 1.2.3 is the repository/source identity for the completed R321–R329 corrective line. It advances DB identity to 1.2.1 and passkey schema identity to 1.0.1, requires material columns plus security-critical indexes before migration readiness, reconciles legacy passkey columns non-destructively, and carries the permanent regressions and real File 00/MariaDB upgrade gate. This source identity is not a staging/live claim.
+Version 1.2.3 is the repository/source identity for the completed R321–R330 corrective line. It advances DB identity to 1.2.1 and passkey schema identity to 1.0.1, requires material columns plus security-critical indexes before migration readiness, reconciles legacy passkey columns non-destructively, and carries the permanent regressions and real File 00/MariaDB upgrade gate. This source identity is not a staging/live claim.
 
 ## Patch correction
 

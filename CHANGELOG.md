@@ -2,7 +2,7 @@
 
 All notable changes to Sabri Authentication and Accounts are recorded here.
 
-## 1.2.3 — R321–R329 Corrective Hardening Candidate
+## 1.2.3 — R321–R330 Corrective Hardening Candidate
 
 ### Corrected
 
@@ -11,7 +11,7 @@ All notable changes to Sabri Authentication and Accounts are recorded here.
 - Google OIDC state-cookie persistence and linkage containment through File 02 session/Safe Mode authority.
 - Passkey quarantine/assurance-invalidation containment, session-risk unknown states and non-consuming provider-health projections.
 - Safe Mode provider-setting mutation block, verified settings rollback, high-volume privacy-erasure continuation and stable logical-identity legacy migration.
-- Permanent release/documentation/integration gates synchronized to the R321–R329 line; staging/live/operational status remains unclaimed.
+- Permanent release/documentation/integration gates synchronized to the R321–R330 line; staging/live/operational status remains unclaimed.
 
 ### Identity
 

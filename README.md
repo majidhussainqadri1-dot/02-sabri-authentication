@@ -15,7 +15,7 @@ File 00 remains the sole owner of platform identity, membership eligibility, dec
 
 ## Version 1.2.3 completion scope
 
-Version 1.2.3 carries the 1.2.1 bootstrap correction plus the sequential R321–R329 security, migration, passkey, provider, session, privacy, route/UI, dependency-contract and release-truth hardening. DB identity advances to `1.2.1` and passkey schema identity to `1.0.1` so supported upgrades explicitly reconcile canonical columns and security-critical indexes before successful markers are published.
+Version 1.2.3 carries the 1.2.1 bootstrap correction plus the sequential R321–R330 security, migration, passkey, provider, session, privacy, route/UI, dependency-contract and release-truth hardening. DB identity advances to `1.2.1` and passkey schema identity to `1.0.1` so supported upgrades explicitly reconcile canonical columns and security-critical indexes before successful markers are published.
 
 The candidate retains:
 
@@ -44,7 +44,7 @@ The File 00 integration dependency is a separate repository truth. R319 re-verif
 | Gate | Status |
 |---|---|
 | Specified | Complete |
-| Source coding | **Review candidate**; R321–R329 corrective review is the current source line |
+| Source coding | **Review candidate**; R321–R330 ten-round corrective review is complete at source level |
 | Packaged | Not claimed from this review branch; separate deterministic release gate |
 | Automated QA | Review exact-head lint/regression gate only; real WordPress/File 00 integration remains separate |
 | Hostinger staging | Pending |

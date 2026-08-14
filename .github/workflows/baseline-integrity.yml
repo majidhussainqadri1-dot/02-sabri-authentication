@@ -58,7 +58,7 @@ jobs:
           req(lock.get('release_version')=='1.2.3','release lock runtime mismatch')
           req(lock.get('database_version')=='1.2.1','release lock DB mismatch')
           req(lock.get('passkey_schema_version')=='1.0.1','release lock passkey schema mismatch')
-          required=['README.md','STATUS.md','PLAN-TRACEABILITY.md','RELEASE-MANIFEST.md','RELEASE-LOCK.json','SBOM.spdx.json','tests/r320-final-release-regression.php','tests/r329-release-truth-regression.php']
+          required=['README.md','STATUS.md','PLAN-TRACEABILITY.md','RELEASE-MANIFEST.md','RELEASE-LOCK.json','SBOM.spdx.json','tests/r320-final-release-regression.php','tests/r329-release-truth-regression.php','tests/r330-final-adversarial-regression.php']
           for f in required: req((root/f).is_file(),'missing release evidence: '+f)
           forbidden=[]
           for p in root.rglob('*'):

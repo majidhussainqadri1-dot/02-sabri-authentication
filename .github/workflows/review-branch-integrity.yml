@@ -102,4 +102,8 @@ jobs:
             exit 1
           fi
           test ! -f tools/apply-current-review.py
+          if [ -f .github/workflows/round-ledger-apply.yml ] || [ -f tools/apply-round-ledger.py ]; then
+            echo 'Temporary round-ledger correction machinery remains in final review source.' >&2
+            exit 1
+          fi
           echo 'Review head contains no installable archive or temporary correction machinery.'

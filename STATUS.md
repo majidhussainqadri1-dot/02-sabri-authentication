@@ -28,7 +28,7 @@
 - Privacy export/erasure for passkeys, opaque random user handles, no biometric/private-key retention, privacy-minimized passkey events and bounded revoked-credential cleanup.
 - Loop-safe completion resolver, canonical `/account/sessions/` route, canonical `SAUTH_` identifiers and bounded legacy aliases.
 - File 01/File 20 manifests, migration/rollback/backup/incident documentation and deterministic packaging pipeline.
-- File 02 1.2.3 retains the 1.2.1 storage-router bootstrap correction and adds R321–R329 fail-closed, migration/index, passkey, provider, privacy, session, UI and release-truth hardening.
+- File 02 1.2.3 retains the 1.2.1 storage-router bootstrap correction and adds R321–R330 fail-closed, migration/index, passkey, provider, privacy, session, UI and release-truth hardening.
 
 ## Review-cycle corrections carried into this branch
 
@@ -48,7 +48,7 @@
 | Gate | Status | Evidence boundary |
 |---|---|---|
 | Specified | Complete | Governing File 02 + central/Continuous-Value + cross-file ownership traced |
-| Source coding | **Review candidate** | Reviewable branch source only; subject to the current R321–R329 cycle |
+| Source coding | **Review candidate** | Reviewable branch source reviewed through the completed R321–R330 ten-round cycle |
 | Packaged | Not claimed from review branch | Release packaging is a separate gate |
 | Automated-QA | Review exact-head gate | Review CI may prove lint/regression only for its exact head |
 | Staging-Accepted | No | Real Hostinger/WebAuthn/provider/browser evidence absent |

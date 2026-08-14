@@ -29,7 +29,7 @@
   "artifact_policy": "Exact-head review CI may lint and regression-test the source candidate, but package/staging/live claims remain separate release gates and must not be inferred from review-branch success.",
   "status": {
     "specified": "complete",
-    "coded": "review_candidate_r329_corrected",
+    "coded": "review_candidate_r330_corrected",
     "packaged": "not_claimed_from_review_branch",
     "automated_qa": "review_exact_head_gated",
     "staging_accepted": false,
@@ -45,7 +45,7 @@
     "Backup/restore and rollback rehearsal",
     "Founder staging and production authorization"
   ],
-  "review_line": "R321-R329-complete",
+  "review_line": "R321-R330-complete",
   "cross_file_blockers": [
     "File 00 canonical account taxonomy and smc.authentication-account 1.1.0 provider vocabulary require owner-side harmonization before release; File 02 does not perform a lossy remap."
   ],
