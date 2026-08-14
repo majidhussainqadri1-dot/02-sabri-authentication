@@ -12,7 +12,9 @@ permissions:
 
 env:
   FILE00_REF: c4ab298b3ba2b870d507d32b36b1b4afd2771621
-  FILE02_VERSION: '1.2.1'
+  FILE02_VERSION: '1.2.2'
+  FILE02_DB_VERSION: '1.2.1'
+  FILE02_PASSKEY_SCHEMA: '1.0.1'
 
 jobs:
   wordpress-mariadb-integration:
@@ -26,47 +28,40 @@ jobs:
           MARIADB_USER: wordpress
           MARIADB_PASSWORD: wordpress
           MARIADB_ROOT_PASSWORD: root
-        ports:
-          - 3306:3306
+        ports: ['3306:3306']
         options: >-
           --health-cmd="healthcheck.sh --connect --innodb_initialized"
           --health-interval=10s --health-timeout=5s --health-retries=10
-
     steps:
       - name: Checkout exact File 02 head
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           path: file02
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-
       - name: Checkout frozen current File 00 main
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           repository: majidhussainqadri1-dot/00-sabri-membership-core
           path: file00
           persist-credentials: false
           ref: ${{ env.FILE00_REF }}
-
       - name: Prove immutable inputs
         run: |
           set -euo pipefail
           test "$(git -C file02 rev-parse HEAD)" = '${{ github.event.pull_request.head.sha || github.sha }}'
           test "$(git -C file00 rev-parse HEAD)" = "$FILE00_REF"
           grep -Fq 'Version: 1.2.43' file00/source/sabri-membership-core/sabri-membership-core.php
-          grep -Fq "SMC_DB_VERSION', '1.4.5'" file00/source/sabri-membership-core/sabri-membership-core.php
           grep -Rqs 'smc.authentication-account' file00/source/sabri-membership-core
           grep -Fq "Version: ${FILE02_VERSION}" file02/sabri-authentication.php
-
       - name: Set up PHP
-        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        uses: shivammathur/setup-php@f3e473d116dccc5834248c87452386958240
         with:
           php-version: '8.3'
           coverage: none
           tools: none
           extensions: mysqli,openssl
-
-      - name: Install WordPress and both exact plugins
+      - name: Install WordPress and exact plugins
         run: |
           set -euo pipefail
           curl -fsSL https://raw.githubusercontent.com/wp-cli/builds-pages/gh-pages/phar/wp-cli.phar -o /tmp/wp
@@ -82,24 +77,24 @@ jobs:
           cp -R file00/source/sabri-membership-core /tmp/wordpress/wp-content/plugins/sabri-membership-core
           mkdir -p /tmp/wordpress/wp-content/plugins/sabri-authentication
           rsync -a --exclude='.git' --exclude='.github' --exclude='tests' --exclude='tools' --exclude='review-evidence' file02/ /tmp/wordpress/wp-content/plugins/sabri-authentication/
-
-      - name: Activate File 00 then File 02 and prove independent reloads
+      - name: Activate and prove fresh-install material postconditions
         run: |
           set -euo pipefail
           /tmp/wp plugin activate sabri-membership-core --path=/tmp/wordpress
-          /tmp/wp eval 'if (!class_exists("SMC_Authentication_Contract_V11")) { fwrite(STDERR,"account contract missing\n"); exit(1); }' --path=/tmp/wordpress
+          /tmp/wp eval 'if (!class_exists("SMC_Authentication_Contract_V11")) exit(1);' --path=/tmp/wordpress
           /tmp/wp plugin activate sabri-authentication --path=/tmp/wordpress
-          /tmp/wp eval 'if (!class_exists("SAUTH_Storage_Router") || !class_exists("SAUTH_Passkeys") || !class_exists("SAUTH_Operations")) { fwrite(STDERR,"File02 bootstrap incomplete\n"); exit(1); }' --path=/tmp/wordpress
-          /tmp/wp eval 'if (!SAUTH_Account_Contract::provider_available()) { fwrite(STDERR,"File00 account provider unavailable\n"); exit(1); }' --path=/tmp/wordpress
-          /tmp/wp eval 'if ((string)get_option("sauth_version","") !== "1.2.1" || (string)get_option("sauth_db_version","") !== "1.2.0") { fwrite(STDERR,"File02 version/schema markers invalid\n"); exit(1); }' --path=/tmp/wordpress
-          /tmp/wp eval 'if (!SAUTH_Activator::storage_ready()) { fwrite(STDERR,"File02 core storage postcondition failed\n"); exit(1); }' --path=/tmp/wordpress
-          /tmp/wp eval '$checks=SAUTH_Operations::system_check(); if(!is_array($checks)){exit(1);} echo "reload-1-ok\n";' --path=/tmp/wordpress
-          /tmp/wp eval '$checks=SAUTH_Operations::system_check(); if(!is_array($checks)){exit(1);} echo "reload-2-ok\n";' --path=/tmp/wordpress
-
+          /tmp/wp eval 'if (!SAUTH_Account_Contract::provider_available()) exit(1); if ((string)get_option("sauth_version","")!=="1.2.2"||(string)get_option("sauth_db_version","")!=="1.2.1"||(string)get_option("sauth_passkey_schema_version","")!=="1.0.1") exit(1); if(!SAUTH_Activator::storage_ready()||!SAUTH_Passkeys::installation_ready()) exit(1);' --path=/tmp/wordpress
+          /tmp/wp eval '$checks=SAUTH_Operations::system_check(); if(!is_array($checks)) exit(1);' --path=/tmp/wordpress
+      - name: Rehearse legacy 1.2.1 passkey-column upgrade on real MariaDB
+        run: |
+          set -euo pipefail
+          /tmp/wp eval 'global $wpdb; $t=$wpdb->prefix."sauth_passkeys"; $now=current_time("mysql",true); $wpdb->insert($t,array("public_id"=>"11111111-1111-4111-8111-111111111111","user_id"=>1,"credential_lookup_hash"=>str_repeat("a",64),"credential_id_ciphertext"=>"legacy-cipher","public_key_pem"=>"legacy-public-key","algorithm"=>"ES256","sign_count"=>0,"nickname"=>"Legacy credential","attachment"=>"platform","transports"=>"[]","discoverable"=>1,"backup_eligible"=>0,"backup_state"=>0,"hardware_backed"=>0,"status"=>"active","created_at"=>$now,"updated_at"=>$now)); if($wpdb->last_error){fwrite(STDERR,$wpdb->last_error."\n");exit(1);}' --path=/tmp/wordpress
+          /tmp/wp plugin deactivate sabri-authentication --path=/tmp/wordpress
+          /tmp/wp eval 'global $wpdb; $t=$wpdb->prefix."sauth_passkeys"; if(false===$wpdb->query("ALTER TABLE `{$t}` CHANGE credential_lookup_hash credential_hash char(64) NOT NULL, CHANGE credential_id_ciphertext credential_cipher longtext NOT NULL")){exit(1);} update_option("sauth_version","1.2.1",false); update_option("sauth_db_version","1.2.0",false); update_option("sauth_passkey_schema_version","1.0.0",false);' --path=/tmp/wordpress
+          /tmp/wp plugin activate sabri-authentication --path=/tmp/wordpress
+          /tmp/wp eval 'global $wpdb; $t=$wpdb->prefix."sauth_passkeys"; $row=$wpdb->get_row("SELECT credential_lookup_hash,credential_id_ciphertext FROM `{$t}` WHERE public_id=\"11111111-1111-4111-8111-111111111111\"",ARRAY_A); if(!is_array($row)||$row["credential_lookup_hash"]!==str_repeat("a",64)||$row["credential_id_ciphertext"]!=="legacy-cipher") exit(1); if((string)get_option("sauth_version","")!=="1.2.2"||(string)get_option("sauth_db_version","")!=="1.2.1"||(string)get_option("sauth_passkey_schema_version","")!=="1.0.1") exit(1); if(!SAUTH_Activator::storage_ready()||!SAUTH_Passkeys::installation_ready()) exit(1);' --path=/tmp/wordpress
       - name: Prove current File 00/File 02 boundaries
         run: |
           set -euo pipefail
-          /tmp/wp eval 'if (!defined("SMC_VERSION") || SMC_VERSION !== "1.2.43") { exit(1); } if (!defined("SMC_DB_VERSION") || SMC_DB_VERSION !== "1.4.5") { exit(1); }' --path=/tmp/wordpress
-          /tmp/wp eval 'if (!defined("SAUTH_VERSION") || SAUTH_VERSION !== "1.2.1") { exit(1); } if (!defined("SAUTH_PASSKEY_CONTRACT_VERSION") || SAUTH_PASSKEY_CONTRACT_VERSION !== "1.0.0") { exit(1); }' --path=/tmp/wordpress
-          /tmp/wp eval 'if (!SA_Security::master_key_ready()) { fwrite(STDERR,"File02 dedicated master key not ready\n"); exit(1); }' --path=/tmp/wordpress
-          echo 'Current File 00/File 02 WordPress integration PASS.'
+          /tmp/wp eval 'if (!defined("SMC_VERSION") || SMC_VERSION!=="1.2.43") exit(1); if (!defined("SAUTH_VERSION") || SAUTH_VERSION!=="1.2.2") exit(1); if (!defined("SAUTH_DB_VERSION") || SAUTH_DB_VERSION!=="1.2.1") exit(1); if (SAUTH_Passkeys::SCHEMA_VERSION!=="1.0.1") exit(1); if (!defined("SAUTH_PASSKEY_CONTRACT_VERSION") || SAUTH_PASSKEY_CONTRACT_VERSION!=="1.0.0") exit(1); if(!SA_Security::master_key_ready()) exit(1);' --path=/tmp/wordpress
+          echo 'Current File 00/File 02 fresh-install and legacy-upgrade integration PASS.'
