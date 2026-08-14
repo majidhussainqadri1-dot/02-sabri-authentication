@@ -39,7 +39,7 @@ foreach ( array( 'sa_forgot_password', 'sauth_forgot_password', 'sa_reset_passwo
 foreach ( array( 'profile_photo', 'identity_reference', 'address', 'city', 'country', 'account_type', 'ethical_conduct' ) as $step ) { r299_has( $completion, "'" . $step . "'", 'completion helper misses ' . $step ); }
 r299_has( $plugin, '$snapshot = array();', 'Google settings lack transactional snapshot' );
 r299_has( $plugin, 'settings_store_failed', 'Google settings lack rollback failure path' );
-r299_has( $plan, 'review/file02-r321-r330-2026-08-14', 'traceability candidate branch is stale' );
-r299_has( $status, 'review/file02-r321-r330-2026-08-14', 'status candidate branch is stale' );
+r299_has( $plan, 'fix/file02-account-taxonomy-parity-1.2.4', 'traceability candidate branch is stale' );
+r299_has( $status, 'fix/file02-account-taxonomy-parity-1.2.4', 'status candidate branch is stale' );
 if ( $fail ) { fwrite( STDERR, "R299 regression failures:\n- " . implode( "\n- ", $fail ) . "\n" ); exit( 1 ); }
 echo 'R299 cross-flow regression PASS (' . $n . " assertions).\n";
