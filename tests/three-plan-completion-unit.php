@@ -1,8 +1,8 @@
 <?php
 /**
  * Source-level preservation guard: all prior three-plan requirements must remain
- * present in File 02 v1.2.1 while the fourth-plan passkey extension and the
- * live-proven storage-router bootstrap correction remain intact.
+ * present in File 02 v1.2.2 while the fourth-plan passkey extension, the
+ * live-proven storage-router bootstrap correction and R311-R320 hardening remain intact.
  */
 
 $root = dirname( __DIR__ );
@@ -29,9 +29,9 @@ $main = sauth_three_plan_read( $root, 'sabri-authentication.php' );
 sauth_three_plan_require(
 	$main,
 	array(
-		'Version: 1.2.1',
-		"define( 'SAUTH_VERSION', '1.2.1' );",
-		"define( 'SAUTH_DB_VERSION', '1.2.0' );",
+		'Version: 1.2.2',
+		"define( 'SAUTH_VERSION', '1.2.2' );",
+		"define( 'SAUTH_DB_VERSION', '1.2.1' );",
 		"define( 'SAUTH_ACCOUNT_CONTRACT_VERSION', '1.1.0' );",
 		'class-sauth-storage-router.php',
 		'class-sauth-google-registration.php',
@@ -131,6 +131,7 @@ $passkeys = sauth_three_plan_read( $root, 'includes/class-sauth-passkeys.php' );
 sauth_three_plan_require(
 	$passkeys,
 	array(
+		"const SCHEMA_VERSION        = '1.0.1';",
 		'smc_file02_authentication_assurance_v1',
 		'webauthn.create',
 		'webauthn.get',
@@ -142,12 +143,12 @@ sauth_three_plan_require(
 );
 
 $readme = sauth_three_plan_read( $root, 'readme.txt' );
-sauth_three_plan_require( $readme, array( 'Stable tag: 1.2.1', '/account/sessions/', 'Google-first registration', 'Passkey', 'city', 'ethical' ), 'readme' );
+sauth_three_plan_require( $readme, array( 'Stable tag: 1.2.2', '/account/sessions/', 'Google-first registration', 'Passkey', 'city', 'ethical' ), 'readme' );
 
 $status = sauth_three_plan_read( $root, 'STATUS.md' );
-sauth_three_plan_require( $status, array( 'Version 1.2.1', 'Source coding', 'Automated-QA', 'Staging-Accepted', 'Operational', 'Passkey' ), 'status truth' );
+sauth_three_plan_require( $status, array( 'Version 1.2.2', 'Source coding', 'Automated-QA', 'Staging-Accepted', 'Operational', 'Passkey' ), 'status truth' );
 
 $workflow = sauth_three_plan_read( $root, '.github/workflows/baseline-integrity.yml' );
-sauth_three_plan_require( $workflow, array( 'three-plan-completion-unit.php', 'passkey-webauthn-unit.php', 'class-sauth-storage-router.php', 'upload-artifact', '1.2.1' ), 'release workflow' );
+sauth_three_plan_require( $workflow, array( 'three-plan-completion-unit.php', 'passkey-webauthn-unit.php', 'class-sauth-storage-router.php', 'upload-artifact', '1.2.2' ), 'release workflow' );
 
-echo "File 02 prior three-plan requirements preserved inside 1.2.1 bootstrap-corrected candidate.\n";
+echo "File 02 prior three-plan requirements preserved inside 1.2.2 R311-R320 hardened candidate.\n";
