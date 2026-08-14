@@ -59,6 +59,7 @@ require_once SAUTH_DIR . 'includes/class-sauth-operations.php';
 require_once SAUTH_DIR . 'includes/class-sauth-provider-http-guard.php';
 require_once SAUTH_DIR . 'includes/class-sauth-canonical-routes.php';
 require_once SAUTH_DIR . 'includes/class-sauth-passkeys.php';
+require_once SAUTH_DIR . 'includes/class-sauth-passkey-runtime.php';
 require_once SAUTH_DIR . 'includes/class-sa-plugin.php';
 
 /* Canonical class names with legacy implementation aliases. */
@@ -90,7 +91,7 @@ function sauth_validate_activation_dependencies() {
 	}
 	deactivate_plugins( plugin_basename( SAUTH_FILE ) );
 	wp_die(
-		esc_html__( 'Sabri Authentication requires File 00 — Sabri Membership Core with smc.authentication-account 1.1.0 and the approved assurance contract. Activation stopped before File 02 changed tables, pages or options.', 'sabri-authentication' ),
+		esc_html__( 'Sabri Authentication requires File 00 — Sabri Membership Core 1.2.43+ with its current database migration complete, Safe Mode clear, smc.authentication-account 1.1.0 and the current membership-assurance contract. Activation stopped before File 02 changed tables, pages or options.', 'sabri-authentication' ),
 		esc_html__( 'Required File 00 contract unavailable', 'sabri-authentication' ),
 		array( 'back_link' => true )
 	);
@@ -111,6 +112,7 @@ function sauth_start_plugin() {
 	SAUTH_Login_Risk::init();
 	SAUTH_Session_Manager::init();
 	SAUTH_Passkeys::init();
+	SAUTH_Passkey_Runtime::init();
 	SAUTH_Professional_Reauthentication::init();
 	SAUTH_Google_Registration::init();
 	SAUTH_Canonical_Routes::init();
