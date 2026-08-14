@@ -1,0 +1,40 @@
+name: R304 Batch Correction
+
+on:
+  push:
+    branches:
+      - review/file02-r301-r310-2026-08-14
+
+permissions:
+  contents: write
+
+jobs:
+  correct:
+    if: startsWith(github.event.head_commit.message, 'R304 fixer bootstrap')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+          ref: ${{ github.sha }}
+      - name: Apply frozen R304 ledger
+        run: |
+          set -euo pipefail
+          python3 tools/r304-fix.py
+          git diff --check
+          php -l includes/class-sa-google-oauth.php
+          php -l includes/class-sauth-google-registration.php
+          php -l tests/r304-google-auth-regression.php
+          php tests/r304-google-auth-regression.php
+      - name: Commit R304 corrected state
+        run: |
+          set -euo pipefail
+          git rm tools/r304-fix.py
+          git config user.name 'majidhussainqadri1-dot'
+          git config user.email 'majidhussainqadri1@gmail.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'R304: harden Google risk and linkage containment'
+          git push origin HEAD:review/file02-r301-r310-2026-08-14
