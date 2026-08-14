@@ -1,12 +1,21 @@
 #!/usr/bin/env python3
-"""Fail-fast architecture guard for the File 02 1.2.1 bootstrap-corrected four-plan source candidate."""
+"""Fail-fast architecture guard for the current File 02 release-locked source candidate."""
 from __future__ import annotations
 
+import json
 import pathlib
 import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+LOCK = json.loads((ROOT / "RELEASE-LOCK.json").read_text(encoding="utf-8"))
+RELEASE_VERSION = str(LOCK.get("release_version", ""))
+DB_VERSION = str(LOCK.get("database_version", ""))
+PASSKEY_SCHEMA_VERSION = str(LOCK.get("passkey_schema_version", ""))
+if not RELEASE_VERSION or not DB_VERSION or not PASSKEY_SCHEMA_VERSION:
+    print("ERROR: RELEASE-LOCK.json is missing current release/schema identity", file=sys.stderr)
+    raise SystemExit(1)
+
 PHP = {p.relative_to(ROOT).as_posix(): p.read_text(encoding="utf-8") for p in ROOT.rglob("*.php")}
 SOURCE_PHP = {path: text for path, text in PHP.items() if not path.startswith("tests/")}
 ALL = "\n".join(SOURCE_PHP.values())
@@ -54,9 +63,9 @@ if missing:
 
 main = PHP["sabri-authentication.php"]
 for marker in (
-    "Version: 1.2.1",
-    "define( 'SAUTH_VERSION', '1.2.1' );",
-    "define( 'SAUTH_DB_VERSION', '1.2.0' );",
+    f"Version: {RELEASE_VERSION}",
+    f"define( 'SAUTH_VERSION', '{RELEASE_VERSION}' );",
+    f"define( 'SAUTH_DB_VERSION', '{DB_VERSION}' );",
     "define( 'SAUTH_ACCOUNT_CONTRACT_VERSION', '1.1.0' );",
     "define( 'SAUTH_PASSKEY_CONTRACT_VERSION', '1.0.0' );",
     "class-sauth-storage-router.php",
@@ -198,6 +207,7 @@ if "'session_token' =>" in PHP["includes/class-sauth-session-manager.php"]:
 passkeys = PHP["includes/class-sauth-passkeys.php"]
 for marker in (
     "CONTRACT_VERSION      = '1.0.0'",
+    f"SCHEMA_VERSION        = '{PASSKEY_SCHEMA_VERSION}'",
     "smc_file02_authentication_assurance_v1",
     "webauthn.create",
     "webauthn.get",
@@ -267,5 +277,6 @@ login = PHP["templates/login.php"]
 if "data-sauth-passkey-login" not in login:
     fail("login surface does not expose passkey authentication")
 
-print("File 02 1.2.1 four-plan architecture guard passed.")
+print(f"File 02 {RELEASE_VERSION} release-locked four-plan architecture guard passed.")
+print(f"DB identity checked: {DB_VERSION}; passkey schema: {PASSKEY_SCHEMA_VERSION}")
 print(f"PHP files checked: {len(PHP)}")
