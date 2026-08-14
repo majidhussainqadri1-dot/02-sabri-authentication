@@ -21,7 +21,9 @@
 				'encryption_failed' => 'The Google Client Secret could not be encrypted. Google sign-in remains disabled.',
 				'not_ready'         => 'Google sign-in cannot be enabled until Membership Core, HTTPS, Client ID, a dedicated SA_MASTER_KEY, and encrypted Client Secret are ready.',
 				'dependency_unavailable' => 'Membership Core/account-contract readiness is unavailable; settings were not changed.',
-				'settings_store_failed' => 'The complete Google settings unit could not be stored and was rolled back.',
+				'settings_store_failed' => 'The complete Google settings unit could not be stored; the previous values were restored and verified.',
+				'settings_rollback_failed' => 'The Google settings write failed and the previous values could not be restored reliably. File 02 entered Safe Mode; inspect stored options before resuming authentication changes.',
+				'safe_mode_active' => 'File 02 Safe Mode is active. Authentication-provider settings were not changed.',
 				'settings_receipt_failed' => 'Settings may have been written, but the success receipt could not be verified. Reload and inspect the stored values before relying on them.',
 			);
 			echo esc_html( isset( $messages[ $error ] ) ? $messages[ $error ] : 'The settings could not be saved.' );
@@ -32,7 +34,7 @@
 	<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;max-width:920px;margin:18px 0">
 		<div class="card"><h2><?php echo esc_html( number_format_i18n( $counts['total_users'] ) ); ?></h2><p>Total WordPress users</p></div>
 		<div class="card"><h2><?php echo $dependency_ready ? 'Ready' : 'Missing'; ?></h2><p>Membership Core dependency</p></div>
-		<div class="card"><h2><?php echo SA_Google_OAuth::configured() ? 'Ready' : 'Disabled'; ?></h2><p>Google sign-in status</p></div>
+		<div class="card"><h2><?php echo ! SAUTH_Operations::safe_mode() && SA_Google_OAuth::configured() ? 'Ready' : 'Disabled'; ?></h2><p>Google sign-in status</p></div>
 		<div class="card"><h2><?php echo esc_html( number_format_i18n( $legacy_roles ) ); ?></h2><p>Legacy doctor-pending roles requiring review</p></div>
 	</div>
 

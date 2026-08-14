@@ -196,6 +196,10 @@ final class SA_Plugin {
 			wp_die( esc_html__( 'Access denied.', 'sabri-authentication' ) );
 		}
 		check_admin_referer( 'sa_save_auth_settings', 'sa_nonce' );
+		if ( SAUTH_Operations::safe_mode() ) {
+			wp_safe_redirect( add_query_arg( 'error', 'safe_mode_active', self::settings_url() ) );
+			exit;
+		}
 		if ( ! SA_Membership_Adapter::available() || ! SAUTH_Account_Contract::provider_available() ) {
 			wp_safe_redirect( add_query_arg( 'error', 'dependency_unavailable', self::settings_url() ) );
 			exit;
@@ -256,6 +260,16 @@ final class SA_Plugin {
 			foreach ( $snapshot as $key => $value ) {
 				if ( null === $value ) { delete_option( $key ); }
 				else { update_option( $key, $value, false ); }
+			}
+			$rollback_ok = true;
+			foreach ( $snapshot as $key => $value ) {
+				$current = get_option( $key, null );
+				$rollback_ok = $rollback_ok && ( null === $value ? null === $current : (string) $current === (string) $value );
+			}
+			if ( ! $rollback_ok ) {
+				SAUTH_Operations::enter_safe_mode();
+				wp_safe_redirect( add_query_arg( 'error', 'settings_rollback_failed', self::settings_url() ) );
+				exit;
 			}
 			wp_safe_redirect( add_query_arg( 'error', 'settings_store_failed', self::settings_url() ) );
 			exit;
