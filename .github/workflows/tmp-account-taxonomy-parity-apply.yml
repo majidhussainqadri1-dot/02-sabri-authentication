@@ -23,64 +23,31 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          p = Path('includes/class-sa-registration.php')
-          s = p.read_text()
-          old = """\t/**
-\t * File 00 currently exposes these provider values. R288/R294 separately
-\t * blocks release until File 00 canonical taxonomy and provider vocabulary are
-\t * harmonized; File 02 deliberately does not invent a lossy remap here.
-\t */
-\tpublic static function account_types() {
-\t\treturn array(
-\t\t\t'member'                     => 'Member / Patient / General User',
-\t\t\t'doctor'                     => 'Homeopathic Doctor',
-\t\t\t'student'                    => 'Student',
-\t\t\t'teacher'                    => 'Teacher / Trainer',
-\t\t\t'researcher'                 => 'Researcher / Author',
-\t\t\t'clinic_staff'                => 'Clinic Staff',
-\t\t\t'institution_representative' => 'Institution Representative',
-\t\t);
-\t}
-"""
-          new = """\t/** File 00 canonical account taxonomy; File 02 performs no aliases or lossy remap. */
-\tpublic static function account_types() {
-\t\treturn array(
-\t\t\t'member'     => 'Member / General User',
-\t\t\t'patient'    => 'Patient',
-\t\t\t'student'    => 'Student',
-\t\t\t'doctor'     => 'Homeopathic Doctor',
-\t\t\t'teacher'    => 'Teacher / Trainer',
-\t\t\t'researcher' => 'Researcher / Author',
-\t\t\t'pharmacy'   => 'Pharmacy',
-\t\t\t'clinic'     => 'Clinic',
-\t\t\t'publisher'  => 'Publisher',
-\t\t);
-\t}
-"""
+          p=Path('includes/class-sa-registration.php')
+          s=p.read_text()
+          old="\t/**\n\t * File 00 currently exposes these provider values. R288/R294 separately\n\t * blocks release until File 00 canonical taxonomy and provider vocabulary are\n\t * harmonized; File 02 deliberately does not invent a lossy remap here.\n\t */\n\tpublic static function account_types() {\n\t\treturn array(\n\t\t\t'member'                     => 'Member / Patient / General User',\n\t\t\t'doctor'                     => 'Homeopathic Doctor',\n\t\t\t'student'                    => 'Student',\n\t\t\t'teacher'                    => 'Teacher / Trainer',\n\t\t\t'researcher'                 => 'Researcher / Author',\n\t\t\t'clinic_staff'                => 'Clinic Staff',\n\t\t\t'institution_representative' => 'Institution Representative',\n\t\t);\n\t}\n"
+          new="\t/** File 00 canonical account taxonomy; File 02 performs no aliases or lossy remap. */\n\tpublic static function account_types() {\n\t\treturn array(\n\t\t\t'member'     => 'Member / General User',\n\t\t\t'patient'    => 'Patient',\n\t\t\t'student'    => 'Student',\n\t\t\t'doctor'     => 'Homeopathic Doctor',\n\t\t\t'teacher'    => 'Teacher / Trainer',\n\t\t\t'researcher' => 'Researcher / Author',\n\t\t\t'pharmacy'   => 'Pharmacy',\n\t\t\t'clinic'     => 'Clinic',\n\t\t\t'publisher'  => 'Publisher',\n\t\t);\n\t}\n"
           if old in s:
-              if s.count(old) != 1:
-                  raise SystemExit('File02 account_types preimage count mismatch')
-              p.write_text(s.replace(old, new))
+              if s.count(old)!=1: raise SystemExit('File02 account_types preimage count mismatch')
+              p.write_text(s.replace(old,new))
           elif new not in s:
               raise SystemExit('File02 account_types state is neither old nor corrected')
-
-          test = Path('tests/r331-account-taxonomy-parity-regression.php')
+          test=Path('tests/r331-account-taxonomy-parity-regression.php')
           if not test.exists():
-              test.write_text("""<?php
-$root = dirname( __DIR__ );
-$registration = file_get_contents( $root . '/includes/class-sa-registration.php' );
-$fail = array();
-$canonical = array( 'member', 'patient', 'student', 'doctor', 'teacher', 'researcher', 'pharmacy', 'clinic', 'publisher' );
-foreach ( $canonical as $type ) {
-    if ( false === strpos( $registration, "'" . $type . "'" ) ) { $fail[] = 'missing canonical account type: ' . $type; }
-}
-foreach ( array( 'clinic_staff', 'institution_representative' ) as $legacy ) {
-    if ( false !== strpos( $registration, "'" . $legacy . "'" ) ) { $fail[] = 'legacy provider-only alias remains: ' . $legacy; }
-}
-if ( false === strpos( $registration, 'File 00 canonical account taxonomy' ) ) { $fail[] = 'canonical ownership comment missing'; }
-if ( $fail ) { fwrite( STDERR, "R331 taxonomy regressions:\n- " . implode( "\n- ", $fail ) . "\n" ); exit( 1 ); }
-echo 'R331 account taxonomy parity regression PASS (12 assertions).' . PHP_EOL;
-""")
+              lines=[
+                  "<?php",
+                  "$root = dirname( __DIR__ );",
+                  "$registration = file_get_contents( $root . '/includes/class-sa-registration.php' );",
+                  "$fail = array();",
+                  "$canonical = array( 'member', 'patient', 'student', 'doctor', 'teacher', 'researcher', 'pharmacy', 'clinic', 'publisher' );",
+                  "foreach ( $canonical as $type ) { if ( false === strpos( $registration, \"'\" . $type . \"'\" ) ) { $fail[] = 'missing canonical account type: ' . $type; } }",
+                  "foreach ( array( 'clinic_staff', 'institution_representative' ) as $legacy ) { if ( false !== strpos( $registration, \"'\" . $legacy . \"'\" ) ) { $fail[] = 'legacy provider-only alias remains: ' . $legacy; } }",
+                  "if ( false === strpos( $registration, 'File 00 canonical account taxonomy' ) ) { $fail[] = 'canonical ownership comment missing'; }",
+                  "if ( $fail ) { fwrite( STDERR, \"R331 taxonomy regressions:\\n- \" . implode( \"\\n- \", $fail ) . \"\\n\" ); exit( 1 ); }",
+                  "echo 'R331 account taxonomy parity regression PASS (12 assertions).' . PHP_EOL;",
+                  ""
+              ]
+              test.write_text("\n".join(lines))
           PY
           git diff --check
           php -l includes/class-sa-registration.php
@@ -97,10 +64,7 @@ echo 'R331 account taxonomy parity regression PASS (12 assertions).' . PHP_EOL;
         run: |
           set -euo pipefail
           git add includes/class-sa-registration.php tests/r331-account-taxonomy-parity-regression.php
-          if git diff --cached --quiet; then
-            echo 'Correction already present; nothing to commit.'
-            exit 0
-          fi
+          if git diff --cached --quiet; then echo 'Correction already present; nothing to commit.'; exit 0; fi
           git config user.name 'majidhussainqadri1-dot'
           git config user.email 'majidhussainqadri1@gmail.com'
           git diff --cached --check
