@@ -2,7 +2,7 @@
 
 ## Current candidate
 
-- Branch: `review/file02-r311-r320-2026-08-14`
+- Branch: `review/file02-r321-r330-2026-08-14`
 - Version/schema: `1.2.2 / 1.2.1`; passkey table schema `1.0.1`
 - Repository `main` re-verified during R319: `0f011b1876e217b7ee46f92903e5315538c1025e`
 - Governing corpus: Definitive Master Plan v3.0; `SSH-F02-PLAN-2026-v1.0`; Consolidated All-Chats Directives v2.1; Continuous-Value/Top-20 Superset plan; later cross-file ownership refinement for File 02 passkey/WebAuthn ceremony
