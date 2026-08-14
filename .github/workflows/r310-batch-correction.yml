@@ -19,9 +19,30 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
           ref: ${{ github.sha }}
-      - name: Apply frozen R310 defect ledger
+      - name: Repair structure-aware R310 activator patch and apply frozen ledger
         run: |
           set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('tools/r310-fix.py')
+          text = p.read_text(encoding='utf-8')
+          old = '''text = text.replace("\\t\\t}\\n\\t\\treturn true;\\n\\t}\\n\\n\\tpublic static function create_pages()", "\\t\\t}\\n\\t\\tif ( ! class_exists( 'SAUTH_Passkeys' ) || ! SAUTH_Passkeys::installation_ready() ) { return false; }\\n\\t\\treturn true;\\n\\t}\\n\\n\\tpublic static function create_pages()", 1)'''
+          new = '''storage_pattern = re.compile(
+              r"(\\tpublic static function storage_ready\\(\\) \\{.*?)(\\t\\treturn true;\\n\\t\\})",
+              re.S,
+          )
+          storage_matches = list(storage_pattern.finditer(text))
+          if len(storage_matches) != 1:
+              raise SystemExit(f'expected one storage_ready block, found {len(storage_matches)}')
+          text = storage_pattern.sub(
+              lambda m: m.group(1) + "\\t\\tif ( ! class_exists( 'SAUTH_Passkeys' ) || ! SAUTH_Passkeys::installation_ready() ) { return false; }\\n" + m.group(2),
+              text,
+              count=1,
+          )'''
+          if old not in text:
+              raise SystemExit('brittle R310 storage_ready patch line not found')
+          p.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
           python3 tools/r310-fix.py
           git diff --check
           php -l includes/class-sa-security.php
