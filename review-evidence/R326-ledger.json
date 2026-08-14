@@ -1,0 +1,29 @@
+{
+  "round": "R326",
+  "replacements": [
+    {
+      "path": "includes/class-sa-plugin.php",
+      "count": 1,
+      "old": "\t\tcheck_admin_referer( 'sa_save_auth_settings', 'sa_nonce' );\n\t\tif ( ! SA_Membership_Adapter::available() || ! SAUTH_Account_Contract::provider_available() ) {",
+      "new": "\t\tcheck_admin_referer( 'sa_save_auth_settings', 'sa_nonce' );\n\t\tif ( SAUTH_Operations::safe_mode() ) {\n\t\t\twp_safe_redirect( add_query_arg( 'error', 'safe_mode_active', self::settings_url() ) );\n\t\t\texit;\n\t\t}\n\t\tif ( ! SA_Membership_Adapter::available() || ! SAUTH_Account_Contract::provider_available() ) {"
+    },
+    {
+      "path": "includes/class-sa-plugin.php",
+      "count": 1,
+      "old": "\t\tif ( ! $stored_ok ) {\n\t\t\tforeach ( $snapshot as $key => $value ) {\n\t\t\t\tif ( null === $value ) { delete_option( $key ); }\n\t\t\t\telse { update_option( $key, $value, false ); }\n\t\t\t}\n\t\t\twp_safe_redirect( add_query_arg( 'error', 'settings_store_failed', self::settings_url() ) );\n\t\t\texit;\n\t\t}",
+      "new": "\t\tif ( ! $stored_ok ) {\n\t\t\tforeach ( $snapshot as $key => $value ) {\n\t\t\t\tif ( null === $value ) { delete_option( $key ); }\n\t\t\t\telse { update_option( $key, $value, false ); }\n\t\t\t}\n\t\t\t$rollback_ok = true;\n\t\t\tforeach ( $snapshot as $key => $value ) {\n\t\t\t\t$current = get_option( $key, null );\n\t\t\t\t$rollback_ok = $rollback_ok && ( null === $value ? null === $current : (string) $current === (string) $value );\n\t\t\t}\n\t\t\tif ( ! $rollback_ok ) {\n\t\t\t\tSAUTH_Operations::enter_safe_mode();\n\t\t\t\twp_safe_redirect( add_query_arg( 'error', 'settings_rollback_failed', self::settings_url() ) );\n\t\t\t\texit;\n\t\t\t}\n\t\t\twp_safe_redirect( add_query_arg( 'error', 'settings_store_failed', self::settings_url() ) );\n\t\t\texit;\n\t\t}"
+    },
+    {
+      "path": "admin/account-settings.php",
+      "count": 1,
+      "old": "\t\t\t\t'settings_store_failed' => 'The complete Google settings unit could not be stored and was rolled back.',\n\t\t\t\t'settings_receipt_failed' => 'Settings may have been written, but the success receipt could not be verified. Reload and inspect the stored values before relying on them.',",
+      "new": "\t\t\t\t'settings_store_failed' => 'The complete Google settings unit could not be stored; the previous values were restored and verified.',\n\t\t\t\t'settings_rollback_failed' => 'The Google settings write failed and the previous values could not be restored reliably. File 02 entered Safe Mode; inspect stored options before resuming authentication changes.',\n\t\t\t\t'safe_mode_active' => 'File 02 Safe Mode is active. Authentication-provider settings were not changed.',\n\t\t\t\t'settings_receipt_failed' => 'Settings may have been written, but the success receipt could not be verified. Reload and inspect the stored values before relying on them.',"
+    },
+    {
+      "path": "admin/account-settings.php",
+      "count": 1,
+      "old": "\t\t<div class=\"card\"><h2><?php echo SA_Google_OAuth::configured() ? 'Ready' : 'Disabled'; ?></h2><p>Google sign-in status</p></div>",
+      "new": "\t\t<div class=\"card\"><h2><?php echo ! SAUTH_Operations::safe_mode() && SA_Google_OAuth::configured() ? 'Ready' : 'Disabled'; ?></h2><p>Google sign-in status</p></div>"
+    }
+  ]
+}
