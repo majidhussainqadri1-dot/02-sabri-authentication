@@ -36,9 +36,7 @@ final class SA_Authentication_Assurance {
 		add_action( 'clear_auth_cookie', array( __CLASS__, 'clear_current_session' ), 1 );
 	}
 
-	/**
-	 * Whether a current File 02 strong-auth provider can be consumed.
-	 */
+	/** Whether a current File 02 strong-auth provider can be consumed. */
 	public static function provider_available() {
 		return class_exists( 'SA_Membership_Adapter' )
 			&& SA_Membership_Adapter::available()
@@ -120,7 +118,7 @@ final class SA_Authentication_Assurance {
 		$receipt = array(
 			'contract'         => self::CONTRACT_NAME,
 			'contract_version' => self::CONTRACT_VERSION,
-			'provider_version' => (string) ( $passkey['contract_version'] ?? SAUTH_PASSKEY_CONTRACT_VERSION ),
+			'provider_version' => (string) ( $passkey['contract_version'] ?? '' ),
 			'subject_uuid'     => strtolower( $subject_uuid ),
 			'purpose'          => $purpose,
 			'scope_hash'       => $scope_hash,
@@ -147,11 +145,7 @@ final class SA_Authentication_Assurance {
 		return self::public_receipt( $receipt, 'valid', 'authentication_verified' );
 	}
 
-	/**
-	 * Return a current session-bound assurance projection.
-	 *
-	 * @return array<string,mixed>
-	 */
+	/** Return a current session-bound assurance projection. */
 	public static function assertion( $user_id, $purpose, $scope ) {
 		$user_id = absint( $user_id );
 		$purpose = sanitize_key( (string) $purpose );
@@ -194,10 +188,7 @@ final class SA_Authentication_Assurance {
 		return self::public_receipt( $receipt, 'valid', 'authentication_assurance_valid' );
 	}
 
-	/**
-	 * Retired pending File 00 factor receipts are never promoted. Clean any
-	 * historical pending index for the user after a successful login.
-	 */
+	/** Retired pending File 00 factor receipts are never promoted. */
 	public static function promote_pending_for_cookie( $cookie, $expire, $expiration, $user_id, $scheme, $token ) {
 		$user_id = absint( $user_id );
 		if ( ! $user_id || 'logged_in' !== $scheme ) {
@@ -223,7 +214,7 @@ final class SA_Authentication_Assurance {
 		$index_key = self::session_index_key( $user_id, $token );
 		$keys = get_transient( $index_key );
 		if ( is_array( $keys ) ) {
-			foreach ( array_values( array_unique( array_filter( array_map( 'strval', $keys ) ) ) ) as $key ) {
+			foreach ( array_values( array_unique( array_filter( array_map( 'strval', $keys ) ) ) as $key ) {
 				delete_transient( $key );
 			}
 		}
