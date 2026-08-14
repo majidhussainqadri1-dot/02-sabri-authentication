@@ -28,6 +28,8 @@ jobs:
           ledger="review-evidence/${round}-ledger.json"
           test -f "$ledger"
           python3 tools/apply-round-ledger.py "$ledger"
+          harness="review-evidence/${round}-harness.json"
+          if [ -f "$harness" ]; then python3 tools/apply-round-ledger.py "$harness"; fi
           git diff --check
       - name: Lint and cumulative regression before correction commit
         run: |
