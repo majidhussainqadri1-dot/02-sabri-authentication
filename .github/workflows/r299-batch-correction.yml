@@ -24,6 +24,16 @@ jobs:
       - name: Apply complete R299 defect ledger only after review freeze
         run: |
           set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('tools/r299-batch-fix.py')
+          text = p.read_text(encoding='utf-8')
+          old = '''    "          php tests/r291-r300-review-regression.php\\n",\n    "          php tests/r291-r300-review-regression.php\\n          php tests/r299-cross-flow-regression.php\\n"'''
+          new = '''    "            tests/r291-r300-review-regression.php\\n",\n    "            tests/r291-r300-review-regression.php\\n            tests/r299-cross-flow-regression.php\\n"'''
+          if old not in text:
+              raise SystemExit('review-workflow patch specification not found in fixer')
+          p.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
           python3 tools/r299-batch-fix.py
           git diff --check
           test -f tests/r299-cross-flow-regression.php
