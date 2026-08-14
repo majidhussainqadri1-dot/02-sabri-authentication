@@ -11,7 +11,7 @@ defined( 'ABSPATH' ) || exit;
  */
 final class SA_Membership_Adapter {
 	const PLUGIN_BASENAME = 'sabri-membership-core/sabri-membership-core.php';
-	const MIN_VERSION     = '1.2.7';
+	const MIN_VERSION     = '1.2.43';
 	const CF01_VERSION    = '1.0.0';
 
 	public static function plugin_active() {
@@ -19,16 +19,28 @@ final class SA_Membership_Adapter {
 	}
 
 	public static function available() {
-		return defined( 'SMC_VERSION' )
-			&& version_compare( (string) SMC_VERSION, self::MIN_VERSION, '>=' )
-			&& function_exists( 'smc_page_url' )
-			&& function_exists( 'smc_user_status' )
-			&& class_exists( 'SMC_Security' )
-			&& class_exists( 'SMC_CF01_Contract' )
-			&& defined( 'SMC_CF01_CONTRACT_VERSION' )
-			&& version_compare( (string) SMC_CF01_CONTRACT_VERSION, self::CF01_VERSION, '>=' )
-			&& is_callable( array( 'SMC_CF01_Contract', 'membership_assertion' ) )
-			&& is_callable( array( 'SMC_CF01_Contract', 'verify_step_up' ) );
+		try {
+			if ( ! defined( 'SMC_VERSION' )
+				|| version_compare( (string) SMC_VERSION, self::MIN_VERSION, '<' )
+				|| ! defined( 'SMC_DB_VERSION' )
+				|| (string) SMC_DB_VERSION !== (string) get_option( 'smc_db_version', '' )
+				|| ! function_exists( 'smc_page_url' )
+				|| ! function_exists( 'smc_user_status' )
+				|| ! class_exists( 'SMC_Security' )
+				|| ! class_exists( 'SMC_Completion' )
+				|| ! is_callable( array( 'SMC_Completion', 'safe_mode' ) )
+				|| SMC_Completion::safe_mode()
+				|| ! class_exists( 'SMC_CF01_Contract' )
+				|| ! defined( 'SMC_CF01_CONTRACT_VERSION' )
+				|| version_compare( (string) SMC_CF01_CONTRACT_VERSION, self::CF01_VERSION, '<' )
+				|| ! is_callable( array( 'SMC_CF01_Contract', 'membership_assertion' ) )
+				|| ! is_callable( array( 'SMC_CF01_Contract', 'verify_step_up' ) ) ) {
+				return false;
+			}
+			return true;
+		} catch ( Throwable $error ) {
+			return false;
+		}
 	}
 
 	public static function login_url( $redirect = '' ) {
@@ -41,19 +53,38 @@ final class SA_Membership_Adapter {
 	}
 
 	public static function profile_url() {
-		return self::available() ? smc_page_url( 'sabri_profile', '/sabri-profile/' ) : admin_url( 'profile.php' );
+		return self::safe_page_url( 'sabri_profile', '/sabri-profile/', admin_url( 'profile.php' ) );
 	}
 
 	public static function security_url() {
-		return self::available() ? smc_page_url( 'sabri_security_center', '/sabri-security-center/' ) : admin_url( 'profile.php' );
+		return self::safe_page_url( 'sabri_security_center', '/sabri-security-center/', admin_url( 'profile.php' ) );
 	}
 
 	public static function verification_url() {
-		return self::available() ? smc_page_url( 'sabri_verification_status', '/sabri-verification-status/' ) : self::profile_url();
+		return self::safe_page_url( 'sabri_verification_status', '/sabri-verification-status/', self::profile_url() );
+	}
+
+	private static function safe_page_url( $key, $path, $fallback ) {
+		if ( ! self::available() ) {
+			return $fallback;
+		}
+		try {
+			$url = smc_page_url( (string) $key, (string) $path );
+			return is_string( $url ) && '' !== $url ? $url : $fallback;
+		} catch ( Throwable $error ) {
+			return $fallback;
+		}
 	}
 
 	public static function status( $user_id ) {
-		return self::available() ? (string) smc_user_status( absint( $user_id ) ) : '';
+		if ( ! self::available() ) {
+			return '';
+		}
+		try {
+			return (string) smc_user_status( absint( $user_id ) );
+		} catch ( Throwable $error ) {
+			return '';
+		}
 	}
 
 	public static function membership_assertion( $user_id, $action = 'clinical_identity_link', $purpose = 'authentication' ) {
@@ -65,13 +96,22 @@ final class SA_Membership_Adapter {
 				'reason_code'      => 'provider_unavailable',
 			);
 		}
-		$assertion = SMC_CF01_Contract::membership_assertion(
-			absint( $user_id ),
-			array(
-				'action'  => sanitize_key( $action ),
-				'purpose' => sanitize_key( $purpose ),
-			)
-		);
+		try {
+			$assertion = SMC_CF01_Contract::membership_assertion(
+				absint( $user_id ),
+				array(
+					'action'  => sanitize_key( $action ),
+					'purpose' => sanitize_key( $purpose ),
+				)
+			);
+		} catch ( Throwable $error ) {
+			return array(
+				'contract'         => 'smc.cf01.membership-assurance',
+				'contract_version' => '',
+				'result'           => 'unknown',
+				'reason_code'      => 'provider_exception',
+			);
+		}
 		return is_array( $assertion ) ? $assertion : array(
 			'contract'         => 'smc.cf01.membership-assurance',
 			'contract_version' => '',
@@ -160,7 +200,11 @@ final class SA_Membership_Adapter {
 
 	public static function audit( $action, $user_id, array $details = array() ) {
 		if ( self::available() && is_callable( array( 'SMC_Security', 'audit' ) ) ) {
-			return (bool) SMC_Security::audit( sanitize_key( $action ), absint( $user_id ), $details );
+			try {
+				return (bool) SMC_Security::audit( sanitize_key( $action ), absint( $user_id ), $details );
+			} catch ( Throwable $error ) {
+				return false;
+			}
 		}
 		return false;
 	}
