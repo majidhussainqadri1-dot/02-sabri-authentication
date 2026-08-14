@@ -1,0 +1,39 @@
+name: R302 Batch Correction
+
+on:
+  push:
+    branches:
+      - review/file02-r301-r310-2026-08-14
+
+permissions:
+  contents: write
+
+jobs:
+  correct:
+    if: startsWith(github.event.head_commit.message, 'R302 fixer bootstrap')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+          ref: ${{ github.sha }}
+      - name: Apply frozen R302 ledger
+        run: |
+          set -euo pipefail
+          python3 tools/r302-fix.py
+          git diff --check
+          php -l includes/class-sa-activator.php
+          php -l tests/r302-migration-postcondition-regression.php
+          php tests/r302-migration-postcondition-regression.php
+      - name: Commit R302 corrected non-workflow state
+        run: |
+          set -euo pipefail
+          git rm tools/r302-fix.py
+          git config user.name 'majidhussainqadri1-dot'
+          git config user.email 'majidhussainqadri1@gmail.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'R302: enforce migration postconditions before version markers'
+          git push origin HEAD:review/file02-r301-r310-2026-08-14
