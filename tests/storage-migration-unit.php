@@ -65,7 +65,7 @@ $quoted = "SELECT * FROM `wp_sa_email_verifications` WHERE user_id=9";
 $routed = SAUTH_Storage_Router::canonicalize_query( $quoted );
 sauth_storage_assert( false !== strpos( $routed, '`wp_sauth_email_verifications`' ), 'quoted legacy email table was not routed' );
 
-$migration = 'INSERT IGNORE INTO wp_sauth_auth_devices (id,public_id) SELECT id,public_id FROM wp_sa_auth_devices';
+$migration = 'INSERT IGNORE INTO wp_sauth_auth_devices (public_id) SELECT public_id FROM wp_sa_auth_devices';
 $routed = SAUTH_Storage_Router::canonicalize_query( $migration );
 sauth_storage_assert( $migration === $routed, 'one-way legacy migration was rewritten into a canonical self-copy' );
 

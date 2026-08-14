@@ -375,12 +375,21 @@ final class SA_Activator {
 		$ok = true;
 		$columns = array(
 			'rate_limits'         => 'bucket_hash,hits,window_started,expires_at,updated_at',
-			'auth_outbox'         => 'id,event_id,event_name,schema_version,privacy_class,actor_user_id,subject_user_id,trace_id,payload_json,status,attempts,available_at,published_at,last_error,created_at,updated_at',
+			'auth_outbox'         => 'event_id,event_name,schema_version,privacy_class,actor_user_id,subject_user_id,trace_id,payload_json,status,attempts,available_at,published_at,last_error,created_at,updated_at',
 			'email_verifications' => 'user_id,email_hash,token_hash,status,attempts,sent_at,expires_at,verified_at,created_at,updated_at',
-			'auth_sessions'       => 'id,public_id,user_id,token_hash,device_hash,device_label,network_label,risk_level,status,revocation_reason,created_at,last_seen_at,expires_at,revoked_at,updated_at',
-			'auth_devices'        => 'id,public_id,user_id,fingerprint_hash,network_hash,device_label,network_label,status,risk_score,first_seen_at,last_seen_at,last_login_at,updated_at',
-			'risk_challenges'     => 'id,public_id,token_hash,user_id,fingerprint_hash,risk_score,reason_code,remember_session,destination,completion_json,status,attempts,expires_at,consumed_at,created_at,updated_at',
-			'auth_attempts'       => 'id,public_id,user_id,fingerprint_hash,network_hash,result,reason_code,risk_score,created_at',
+			'auth_sessions'       => 'public_id,user_id,token_hash,device_hash,device_label,network_label,risk_level,status,revocation_reason,created_at,last_seen_at,expires_at,revoked_at,updated_at',
+			'auth_devices'        => 'public_id,user_id,fingerprint_hash,network_hash,device_label,network_label,status,risk_score,first_seen_at,last_seen_at,last_login_at,updated_at',
+			'risk_challenges'     => 'public_id,token_hash,user_id,fingerprint_hash,risk_score,reason_code,remember_session,destination,completion_json,status,attempts,expires_at,consumed_at,created_at,updated_at',
+			'auth_attempts'       => 'public_id,user_id,fingerprint_hash,network_hash,result,reason_code,risk_score,created_at',
+		);
+		$identity_columns = array(
+			'rate_limits'         => 'bucket_hash',
+			'auth_outbox'         => 'event_id',
+			'email_verifications' => 'user_id',
+			'auth_sessions'       => 'public_id',
+			'auth_devices'        => 'public_id',
+			'risk_challenges'     => 'public_id',
+			'auth_attempts'       => 'public_id',
 		);
 		foreach ( $columns as $key => $column_list ) {
 			$legacy    = self::legacy_table( $key );
@@ -394,6 +403,13 @@ final class SA_Activator {
 			}
 			$result = $wpdb->query( "INSERT IGNORE INTO {$canonical} ({$column_list}) SELECT {$column_list} FROM {$legacy}" ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 			if ( false === $result ) {
+				$ok = false;
+				continue;
+			}
+			$identity = isset( $identity_columns[ $key ] ) ? (string) $identity_columns[ $key ] : '';
+			if ( '' === $identity ) { $ok = false; continue; }
+			$missing_raw = $wpdb->get_var( "SELECT COUNT(*) FROM `{$legacy}` AS l LEFT JOIN `{$canonical}` AS c ON c.`{$identity}`=l.`{$identity}` WHERE c.`{$identity}` IS NULL" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			if ( null === $missing_raw || '' !== (string) $wpdb->last_error || (int) $missing_raw > 0 ) {
 				$ok = false;
 			}
 		}

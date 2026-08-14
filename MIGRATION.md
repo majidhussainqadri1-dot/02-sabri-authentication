@@ -34,7 +34,7 @@ File 02 never migrates or mutates File 00 roles, membership approvals, account-c
 3. Confirm `sauth_version` is `1.2.2`, `sauth_db_version` is `1.2.1`, and `sauth_passkey_schema_version` is `1.0.1`.
 4. Confirm the seven prior canonical `sauth_*` tables plus `sauth_passkeys` and their indexes exist.
 5. Confirm the private `account-passkeys` manager page exists and remains `noindex/no-store` through File 02 private-page controls.
-6. Compare legacy/canonical row counts; duplicate keys may reduce copied row counts only where canonical rows already exist.
+6. Reconcile every legacy table by its stable logical identity (`bucket_hash`, `event_id`, `user_id` or `public_id` as applicable). Canonical auto-increment IDs are never copied from legacy evidence tables, and successful migration requires zero legacy logical identities missing from canonical storage.
 7. Confirm `/account/sessions/` resolves and `/account-sessions/` redirects without open redirect/loop.
 8. Confirm outbox/email/risk/session/provider/passkey cleanup schedules.
 9. Run password, Google-first registration, email verification, recovery, session and passkey journeys before reopening high-risk actions.
