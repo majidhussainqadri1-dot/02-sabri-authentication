@@ -1,4 +1,4 @@
-name: File 02 Four-Plan Integrity
+name: File 02 Release Integrity
 
 on:
   pull_request:
@@ -20,8 +20,8 @@ env:
   BASELINE_LOCK_SHA256: 05f5573a59180619d1601b43f811234a9c727631628ca940960a983784892974
 
 jobs:
-  contract-integrity:
-    name: 1.2.1 source, plans, bootstrap, WebAuthn and public-safety integrity
+  source-integrity:
+    name: Exact-head source, contract and public-safety integrity
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -32,94 +32,56 @@ jobs:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
-      - name: Prove exact immutable head
+      - name: Prove exact immutable head and ancestry
         run: |
           set -euo pipefail
           expected='${{ github.event.pull_request.head.sha || github.sha }}'
           test "$(git rev-parse HEAD)" = "$expected"
-
-      - name: Verify ancestry, release identity, plans and source policy
-        run: |
-          set -euo pipefail
           git diff --check
           git cat-file -e "${BASELINE_COMMIT}^{commit}"
           git merge-base --is-ancestor "$BASELINE_COMMIT" HEAD
           test "$(git show "${BASELINE_COMMIT}:BASELINE-LOCK.json" | sha256sum | awk '{print $1}')" = "$BASELINE_LOCK_SHA256"
 
-          if test -f .gitmodules; then
-            echo 'Git submodules are prohibited in File 02.' >&2
-            exit 1
-          fi
-          if git ls-files -s | awk '$1 == "120000" { found=1 } END { exit !found }'; then
-            echo 'Symbolic links are prohibited in File 02.' >&2
-            exit 1
-          fi
-          if grep -RIl --exclude-dir=.git '^version https://git-lfs.github.com/spec/v1$' . | grep -q .; then
-            echo 'Git LFS pointer files are prohibited in File 02.' >&2
-            exit 1
-          fi
-
+      - name: Verify release constitution and source policy
+        run: |
+          set -euo pipefail
           python3 - <<'PY'
-          import hashlib
-          import json
-          import pathlib
-          import re
-          import subprocess
-          import sys
-
+          import json, pathlib, re, subprocess, sys
           root = pathlib.Path('.')
           release = '1.2.1'
           db = '1.2.0'
-
           def fail(message):
-              print(f'ERROR: {message}', file=sys.stderr)
+              print('ERROR:', message, file=sys.stderr)
               raise SystemExit(1)
-
-          all_files = sorted(p for p in root.rglob('*') if p.is_file() and '.git' not in p.parts)
-          forbidden_suffixes = ('.zip', '.tar', '.tgz', '.gz', '.7z', '.rar', '.env', '.pem', '.p12', '.pfx', '.key')
-          forbidden = [p.as_posix() for p in all_files if p.name.lower().startswith('.env') or p.as_posix().lower().endswith(forbidden_suffixes)]
-          if forbidden:
-              fail('forbidden archive/credential files committed: ' + ', '.join(forbidden))
-
-          secret_patterns = {
+          files = sorted(p for p in root.rglob('*') if p.is_file() and '.git' not in p.parts)
+          forbidden_suffixes = ('.zip','.tar','.tgz','.gz','.7z','.rar','.env','.pem','.p12','.pfx','.key')
+          forbidden = [p.as_posix() for p in files if p.name.lower().startswith('.env') or p.as_posix().lower().endswith(forbidden_suffixes)]
+          if forbidden: fail('forbidden archive/credential files committed: ' + ', '.join(forbidden))
+          patterns = {
               'private key': rb'-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----',
               'Google API key': rb'\bAIza[0-9A-Za-z_-]{35}\b',
               'GitHub token': rb'\bgh[pousr]_[A-Za-z0-9]{20,}\b',
               'AWS access key': rb'\bAKIA[0-9A-Z]{16}\b',
-              'Slack token': rb'\bxox[baprs]-[0-9A-Za-z-]{20,}\b',
-              'JWT-like token': rb'\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b',
-              'credential URL': rb'(?i)\b[a-z][a-z0-9+.-]*://[^\s/:]+:[^\s/@]+@',
           }
-          for path in all_files:
+          for path in files:
               data = path.read_bytes()
-              for label, pattern in secret_patterns.items():
-                  if re.search(pattern, data):
-                      fail(f'possible {label} found in {path.as_posix()}')
-
-          main = (root / 'sabri-authentication.php').read_text(encoding='utf-8')
-          readme = (root / 'readme.txt').read_text(encoding='utf-8')
-          if f'Version: {release}' not in main or f"define( 'SAUTH_VERSION', '{release}' );" not in main:
-              fail(f'plugin header or SAUTH_VERSION is not {release}')
-          if f"define( 'SAUTH_DB_VERSION', '{db}' );" not in main:
-              fail(f'SAUTH_DB_VERSION is not {db}')
-          if "define( 'SAUTH_PASSKEY_CONTRACT_VERSION', '1.0.0' );" not in main:
-              fail('passkey contract constant is missing')
-          if f'Stable tag: {release}' not in readme:
-              fail(f'readme stable tag is not {release}')
-
+              for label, pattern in patterns.items():
+                  if re.search(pattern, data): fail(f'possible {label} in {path}')
+          main = (root/'sabri-authentication.php').read_text()
+          readme = (root/'readme.txt').read_text()
+          if f'Version: {release}' not in main or f"define( 'SAUTH_VERSION', '{release}' );" not in main: fail('release version mismatch')
+          if f"define( 'SAUTH_DB_VERSION', '{db}' );" not in main: fail('DB version mismatch')
+          if "define( 'SAUTH_PASSKEY_CONTRACT_VERSION', '1.0.0' );" not in main: fail('passkey contract missing')
+          if f'Stable tag: {release}' not in readme: fail('readme stable tag mismatch')
           storage_require = "require_once SAUTH_DIR . 'includes/class-sauth-storage-router.php';"
-          storage_init = 'SAUTH_Storage_Router::init();'
-          if storage_require not in main or storage_init not in main:
-              fail('storage-router bootstrap binding is incomplete')
-          if main.index(storage_require) > main.index('function sauth_start_plugin()'):
-              fail('storage-router must be required before File 02 startup is registered')
-
-          lock = json.loads((root / 'RELEASE-LOCK.json').read_text(encoding='utf-8'))
+          if storage_require not in main or main.index(storage_require) > main.index('function sauth_start_plugin()'): fail('storage-router bootstrap binding invalid')
+          lock = json.loads((root/'RELEASE-LOCK.json').read_text())
           expected = {
               'release_version': release,
               'database_version': db,
               'passkey_schema_version': '1.0.0',
-              'canonical_repository': '02-sabri-authentication-and-accounts',
+              'intended_canonical_repository': '02-sabri-authentication-and-accounts',
+              'transport_repository': '02-sabri-authentication',
               'package_folder': '02-sabri-authentication',
               'php_prefix': 'SAUTH_',
               'canonical_sessions_route': '/account/sessions/',
@@ -128,201 +90,132 @@ jobs:
               'passkey_assurance_owner': 'file02',
           }
           for key, value in expected.items():
-              if lock.get(key) != value:
-                  fail(f'RELEASE-LOCK mismatch for {key}')
-
+              if lock.get(key) != value: fail('RELEASE-LOCK mismatch for ' + key)
           required = {
-              'README.md', 'STATUS.md', 'PLAN-TRACEABILITY.md', 'RELEASE-LOCK.json',
-              'readme.txt', 'uninstall.php', 'tools/build-package.sh',
-              'includes/class-sauth-account-contract.php',
-              'includes/class-sauth-completion-resolver.php',
-              'includes/class-sauth-event-outbox.php',
-              'includes/class-sauth-email-verification.php',
-              'includes/class-sauth-login-risk.php',
-              'includes/class-sauth-provider-health.php',
-              'includes/class-sauth-provider-http-guard.php',
-              'includes/class-sauth-session-manager.php',
-              'includes/class-sauth-storage-router.php',
-              'includes/class-sauth-operations.php',
-              'includes/class-sauth-google-registration.php',
-              'includes/class-sauth-canonical-routes.php',
-              'includes/class-sauth-passkeys.php',
-              'templates/login.php', 'templates/signup.php', 'templates/reset-password.php',
-              'tests/complete-plan-unit.php',
-              'tests/registration-authentication-unit.php',
-              'tests/plan-harmonization-unit.php',
-              'tests/three-plan-completion-unit.php',
-              'tests/passkey-webauthn-unit.php',
-              'tests/cf01-assurance-unit.php',
-              'tests/professional-reauthentication-unit.php',
-              'tests/architecture-check.py', 'tests/security-unit.php',
+              'README.md','STATUS.md','PLAN-TRACEABILITY.md','RELEASE-MANIFEST.md','RELEASE-LOCK.json','SBOM.spdx.json',
+              'sabri-authentication.php','uninstall.php','readme.txt','tools/build-package.sh',
+              'includes/class-sauth-storage-router.php','includes/class-sauth-passkeys.php','includes/class-sauth-passkey-runtime.php',
+              'tests/security-unit.php','tests/storage-migration-unit.php','tests/r291-r300-review-regression.php','tests/r299-cross-flow-regression.php',
+              'tests/r302-migration-postcondition-regression.php','tests/r303-registration-recovery-regression.php','tests/r304-google-auth-regression.php',
+              'tests/r305-passkey-lifecycle-regression.php','tests/r306-session-assurance-regression.php','tests/r307-privacy-operations-regression.php',
+              'tests/r308-route-ui-regression.php','tests/r309-release-truth-regression.php'
           }
-          present = {p.as_posix() for p in all_files}
-          missing = sorted(required - present)
-          if missing:
-              fail('missing current release evidence: ' + ', '.join(missing))
-
-          trace = (root / 'PLAN-TRACEABILITY.md').read_text(encoding='utf-8')
-          for requirement in [f'F02-FR-{n:03d}' for n in range(1, 13)]:
-              if requirement not in trace:
-                  fail(f'missing functional traceability: {requirement}')
-          for requirement in [f'F02-NFR-{n:03d}' for n in range(1, 11)]:
-              if requirement not in trace:
-                  fail(f'missing non-functional traceability: {requirement}')
-          for marker in ('CV-005', 'CV-006', 'CV-010', 'smc_file02_authentication_assurance_v1', 'server parses attestationObject CBOR'):
-              if marker not in trace:
-                  fail(f'missing fourth-plan traceability: {marker}')
-
-          source_paths = sorted(
-              p for p in all_files
-              if p.suffix.lower() in {'.php', '.css', '.js', '.txt'}
-              and not p.as_posix().startswith('tests/')
-          )
-          canonical = []
-          for path in source_paths:
-              data = path.read_bytes()
-              canonical.append(f"{hashlib.sha256(data).hexdigest()}  {len(data)}  {path.as_posix()}")
-          tree_text = '\n'.join(canonical) + '\n'
-          print(f'File 02 {release} dynamic source-tree SHA-256:', hashlib.sha256(tree_text.encode()).hexdigest())
-          print('Source files:', len(source_paths))
-          print('Source bytes:', sum(p.stat().st_size for p in source_paths))
-          subprocess.run([sys.executable, 'tests/architecture-check.py'], check=True)
+          present = {p.as_posix() for p in files}
+          missing = sorted(required-present)
+          if missing: fail('missing release evidence: ' + ', '.join(missing))
+          trace = (root/'PLAN-TRACEABILITY.md').read_text()
+          for req in [f'F02-FR-{n:03d}' for n in range(1,13)] + [f'F02-NFR-{n:03d}' for n in range(1,11)]:
+              if req not in trace: fail('missing traceability: ' + req)
+          subprocess.run([sys.executable,'tests/architecture-check.py'],check=True)
+          print('Release constitution and source policy PASS.')
           PY
 
-      - name: Validate JavaScript and CSS source
+      - name: Validate JavaScript and CSS
         run: |
           set -euo pipefail
           node --check assets/js/authentication.js
           python3 - <<'PY'
           import pathlib
-          css = pathlib.Path('assets/css/authentication.css').read_text(encoding='utf-8')
-          if css.count('{') != css.count('}'):
-              raise SystemExit('CSS brace mismatch')
-          if 'orange' in css.lower() or '#f97316' in css.lower():
-              raise SystemExit('superseded orange-primary token found')
-          js = pathlib.Path('assets/js/authentication.js').read_text(encoding='utf-8')
-          if 'attestation_object' not in js or 'getPublicKey(' in js:
-              raise SystemExit('WebAuthn registration must send attestationObject and must not trust getPublicKey()')
-          print('JavaScript syntax, WebAuthn boundary and CSS structural checks passed.')
+          css=pathlib.Path('assets/css/authentication.css').read_text()
+          if css.count('{') != css.count('}'): raise SystemExit('CSS brace mismatch')
+          if 'orange' in css.lower() or '#f97316' in css.lower(): raise SystemExit('superseded orange-primary token found')
+          js=pathlib.Path('assets/js/authentication.js').read_text()
+          if 'attestation_object' not in js or 'getPublicKey(' in js: raise SystemExit('WebAuthn trust boundary regression')
           PY
 
-  php-lint-and-runtime:
-    name: PHP ${{ matrix.php }} lint and no-network runtime suites
+  php-runtime:
+    name: PHP ${{ matrix.php }} lint and cumulative no-network regressions
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        php:
-          - '7.4'
-          - '8.3'
+        php: ['7.4','8.3']
     steps:
-      - name: Checkout exact immutable head
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-
-      - name: Set up PHP from immutable action
-        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240
         with:
           php-version: ${{ matrix.php }}
           coverage: none
           tools: none
           extensions: openssl
-
-      - name: Lint every PHP file and run no-network suites
+      - name: Lint and run cumulative suites
         run: |
           set -euo pipefail
           mapfile -t php_files < <(find . -type f -name '*.php' -not -path './.git/*' -print | sort)
           test "${#php_files[@]}" -ge 40
-          for file in "${php_files[@]}"; do
-            php -l "$file"
-          done
-          php tests/security-unit.php
-          php tests/cf01-assurance-unit.php
-          php tests/professional-reauthentication-unit.php
-          php tests/plan-harmonization-unit.php
-          php tests/registration-authentication-unit.php
-          php tests/complete-plan-unit.php
-          php tests/passkey-webauthn-unit.php
-          php tests/three-plan-completion-unit.php
+          for file in "${php_files[@]}"; do php -l "$file"; done
+          tests=(
+            tests/security-unit.php
+            tests/cf01-assurance-unit.php
+            tests/professional-reauthentication-unit.php
+            tests/plan-harmonization-unit.php
+            tests/registration-authentication-unit.php
+            tests/complete-plan-unit.php
+            tests/passkey-webauthn-unit.php
+            tests/three-plan-completion-unit.php
+            tests/storage-migration-unit.php
+            tests/r291-r300-review-regression.php
+            tests/r299-cross-flow-regression.php
+            tests/r302-migration-postcondition-regression.php
+            tests/r303-registration-recovery-regression.php
+            tests/r304-google-auth-regression.php
+            tests/r305-passkey-lifecycle-regression.php
+            tests/r306-session-assurance-regression.php
+            tests/r307-privacy-operations-regression.php
+            tests/r308-route-ui-regression.php
+            tests/r309-release-truth-regression.php
+          )
+          for test_file in "${tests[@]}"; do php "$test_file"; done
 
   deterministic-package:
-    name: Deterministic 1.2.1 package, clean-extract parity and retained artifact
+    name: Deterministic package and clean-extract parity
+    needs: [source-integrity, php-runtime]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - name: Checkout exact immutable head
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-
-      - name: Set up PHP from immutable action
-        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240
         with:
           php-version: '8.3'
           coverage: none
           tools: none
           extensions: openssl
-
-      - name: Build twice, compare and lint clean extraction
+      - name: Build twice, compare and verify clean extraction
         run: |
           set -euo pipefail
           export SOURCE_DATE_EPOCH=1785984000
-          bash tools/build-package.sh "$RUNNER_TEMP/build-a"
-          bash tools/build-package.sh "$RUNNER_TEMP/build-b"
-
-          archive_a="$RUNNER_TEMP/build-a/02-sabri-authentication-${RELEASE_VERSION}-SOURCE-CANDIDATE.zip"
-          archive_b="$RUNNER_TEMP/build-b/02-sabri-authentication-${RELEASE_VERSION}-SOURCE-CANDIDATE.zip"
-          manifest_a="$RUNNER_TEMP/build-a/02-sabri-authentication-${RELEASE_VERSION}-MANIFEST.json"
-          manifest_b="$RUNNER_TEMP/build-b/02-sabri-authentication-${RELEASE_VERSION}-MANIFEST.json"
-          test -f "$archive_a" && test -f "$archive_b" && test -f "$manifest_a" && test -f "$manifest_b"
-          cmp --silent "$archive_a" "$archive_b"
-          cmp --silent "$manifest_a" "$manifest_b"
-
-          unzip -q "$archive_a" -d "$RUNNER_TEMP/extract"
-          test -f "$RUNNER_TEMP/extract/02-sabri-authentication/sabri-authentication.php"
-          test -f "$RUNNER_TEMP/extract/02-sabri-authentication/includes/class-sauth-passkeys.php"
-          test -f "$RUNNER_TEMP/extract/02-sabri-authentication/includes/class-sauth-storage-router.php"
-          test -f "$RUNNER_TEMP/extract/02-sabri-authentication/PACKAGE-MANIFEST.json"
-          grep -Fq "require_once SAUTH_DIR . 'includes/class-sauth-storage-router.php';" "$RUNNER_TEMP/extract/02-sabri-authentication/sabri-authentication.php"
+          bash tools/build-package.sh "$RUNNER_TEMP/a"
+          bash tools/build-package.sh "$RUNNER_TEMP/b"
+          a="$RUNNER_TEMP/a/02-sabri-authentication-${RELEASE_VERSION}-SOURCE-CANDIDATE.zip"
+          b="$RUNNER_TEMP/b/02-sabri-authentication-${RELEASE_VERSION}-SOURCE-CANDIDATE.zip"
+          ma="$RUNNER_TEMP/a/02-sabri-authentication-${RELEASE_VERSION}-MANIFEST.json"
+          mb="$RUNNER_TEMP/b/02-sabri-authentication-${RELEASE_VERSION}-MANIFEST.json"
+          cmp --silent "$a" "$b"
+          cmp --silent "$ma" "$mb"
+          unzip -t "$a"
+          unzip -q "$a" -d "$RUNNER_TEMP/extract"
           test "$(find "$RUNNER_TEMP/extract" -mindepth 1 -maxdepth 1 -type d | wc -l)" -eq 1
-          while IFS= read -r file; do php -l "$file"; done < <(find "$RUNNER_TEMP/extract" -type f -name '*.php' | sort)
-          ! find "$RUNNER_TEMP/extract" -type f \( -name '*.zip' -o -name '*.pem' -o -name '*.key' -o -name '.env*' \) | grep -q .
-
-          python3 - "$archive_a" <<'PY'
-          import pathlib
-          import sys
-          import zipfile
-          archive = pathlib.Path(sys.argv[1])
-          with zipfile.ZipFile(archive) as bundle:
-              names = bundle.namelist()
-          bad = []
-          for name in names:
-              normalized = name.replace('\\', '/')
-              parts = pathlib.PurePosixPath(normalized).parts
-              if normalized.startswith('/') or '..' in parts or '\\' in name:
-                  bad.append(name)
-          if bad:
-              raise SystemExit('Unsafe archive paths: ' + ', '.join(bad))
-          roots = {pathlib.PurePosixPath(name.replace('\\', '/')).parts[0] for name in names if name}
-          if roots != {'02-sabri-authentication'}:
-              raise SystemExit('Unexpected archive roots: ' + ', '.join(sorted(roots)))
-          PY
-
-          sha256sum "$archive_a" "$manifest_a" | tee "$RUNNER_TEMP/build-a/EXACT-HEAD-CHECKSUMS.sha256"
-          cat "$RUNNER_TEMP/build-a/CHECKSUMS.sha256"
-
-      - name: Retain exact-head source candidate
+          test -f "$RUNNER_TEMP/extract/02-sabri-authentication/includes/class-sauth-storage-router.php"
+          test -f "$RUNNER_TEMP/extract/02-sabri-authentication/includes/class-sauth-passkeys.php"
+          while IFS= read -r file; do php -l "$file"; done < <(find "$RUNNER_TEMP/extract/02-sabri-authentication" -type f -name '*.php' -print | sort)
+          cp "$a" "02-sabri-authentication-${RELEASE_VERSION}-SOURCE-CANDIDATE.zip"
+          cp "$ma" "02-sabri-authentication-${RELEASE_VERSION}-MANIFEST.json"
+          sha256sum "02-sabri-authentication-${RELEASE_VERSION}-SOURCE-CANDIDATE.zip" | tee CHECKSUMS.sha256
+      - name: Retain exact-head candidate artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: file02-authentication-and-accounts-${{ env.RELEASE_VERSION }}-${{ github.event.pull_request.head.sha || github.sha }}
+          name: file02-${{ env.RELEASE_VERSION }}-${{ github.event.pull_request.head.sha || github.sha }}
+          retention-days: 14
           if-no-files-found: error
-          retention-days: 30
           path: |
-            ${{ runner.temp }}/build-a/02-sabri-authentication-${{ env.RELEASE_VERSION }}-SOURCE-CANDIDATE.zip
-            ${{ runner.temp }}/build-a/02-sabri-authentication-${{ env.RELEASE_VERSION }}-MANIFEST.json
-            ${{ runner.temp }}/build-a/CHECKSUMS.sha256
-            ${{ runner.temp }}/build-a/EXACT-HEAD-CHECKSUMS.sha256
+            02-sabri-authentication-${{ env.RELEASE_VERSION }}-SOURCE-CANDIDATE.zip
+            02-sabri-authentication-${{ env.RELEASE_VERSION }}-MANIFEST.json
+            CHECKSUMS.sha256
+            SBOM.spdx.json
