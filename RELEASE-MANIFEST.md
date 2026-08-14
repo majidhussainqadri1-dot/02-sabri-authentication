@@ -5,9 +5,10 @@
 - Module: `02 — Authentication and Accounts`
 - Candidate version/schema: `1.2.1 / 1.2.0`
 - Passkey schema/assurance: `1.0.0 / 1.0.0`
-- Candidate branch: `fix/live-bootstrap-storage-router-1.2.1`
-- Incident baseline main: `8192c45b595b34e13e09934e3b2d554aa2d8553f`
-- Canonical repository: `02-sabri-authentication-and-accounts`
+- Candidate branch: `review/file02-r301-r310-2026-08-14`
+- Current repository `main` at R301 freeze: `0f011b1876e217b7ee46f92903e5315538c1025e`
+- Historical incident baseline main: `8192c45b595b34e13e09934e3b2d554aa2d8553f`
+- Intended canonical repository name: `02-sabri-authentication-and-accounts` (owner-level rename is still external)
 - Current transport repository: `02-sabri-authentication`
 - Package root: `02-sabri-authentication`
 - Package: `02-sabri-authentication-1.2.1-SOURCE-CANDIDATE.zip`
@@ -15,7 +16,6 @@
 - Checksums: `CHECKSUMS.sha256` plus exact-head CI checksum record
 - SBOM: `SBOM.spdx.json`
 - Required File 00 provider: `smc.authentication-account 1.1.0`
-- Paired File 00 repository candidate: `1.2.43` exact head `a71dc91b8ce80774adac35a90d7517999054f120` until separately superseded/merged
 - Advanced Trust projection: File 02 passkey assurance `1.0.0`, owner `file02`
 
 ## Patch correction
@@ -55,24 +55,24 @@ The runtime inventory includes `includes/class-sauth-storage-router.php`, `inclu
 
 The current GitHub Actions head must:
 
-1. prove checkout equals the immutable PR/source HEAD;
+1. prove checkout equals the immutable source HEAD;
 2. lint every PHP source file on PHP 7.4 and 8.3;
-3. execute all security, assurance, registration, completion, prior three-plan and WebAuthn CBOR/COSE/signature suites;
+3. execute all security, assurance, registration, completion, prior plan and WebAuthn CBOR/COSE/signature suites;
 4. enforce the architecture guard, including File 02/File 00 ownership and rejection of client-supplied WebAuthn public keys;
 5. prove the storage-router source is loaded before File 02 startup;
 6. validate JavaScript syntax and CSS structure;
-7. build the 1.2.1 package twice from a fixed source epoch and prove byte identity;
+7. build the 1.2.1 package twice from a fixed source epoch and prove byte identity before any release claim;
 8. reject archive traversal, unexpected roots, secrets and forbidden files;
 9. clean-extract and lint every packaged PHP file and prove the storage-router bootstrap binding survives packaging;
-10. run a real WordPress/MariaDB integration against the exact paired File 00 candidate, activate File 02 and prove at least two subsequent independent WordPress loads remain non-fatal; and
-11. publish the ZIP, manifest and checksums as a retained workflow artifact.
+10. run the separately designated real WordPress/File 00 integration gate before staging acceptance; and
+11. retain exact-head evidence without implying staging/live completion.
 
 The actual package digest is produced only from the immutable workflow head rather than guessed or copied from an earlier release.
 
 ## Source completion boundary
 
-The 1.2.1 source candidate preserves the previous 12 File 02 functional requirements plus CV-005 Passkey/MFA ceremony, CV-006 device/session center and CV-010 recovery within File 02's canonical boundary. File 00 remains identity/MFA-policy authority and File 24 remains assurance/risk governance rather than a credential store.
+The 1.2.1 source candidate preserves the original File 02 functional requirements plus the approved passkey/WebAuthn, device/session and recovery additions. File 02 owns password, Google and passkey authentication ceremonies and their authentication assurance. File 00 remains the membership, identity, guardian, role/capability and eligibility authority and consumes the versioned File 02 authentication assurance. Retired File 00 authenticator/recovery codes are not solicited or accepted by File 02 as an authentication ceremony.
 
 ## External completion boundary
 
-This manifest can prove source/package identity and automated evidence only after current exact-head CI succeeds. Hostinger staging, real production-domain WebAuthn authenticators, SMTP/Google, File 00 Advanced Trust integration, browser/RTL/WCAG, performance/load, backup/restore, rollback, Founder acceptance, live deployment and operations remain separate gates.
+This manifest can prove repository/source and automated evidence only after the relevant exact-head gates succeed. Hostinger staging, real production-domain WebAuthn authenticators, SMTP/Google, File 00 integration, browser/RTL/WCAG, performance/load, backup/restore, rollback, Founder acceptance, live deployment and operations remain separate gates.
