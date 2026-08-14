@@ -4,7 +4,7 @@ $activator = file_get_contents( $root . '/includes/class-sa-activator.php' );
 $fail = array();
 $checks = array(
     'activation migration failure is contained' => "if ( ! self::repair() )",
-    'upgrade migration failure enables Safe Mode' => "update_option( SAUTH_Operations::SAFE_MODE_OPTION, '1', false );",
+    'upgrade migration failure enables Safe Mode' => "SAUTH_Operations::enter_safe_mode();",
     'repair proves storage before markers' => "! self::storage_ready()",
     'canonical version marker is read back' => "SAUTH_VERSION !== (string) get_option( 'sauth_version', '' )",
     'legacy copy failure is observed' => 'if ( false === $result )',
