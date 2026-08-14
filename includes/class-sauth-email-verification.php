@@ -54,6 +54,9 @@ final class SAUTH_Email_Verification {
 		if ( ! SAUTH_Account_Contract::provider_available() || ! SAUTH_Provider_Health::allow_request( 'membership' ) ) {
 			return new WP_Error( 'sauth_email_provider_unavailable', 'Account verification is temporarily unavailable.' );
 		}
+		if ( ! SAUTH_Provider_Health::allow_request( 'email' ) ) {
+			return new WP_Error( 'sauth_email_delivery_circuit_open', 'Email delivery is temporarily paused. Retry later.' );
+		}
 		$table = self::table();
 		if ( '' === $table ) {
 			return new WP_Error( 'sauth_email_storage_unavailable', 'Email verification storage is unavailable.' );
@@ -62,7 +65,7 @@ final class SAUTH_Email_Verification {
 		if ( is_array( $row ) && 'verified' === (string) $row['status'] ) {
 			return array( 'result' => 'verified', 'reason_code' => 'already_verified' );
 		}
-		if ( ! $force && is_array( $row ) && ! empty( $row['sent_at'] ) ) {
+		if ( ! $force && is_array( $row ) && 'pending' === (string) ( $row['status'] ?? '' ) && ! empty( $row['sent_at'] ) ) {
 			$sent_at = strtotime( (string) $row['sent_at'] );
 			if ( false !== $sent_at && $sent_at + self::RESEND_DELAY > time() ) {
 				return new WP_Error( 'sauth_email_resend_throttled', 'Please wait before requesting another verification email.' );

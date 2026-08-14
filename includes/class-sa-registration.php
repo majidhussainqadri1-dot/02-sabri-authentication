@@ -235,6 +235,7 @@ final class SA_Registration {
 		$epoch   = (string) ( $job['privacy_epoch'] ?? '' );
 		if ( $user_id ) { SAUTH_Privacy_Jobs::forget_job( $user_id, $key ); }
 		if ( SAUTH_Operations::safe_mode() || ! SA_Membership_Adapter::available() || ! SAUTH_Account_Contract::provider_available() ) { return; }
+		if ( ! SAUTH_Provider_Health::allow_request( 'email' ) ) { return; }
 		if ( ! $user_id || ! SAUTH_Privacy_Jobs::valid_snapshot( $user_id, $epoch ) ) { return; }
 		$user = get_userdata( $user_id );
 		if ( ! $user instanceof WP_User ) { return; }
