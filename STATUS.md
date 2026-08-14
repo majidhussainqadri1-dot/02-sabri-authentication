@@ -11,7 +11,7 @@
 - Required account provider: `smc.authentication-account 1.1.0`
 - Authentication-assurance producer: File 02 `smc_file02_authentication_assurance_v1` / contract `1.0.0`
 - Historical incident baseline main: `8192c45b595b34e13e09934e3b2d554aa2d8553f`
-- Historical defect corrected in 1.2.1: `SAUTH_Storage_Router::init()` was called after activation without loading `includes/class-sauth-storage-router.php`.
+- Exact cross-file repository integration: **GREEN**, run `31850253635`, File 02 `f740ca65fc33031b98d7d75e5f27b7ccbeeefbf9` paired with File 00 `1d7f215193d778b0977c8e50d738c42e1e5f66c2` / runtime `1.2.44`.
 
 ## Source candidate capabilities
 
@@ -27,43 +27,35 @@
 - Passkey management uses a fresh File 02 passkey assurance when present, otherwise current-password reauthentication; retired File 00 authenticator/recovery codes are neither solicited nor accepted.
 - Privacy export/erasure for passkeys, opaque random user handles, no biometric/private-key retention, privacy-minimized passkey events and bounded revoked-credential cleanup.
 - Loop-safe completion resolver, canonical `/account/sessions/` route, canonical `SAUTH_` identifiers and bounded legacy aliases.
-- File 01/File 20 manifests, migration/rollback/backup/incident documentation and deterministic packaging pipeline.
-- File 02 1.2.6 retains the 1.2.1 storage-router bootstrap correction and adds R321–R330 fail-closed, migration/index, passkey, provider, privacy, session, UI and release-truth hardening.
-
-## Review-cycle corrections carried into this branch
-
-1. Missing WebAuthn/passkey ceremony required by the later approved scope.
-2. Client-side public-key extraction rejected; registration derives the COSE public key only from server-parsed authenticatorData.
-3. Transient-only challenge consumption race replaced with an atomic replay claim.
-4. Credential lookup moved away from WordPress-salt HMAC to stable SHA-256 over opaque credential IDs.
-5. Deterministic salt-bound user handles replaced with random opaque File 02 values with privacy erasure.
-6. Hardware-backed inference is conservative under `attestation=none`.
-7. Passkey domain events are privacy-minimized first-class events.
-8. Passkey activation/deactivation lifecycle and no-network WebAuthn regression coverage were added.
-9. The 1.2.0 storage-router bootstrap fatal was corrected in 1.2.1.
-10. R291–R300 added dependency, Safe Mode, asynchronous privacy-job, passkey assurance, Google-flow and exact-head review hardening; R301–R310 completed the prior corrective line; R311–R318 completed further sequential review/fix/retest rounds, and R319 completed dependency/release-truth hardening; R320 completed the final adversarial review and corrective release-identity/index/CI cleanup.
+- R334/R335 correct real MariaDB passkey migration: dbDelta-safe one-index-per-line DDL plus exact reconciliation of the MariaDB-preserved stale `credential_lookup_hash => credential_hash` unique-index binding.
+- R336 binds architecture release identity to `RELEASE-LOCK.json` and records exact cross-file integration closure without advancing external deployment gates.
 
 ## Seven separate completion gates
 
 | Gate | Status | Evidence boundary |
 |---|---|---|
 | Specified | Complete | Governing File 02 + central/Continuous-Value + cross-file ownership traced |
-| Source coding | **Review candidate** | Reviewable branch source reviewed through the completed R321–R330 ten-round cycle |
-| Packaged | Not claimed from review branch | Release packaging is a separate gate |
-| Automated-QA | Review exact-head gate | Review CI may prove lint/regression only for its exact head |
-| Staging-Accepted | No | Real Hostinger/WebAuthn/provider/browser evidence absent |
+| Source coding | **Review candidate** | R331–R336 corrective line; product/source regressions green before R336 release-evidence correction |
+| Packaged | Pending exact-head Release Integrity | Deterministic package proof must come from the corrected exact-head workflow |
+| Automated-QA | Pending final exact-head R336 run | PHP 7.4/8.3 were green at `f740ca...`; final release constitution/package must be rerun after R336 evidence correction |
+| Staging-Accepted | No | Real Hostinger/WebAuthn/provider/browser acceptance evidence absent |
 | Live-Deployed | No | No production authorization/evidence for this candidate |
 | Operational | No | Monitoring/support/restore evidence absent |
 
+## Cross-file repository integration evidence
+
+The former File 00 taxonomy/provider release blocker is **closed at repository/integration level only**. Exact run `31850253635` passed WordPress 7.0 / MariaDB 11.4 fresh installation, File 00 deferred administrator bootstrap to DB `1.4.5`, File 02 fresh activation at `1.2.6 / DB 1.2.1 / passkey 1.0.1`, all nine canonical account types on both sides, legacy passkey column/index upgrade, legacy logical-identity collision migration, and final paired boundaries.
+
+This does not substitute for Hostinger staging or live deployment evidence.
+
 ## External owner and environment gates
 
-- Cross-file release blocker: File 00 canonical account taxonomy and its `smc.authentication-account 1.1.0` provider vocabulary still require owner-side harmonization; File 02 intentionally does not invent a lossy account-type remap.
-- Hostinger fresh install and supported upgrade tests, including `dbDelta` creation of the passkey table and private manager page.
+- Hostinger fresh install and supported upgrade acceptance against the exact packaged candidate.
 - Real production-domain WebAuthn tests with platform authenticators, synced passkeys and cross-platform security keys; real Google and SMTP providers.
-- Accepted File 00 account/membership integration plus File 01/File 20/File 03/File 24/theme/LiteSpeed integrations.
+- File 01/File 20/File 03/File 24/theme/LiteSpeed integrations beyond the exact File 00 gate proven above.
 - Real-role IDOR/CSRF/replay/race/privacy tests and privilege-loss/session-revocation tests.
 - Urdu RTL, English LTR, keyboard, screen reader, 200–400% zoom, mobile and cross-browser acceptance.
 - Performance/load/provider-outage tests, backup/restore and rollback rehearsal.
 - Founder staging acceptance and controlled production authorization.
 
-No source/package/staging/live/operational status may be inferred from another gate. Exact deployed code, database version, migration state and live verification remain unverified unless separate live evidence is captured.
+No source/package/staging/live/operational status may be inferred from another gate. Exact deployed code, live database version, live migration state and live verification remain unverified unless separate live evidence is captured.
