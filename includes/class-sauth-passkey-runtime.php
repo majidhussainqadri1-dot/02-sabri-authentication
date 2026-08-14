@@ -361,6 +361,7 @@ final class SAUTH_Passkey_Runtime {
 
 	private static function valid_pending_receipt( $receipt, $user_id ) {
 		return is_array( $receipt )
+			&& SAUTH_Passkeys::CONTRACT_VERSION === (string) ( $receipt['contract_version'] ?? '' )
 			&& absint( $receipt['user_id'] ?? 0 ) === absint( $user_id )
 			&& 'file02' === (string) ( $receipt['owner'] ?? '' )
 			&& 'webauthn_passkey' === (string) ( $receipt['method'] ?? '' )
@@ -434,9 +435,17 @@ final class SAUTH_Passkey_Runtime {
 	}
 
 	private static function sign_in_allowed( array $assertion, array $completion ) {
-		if ( 'unknown' === ( $assertion['result'] ?? 'unknown' ) || ! empty( $assertion['membership']['suspended'] ) ) { return false; }
-		if ( 'allow' === ( $assertion['result'] ?? '' ) ) { return true; }
-		return 'allow' === ( $completion['result'] ?? '' ) && ! empty( $completion['missing_steps'] ) && ! empty( $completion['next_route'] );
+		if ( 'unknown' === ( $assertion['result'] ?? 'unknown' ) || ! empty( $assertion['membership']['suspended'] ) ) {
+			return false;
+		}
+		if ( 'allow' === ( $assertion['result'] ?? '' ) ) {
+			return true;
+		}
+		$active = true === ( $assertion['membership']['active'] ?? false );
+		return $active
+			&& 'allow' === ( $completion['result'] ?? '' )
+			&& ! empty( $completion['missing_steps'] )
+			&& ! empty( $completion['next_route'] );
 	}
 
 	private static function authentication_failure( $user_id, $reason ) {

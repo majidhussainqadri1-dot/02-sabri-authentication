@@ -199,7 +199,7 @@ final class SAUTH_Passkeys {
 						<label for="sauth-passkey-name">Passkey name <span class="screen-reader-text">optional</span></label>
 						<input id="sauth-passkey-name" type="text" maxlength="80" autocomplete="off" placeholder="For example: My phone">
 						<label for="sauth-passkey-password">Current password <span class="screen-reader-text">used when this session does not already have a fresh File 02 passkey assurance</span></label>
-						<input id="sauth-passkey-password" type="password" autocomplete="current-password" maxlength="256">
+						<input id="sauth-passkey-password" type="password" autocomplete="current-password" maxlength="4096">
 						<button type="button" class="sa-primary-button" data-sauth-passkey-register>Add a Passkey</button>
 					</div>
 				<?php endif; ?>
@@ -623,7 +623,11 @@ final class SAUTH_Passkeys {
 		if ( 'allow' === ( $assertion['result'] ?? '' ) ) {
 			return true;
 		}
-		return 'allow' === ( $completion['result'] ?? '' ) && ! empty( $completion['missing_steps'] ) && ! empty( $completion['next_route'] );
+		$active = true === ( $assertion['membership']['active'] ?? false );
+		return $active
+			&& 'allow' === ( $completion['result'] ?? '' )
+			&& ! empty( $completion['missing_steps'] )
+			&& ! empty( $completion['next_route'] );
 	}
 
 	private static function new_challenge( $purpose, $user_id, $redirect ) {
@@ -949,9 +953,18 @@ final class SAUTH_Passkeys {
 	private static function environment_ready() {
 		$ctx = self::rp_context();
 		$local = in_array( $ctx['rp_id'], array( 'localhost', '127.0.0.1', '::1' ), true );
+		$schema_ready = self::SCHEMA_VERSION === (string) get_option( self::OPTION_SCHEMA_VERSION, '' );
+		$table_ready = false;
+		if ( $schema_ready ) {
+			global $wpdb;
+			$table = self::table();
+			$table_ready = $table === (string) $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) );
+		}
 		return '' !== $ctx['rp_id']
 			&& ( 'https' === $ctx['scheme'] || ( $local && 'http' === $ctx['scheme'] ) )
 			&& function_exists( 'openssl_verify' )
+			&& $schema_ready
+			&& $table_ready
 			&& SA_Membership_Adapter::available()
 			&& SAUTH_Account_Contract::provider_available();
 	}
@@ -1139,21 +1152,38 @@ final class SAUTH_Passkeys {
 		if ( ! $user instanceof WP_User ) {
 			return array( 'data' => array(), 'done' => true );
 		}
+		global $wpdb;
+		$page = max( 1, absint( $page ) );
+		$limit = 50;
+		$offset = ( $page - 1 ) * $limit;
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				'SELECT public_id,nickname,status,created_at,last_used_at,revoked_at,attachment,backup_eligible FROM ' . self::table() . ' WHERE user_id=%d ORDER BY id ASC LIMIT %d OFFSET %d',
+				$user->ID,
+				$limit,
+				$offset
+			),
+			ARRAY_A
+		);
+		$rows = is_array( $rows ) ? $rows : array();
 		$data = array();
-		foreach ( self::credentials_for_user( $user->ID ) as $credential ) {
+		foreach ( $rows as $credential ) {
 			$data[] = array(
 				'group_id' => 'sabri-authentication-passkeys',
 				'group_label' => __( 'Passkeys', 'sabri-authentication' ),
 				'item_id' => 'passkey-' . sanitize_key( $credential['public_id'] ),
 				'data' => array(
 					array( 'name' => 'Nickname', 'value' => (string) $credential['nickname'] ),
+					array( 'name' => 'Status', 'value' => (string) $credential['status'] ),
 					array( 'name' => 'Created', 'value' => (string) $credential['created_at'] ),
 					array( 'name' => 'Last used', 'value' => (string) $credential['last_used_at'] ),
+					array( 'name' => 'Revoked', 'value' => (string) $credential['revoked_at'] ),
 					array( 'name' => 'Authenticator type', 'value' => (string) $credential['attachment'] ),
+					array( 'name' => 'Sync capable', 'value' => ! empty( $credential['backup_eligible'] ) ? 'Yes' : 'No' ),
 				),
 			);
 		}
-		return array( 'data' => $data, 'done' => true );
+		return array( 'data' => $data, 'done' => count( $rows ) < $limit );
 	}
 
 	public static function register_eraser( $erasers ) {
@@ -1169,15 +1199,30 @@ final class SAUTH_Passkeys {
 		if ( ! $user instanceof WP_User ) {
 			return array( 'items_removed' => false, 'items_retained' => false, 'messages' => array(), 'done' => true );
 		}
+		$user_id = absint( $user->ID );
 		global $wpdb;
-		$removed = $wpdb->delete( self::table(), array( 'user_id' => $user->ID ), array( '%d' ) );
-		delete_user_meta( $user->ID, self::USER_HANDLE_META );
-		self::clear_assurance_for_user( $user->ID );
+		$before = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . self::table() . ' WHERE user_id=%d', $user_id ) );
+		$handle_before = function_exists( 'metadata_exists' ) && metadata_exists( 'user', $user_id, self::USER_HANDLE_META );
+		$epoch_before = class_exists( 'SAUTH_Passkey_Runtime' ) && function_exists( 'metadata_exists' ) && metadata_exists( 'user', $user_id, SAUTH_Passkey_Runtime::EPOCH_META );
+		$deleted = $wpdb->delete( self::table(), array( 'user_id' => $user_id ), array( '%d' ) );
+		delete_user_meta( $user_id, self::USER_HANDLE_META );
+		if ( class_exists( 'SAUTH_Passkey_Runtime' ) ) {
+			SAUTH_Passkey_Runtime::invalidate_user_assurance( $user_id );
+			delete_user_meta( $user_id, SAUTH_Passkey_Runtime::EPOCH_META );
+		}
+		self::clear_assurance_for_user( $user_id );
+
+		$remaining = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . self::table() . ' WHERE user_id=%d', $user_id ) );
+		$handle_retained = function_exists( 'metadata_exists' ) && metadata_exists( 'user', $user_id, self::USER_HANDLE_META );
+		$epoch_retained = class_exists( 'SAUTH_Passkey_Runtime' ) && function_exists( 'metadata_exists' ) && metadata_exists( 'user', $user_id, SAUTH_Passkey_Runtime::EPOCH_META );
+		$failed = false === $deleted || $remaining > 0 || $handle_retained || $epoch_retained;
+		$had_data = $before > 0 || $handle_before || $epoch_before;
 		return array(
-			'items_removed' => (bool) $removed,
-			'items_retained' => false,
-			'messages' => array(),
+			'items_removed' => ! $failed && $had_data,
+			'items_retained' => $failed,
+			'messages' => $failed ? array( __( 'Some passkey authentication data could not be erased. An administrator must review the retained data before the request is considered complete.', 'sabri-authentication' ) ) : array(),
 			'done' => true,
 		);
 	}
+
 }
