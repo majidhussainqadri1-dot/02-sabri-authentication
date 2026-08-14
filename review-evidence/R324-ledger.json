@@ -1,0 +1,17 @@
+{
+  "round": "R324",
+  "replacements": [
+    {
+      "path": "includes/class-sauth-passkey-runtime.php",
+      "count": 1,
+      "old": "\t\t\tif ( 1 !== (int) $quarantined || 'compromised' !== $status || ! $invalidated ) {\n\t\t\t\tif ( class_exists( 'SAUTH_Operations' ) ) { update_option( SAUTH_Operations::SAFE_MODE_OPTION, '1', false ); }\n\t\t\t\tif ( class_exists( 'WP_Session_Tokens' ) ) { WP_Session_Tokens::get_instance( $user_id )->destroy_all(); }\n\t\t\t\tself::authentication_failure( $user_id, 'credential_quarantine_failed' );\n\t\t\t}",
+      "new": "\t\t\tif ( 1 !== (int) $quarantined || 'compromised' !== $status || ! $invalidated ) {\n\t\t\t\tself::contain_security_state_failure( $user_id, 'passkey_quarantine' );\n\t\t\t\tself::authentication_failure( $user_id, 'credential_quarantine_failed' );\n\t\t\t}"
+    },
+    {
+      "path": "includes/class-sauth-passkey-runtime.php",
+      "count": 1,
+      "old": "\tprivate static function contain_invalidation_failure( $user_id ) {\n\t\tif ( class_exists( 'WP_Session_Tokens' ) ) { WP_Session_Tokens::get_instance( absint( $user_id ) )->destroy_all(); }\n\t\treturn false;\n\t}",
+      "new": "\tprivate static function contain_invalidation_failure( $user_id ) {\n\t\tself::contain_security_state_failure( $user_id, 'passkey_assurance_invalidation' );\n\t\treturn false;\n\t}\n\n\tprivate static function contain_security_state_failure( $user_id, $reason ) {\n\t\t$user_id = absint( $user_id );\n\t\t$revoked = $user_id && class_exists( 'SAUTH_Session_Manager' ) ? SAUTH_Session_Manager::revoke_user_sessions( $user_id, sanitize_key( (string) $reason ) ) : false;\n\t\t$safe = class_exists( 'SAUTH_Operations' ) ? SAUTH_Operations::enter_safe_mode() : false;\n\t\tSA_Membership_Adapter::audit( 'passkey_security_state_contained', $user_id, array( 'reason' => sanitize_key( (string) $reason ), 'sessions_revoked_verified' => (bool) $revoked, 'safe_mode_verified' => (bool) $safe ) );\n\t\treturn $revoked && $safe;\n\t}"
+    }
+  ]
+}
