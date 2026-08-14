@@ -1,0 +1,1 @@
+R319 correction retry trigger after aligning the historical R299 branch-truth regression and PLAN-TRACEABILITY.md with the already-frozen R319 review line. This is repository review evidence only.
