@@ -42,7 +42,7 @@ jobs:
       - name: Remove temporary fixer and commit corrected state
         run: |
           set -euo pipefail
-          git rm tools/r299-batch-fix.py .github/workflows/r299-batch-correction.yml
+          git rm -f tools/r299-batch-fix.py .github/workflows/r299-batch-correction.yml
           git config user.name 'majidhussainqadri1-dot'
           git config user.email 'majidhussainqadri1@gmail.com'
           git add -A
