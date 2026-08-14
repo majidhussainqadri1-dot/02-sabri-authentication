@@ -1,0 +1,53 @@
+name: R310 Final Adversarial Correction v3
+
+on:
+  push:
+    branches:
+      - review/file02-r301-r310-2026-08-14
+
+permissions:
+  contents: write
+
+jobs:
+  correct:
+    if: startsWith(github.event.head_commit.message, 'R310 v3 bootstrap')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+          ref: ${{ github.sha }}
+      - name: Apply frozen R310 ledger
+        run: |
+          set -euo pipefail
+          python3 tools/r310-apply-v3.py
+          git diff --check
+          php -l includes/class-sa-security.php
+          php -l includes/class-sauth-passkeys.php
+          php -l includes/class-sa-activator.php
+          php -l includes/class-sauth-operations.php
+          php -l includes/class-sa-google-oauth.php
+          php -l includes/class-sa-plugin.php
+          php -l templates/partials/notice.php
+          php -l tests/security-unit.php
+          php -l tests/r310-final-adversarial-regression.php
+          php tests/security-unit.php
+          php tests/r302-migration-postcondition-regression.php
+          php tests/r305-passkey-lifecycle-regression.php
+          php tests/r307-privacy-operations-regression.php
+          php tests/r308-route-ui-regression.php
+          php tests/r309-release-truth-regression.php
+          php tests/r310-final-adversarial-regression.php
+      - name: Commit R310 corrected product state
+        run: |
+          set -euo pipefail
+          git rm -f tools/r310-fix.py tools/r310-apply-v2.py tools/r310-apply-v3.py
+          rm -f review-evidence/r310-debug.log
+          git config user.name 'majidhussainqadri1-dot'
+          git config user.email 'majidhussainqadri1@gmail.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'R310: final adversarial correction of activation, security and recovery edges'
+          git push origin HEAD:review/file02-r301-r310-2026-08-14
