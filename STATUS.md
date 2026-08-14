@@ -1,9 +1,9 @@
-# File 02 Status — Version 1.2.3
+# File 02 Status — Version 1.2.4
 
 ## Current candidate
 
-- Branch: `review/file02-r321-r330-2026-08-14`
-- Version/schema: `1.2.3 / 1.2.1`; passkey table schema `1.0.1`
+- Branch: `fix/file02-account-taxonomy-parity-1.2.4`
+- Version/schema: `1.2.4 / 1.2.1`; passkey table schema `1.0.1`
 - Repository `main` re-verified during R319: `0f011b1876e217b7ee46f92903e5315538c1025e`
 - Governing corpus: Definitive Master Plan v3.0; `SSH-F02-PLAN-2026-v1.0`; Consolidated All-Chats Directives v2.1; Continuous-Value/Top-20 Superset plan; later cross-file ownership refinement for File 02 passkey/WebAuthn ceremony
 - Intended canonical repository name: `02-sabri-authentication-and-accounts` (rename not yet performed)
@@ -28,7 +28,7 @@
 - Privacy export/erasure for passkeys, opaque random user handles, no biometric/private-key retention, privacy-minimized passkey events and bounded revoked-credential cleanup.
 - Loop-safe completion resolver, canonical `/account/sessions/` route, canonical `SAUTH_` identifiers and bounded legacy aliases.
 - File 01/File 20 manifests, migration/rollback/backup/incident documentation and deterministic packaging pipeline.
-- File 02 1.2.3 retains the 1.2.1 storage-router bootstrap correction and adds R321–R330 fail-closed, migration/index, passkey, provider, privacy, session, UI and release-truth hardening.
+- File 02 1.2.4 retains the 1.2.1 storage-router bootstrap correction and adds R321–R330 fail-closed, migration/index, passkey, provider, privacy, session, UI and release-truth hardening.
 
 ## Review-cycle corrections carried into this branch
 

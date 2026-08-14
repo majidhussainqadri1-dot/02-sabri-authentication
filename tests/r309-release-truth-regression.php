@@ -10,7 +10,7 @@ $staging = file_get_contents( $root . '/STAGING-ACCEPTANCE.md' );
 $sbom = file_get_contents( $root . '/SBOM.spdx.json' );
 $fail = array();
 $checks = array(
-  array($baseline, "lock.get('release_version')=='1.2.3'", 'release CI does not enforce current release-lock runtime identity'),
+  array($baseline, "lock.get('release_version')=='1.2.4'", 'release CI does not enforce current release-lock runtime identity'),
   array($baseline, 'tests/r33*-regression.php', 'release CI omits final corrective regressions'),
   array($docs, 'table_indexes_ready', 'storage/docs gate does not assert material index readiness'),
   array($docs, 'tests/r33*-regression.php', 'storage/docs gate omits final corrective regressions'),

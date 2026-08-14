@@ -10,7 +10,7 @@
 
 **Candidate branch:** `fix/file02-account-taxonomy-parity-1.2.4`
 **Repository main re-verified during R329:** `0f011b1876e217b7ee46f92903e5315538c1025e`
-**Candidate version/schema:** `1.2.3 / 1.2.1`; passkey schema `1.0.1`
+**Candidate version/schema:** `1.2.4 / 1.2.1`; passkey schema `1.0.1`
 **Paired File 00 account contract:** `smc.authentication-account 1.1.0`
 **Authentication-assurance producer:** `smc_file02_authentication_assurance_v1` / `1.0.0`
 

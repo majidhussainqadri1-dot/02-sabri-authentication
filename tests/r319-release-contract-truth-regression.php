@@ -3,11 +3,11 @@ $root=dirname(__DIR__); $adapter=file_get_contents($root.'/includes/class-sa-mem
 $checks=array(
  array($adapter,'SAUTH_Passkey_Runtime::current_assurance','membership compatibility helper bypasses hardened passkey assurance'),
  array($adapter,"add_query_arg( 'redirect_to', SA_Security::safe_redirect( \$redirect )",'membership login URL still pre-encodes redirect destination'),
- array($lock,'review/file02-r321-r330-2026-08-14','release lock names stale review line'),
+ array($lock,'fix/file02-account-taxonomy-parity-1.2.4','release lock names stale review line'),
  array($lock,'cross_file_blockers','release lock hides cross-file account-taxonomy blocker'),
  array($status,'R321–R330','status document names stale review line'),
  array($readme,'R321–R330','README names stale review line'),
- array($manifest,'review/file02-r321-r330-2026-08-14','release manifest names stale review line'),
+ array($manifest,'fix/file02-account-taxonomy-parity-1.2.4','release manifest names stale review line'),
  array($migration,'mandatory activation/guarded-repair postconditions','migration guide still claims auth can remain available after required passkey migration failure'),
  array($migration,'credential_lookup_hash','migration guide omits canonical passkey-column reconciliation'),
  array($dict,'credential_id_ciphertext','data dictionary omits canonical passkey-column reconciliation'),

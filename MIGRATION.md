@@ -1,8 +1,8 @@
-# File 02 Migration Guide — 1.2.3
+# File 02 Migration Guide — 1.2.4
 
 ## Migration model
 
-File 02 migration remains additive, idempotent and non-destructive. The 1.2.3 candidate advances File 02 DB identity to `1.2.1` and passkey schema identity to `1.0.1`; migration readiness now proves required columns and security-critical indexes, and legacy passkey credential columns are reconciled before successful markers are published.
+File 02 migration remains additive, idempotent and non-destructive. The 1.2.4 candidate advances File 02 DB identity to `1.2.1` and passkey schema identity to `1.0.1`; migration readiness now proves required columns and security-critical indexes, and legacy passkey credential columns are reconciled before successful markers are published.
 
 `SAUTH_Activator::repair()` continues to reconcile the original authentication schema. `SAUTH_Passkeys::maybe_install()` creates/reconciles the passkey table and manager page through WordPress `dbDelta`; guarded repair forces this passkey reconciliation even if its stored schema marker is stale.
 
@@ -10,10 +10,10 @@ File 02 never migrates or mutates File 00 roles, membership approvals, account-c
 
 ## Supported paths
 
-1. Fresh installation of 1.2.3.
-2. Upgrade from every repository-supported File 02 release to 1.2.3.
+1. Fresh installation of 1.2.4.
+2. Upgrade from every repository-supported File 02 release to 1.2.4.
 3. Upgrade from legacy `sa_*` tables/options/pages to canonical `sauth_*` storage and names.
-4. Upgrade from 1.1.0/1.2.0 to 1.2.3 with additive passkey table/page creation and no password/Google/session data loss.
+4. Upgrade from 1.1.0/1.2.0 to 1.2.4 with additive passkey table/page creation and no password/Google/session data loss.
 5. Deactivate/reactivate without data loss; passkey cleanup cron is safely unscheduled/recreated.
 6. Re-run the same migration/guarded repair after interruption.
 7. Roll back code while preserving newer File 02 data; destructive passkey deletion is not part of ordinary rollback/uninstall.
@@ -29,9 +29,9 @@ File 02 never migrates or mutates File 00 roles, membership approvals, account-c
 
 ## Execution
 
-1. Install the exact deterministic 1.2.3 package only after its release build is separately produced and approved; registration/provider/passkey mutations remain gated.
+1. Install the exact deterministic 1.2.4 package only after its release build is separately produced and approved; registration/provider/passkey mutations remain gated.
 2. Activate or run guarded File 02 repair.
-3. Confirm `sauth_version` is `1.2.3`, `sauth_db_version` is `1.2.1`, and `sauth_passkey_schema_version` is `1.0.1`.
+3. Confirm `sauth_version` is `1.2.4`, `sauth_db_version` is `1.2.1`, and `sauth_passkey_schema_version` is `1.0.1`.
 4. Confirm the seven prior canonical `sauth_*` tables plus `sauth_passkeys` and their indexes exist.
 5. Confirm the private `account-passkeys` manager page exists and remains `noindex/no-store` through File 02 private-page controls.
 6. Reconcile every legacy table by its stable logical identity (`bucket_hash`, `event_id`, `user_id` or `public_id` as applicable). Canonical auto-increment IDs are never copied from legacy evidence tables, and successful migration requires zero legacy logical identities missing from canonical storage.

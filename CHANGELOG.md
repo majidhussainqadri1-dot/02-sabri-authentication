@@ -2,6 +2,20 @@
 
 All notable changes to Sabri Authentication and Accounts are recorded here.
 
+## 1.2.4 — Canonical Account Taxonomy Parity Candidate
+
+### Corrected
+
+- File 02 public account choices now use the File 00 canonical taxonomy directly: `member`, `patient`, `student`, `doctor`, `teacher`, `researcher`, `pharmacy`, `clinic`, `publisher`.
+- Provider-only `clinic_staff` and `institution_representative` aliases are no longer exposed as File 02 account choices; no lossy remap is performed.
+- Permanent R331/R332 regressions preserve taxonomy parity, release identity and non-live completion boundaries.
+
+### Identity
+
+- Runtime: `1.2.4`.
+- File 02 DB schema identity remains `1.2.1`.
+- Passkey schema identity remains `1.0.1`; passkey assurance contract remains `1.0.0`.
+
 ## 1.2.3 — R321–R330 Corrective Hardening Candidate
 
 ### Corrected

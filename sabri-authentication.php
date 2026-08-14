@@ -3,7 +3,7 @@
  * Plugin Name: Sabri Authentication and Accounts
  * Plugin URI: https://www.sabrihomeopathy.com/
  * Description: Email/password, Google OAuth and WebAuthn/passkey authentication orchestration, registration, recovery, risk challenge, session controls and authentication assurance for the Sabri Social Homeopathy Platform. Requires Sabri Membership Core.
- * Version: 1.2.3
+ * Version: 1.2.4
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: Dr. Allama Majid Hussain Sabri
@@ -14,7 +14,7 @@
 defined( 'ABSPATH' ) || exit;
 
 /* Canonical File 02 constitution. */
-define( 'SAUTH_VERSION', '1.2.3' );
+define( 'SAUTH_VERSION', '1.2.4' );
 define( 'SAUTH_DB_VERSION', '1.2.1' );
 define( 'SAUTH_ACCOUNT_CONTRACT_VERSION', '1.1.0' );
 define( 'SAUTH_AUTH_EVENT_SCHEMA_VERSION', '1.0.0' );
