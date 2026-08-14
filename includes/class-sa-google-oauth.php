@@ -100,7 +100,10 @@ final class SA_Google_OAuth {
 		if ( get_transient( $key ) !== $data ) {
 			$this->fail( 'The Google authentication session could not be stored safely.' );
 		}
-		$this->state_cookie( $state, time() + self::STATE_TTL );
+		if ( ! $this->state_cookie( $state, time() + self::STATE_TTL ) ) {
+			delete_transient( $key );
+			$this->fail( 'The secure Google state cookie could not be established.' );
+		}
 
 		$url = add_query_arg(
 			array(
@@ -468,14 +471,12 @@ final class SA_Google_OAuth {
 		update_user_meta( $user_id, '_sa_google_account', '0' );
 		$disabled = '0' === (string) get_user_meta( $user_id, '_sauth_google_account', true )
 			&& '0' === (string) get_user_meta( $user_id, '_sa_google_account', true );
-		if ( ! $disabled ) {
-			update_option( SAUTH_Operations::SAFE_MODE_OPTION, '1', false );
+		$revoked = SAUTH_Session_Manager::revoke_user_sessions( $user_id, 'google_linkage_containment' );
+		if ( ! $disabled || ! $revoked ) {
+			SAUTH_Operations::enter_safe_mode();
 		}
-		if ( class_exists( 'WP_Session_Tokens' ) ) {
-			WP_Session_Tokens::get_instance( $user_id )->destroy_all();
-		}
-		SA_Membership_Adapter::audit( sanitize_key( (string) $reason ), $user_id, array( 'disabled_marker_verified' => $disabled ) );
-		return $disabled;
+		SA_Membership_Adapter::audit( sanitize_key( (string) $reason ), $user_id, array( 'disabled_marker_verified' => $disabled, 'sessions_revoked_verified' => $revoked ) );
+		return $disabled && $revoked;
 	}
 
 	private static function fresh_passkey( $user_id ) {
@@ -527,7 +528,7 @@ final class SA_Google_OAuth {
 	private function state_cookie( $value, $expires ) {
 		$options = array( 'expires' => $expires, 'path' => COOKIEPATH ? COOKIEPATH : '/', 'secure' => true, 'httponly' => true, 'samesite' => 'Lax' );
 		if ( defined( 'COOKIE_DOMAIN' ) && COOKIE_DOMAIN ) { $options['domain'] = COOKIE_DOMAIN; }
-		setcookie( self::COOKIE_NAME, $value, $options );
+		return setcookie( self::COOKIE_NAME, $value, $options );
 	}
 
 	private static function safe_observer_action( $hook, array $args ) {

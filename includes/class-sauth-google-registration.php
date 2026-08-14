@@ -67,7 +67,10 @@ final class SAUTH_Google_Registration {
 		if ( get_transient( $key ) !== $record ) {
 			self::fail( 'The Google registration session could not be stored safely.' );
 		}
-		self::state_cookie( $state, time() + self::STATE_TTL );
+		if ( ! self::state_cookie( $state, time() + self::STATE_TTL ) ) {
+			delete_transient( $key );
+			self::fail( 'The secure Google registration state cookie could not be established.' );
+		}
 		$url = add_query_arg(
 			array(
 				'client_id'             => trim( (string) get_option( 'sauth_google_client_id', get_option( 'sa_google_client_id', '' ) ) ),
@@ -175,7 +178,7 @@ final class SAUTH_Google_Registration {
 		if ( get_transient( $context_key ) !== $context ) {
 			self::fail( 'The Google registration continuation could not be stored safely.' );
 		}
-		wp_safe_redirect( add_query_arg( 'google_registration', rawurlencode( $registration_token ), SA_Security::page_url( 'signup', wp_registration_url() ) ) );
+		wp_safe_redirect( add_query_arg( 'google_registration', $registration_token, SA_Security::page_url( 'signup', wp_registration_url() ) ) );
 		exit;
 	}
 
@@ -341,7 +344,7 @@ final class SAUTH_Google_Registration {
 	private static function state_cookie( $value, $expires ) {
 		$options = array( 'expires' => $expires, 'path' => COOKIEPATH ? COOKIEPATH : '/', 'secure' => true, 'httponly' => true, 'samesite' => 'Lax' );
 		if ( defined( 'COOKIE_DOMAIN' ) && COOKIE_DOMAIN ) { $options['domain'] = COOKIE_DOMAIN; }
-		setcookie( self::COOKIE_NAME, $value, $options );
+		return setcookie( self::COOKIE_NAME, $value, $options );
 	}
 
 	private static function fail( $message ) {
