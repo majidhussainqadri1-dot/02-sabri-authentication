@@ -129,7 +129,7 @@ final class SA_Registration {
 			 * submissions cannot reuse the same Google proof. */
 			$consumed_google = SAUTH_Google_Registration::consume( $google_token );
 			if ( empty( $consumed_google )
-				|| ! hash_equals( strtolower( (string) $payload['email'] ), strtolower( (string) ( $consumed_google['email'] ?? '' ) ) )
+				|| ! hash_equals( strtolower( (string) $payload['email'] ), strtolower( (string) ( $consumed_google['email'] ?? '' ) )
 				|| ! hash_equals( (string) $payload['google_subject'], (string) ( $consumed_google['sub'] ?? '' ) ) ) {
 				$this->registration_redirect( 'error', 'The Google registration proof was already used or changed. Start Google registration again.' );
 			}
@@ -189,10 +189,18 @@ final class SA_Registration {
 		if ( ! $blocked && '' !== $login ) {
 			$user = false !== strpos( $login, '@' ) ? get_user_by( 'email', sanitize_email( $login ) ) : get_user_by( 'login', sanitize_user( $login ) );
 			$user_id = $user instanceof WP_User ? (int) $user->ID : 0;
+			$job_user_id = 0;
+			$job_epoch   = '';
+			if ( $user_id && SAUTH_Privacy_Jobs::can_enqueue( $user_id ) ) {
+				$job_epoch = SAUTH_Privacy_Jobs::snapshot( $user_id );
+				if ( '' !== $job_epoch ) { $job_user_id = $user_id; }
+			}
 			$job_token = SA_Security::random_token( 16 );
 			if ( '' !== $job_token ) {
 				$job_key = self::recovery_job_key( $job_token );
-				$job = array( 'user_id' => $user_id, 'created_at' => time() );
+				/* A no-match or erasure-blocked request still gets the same opaque job
+				 * shape; the worker simply performs no account mutation. */
+				$job = array( 'user_id' => $job_user_id, 'privacy_epoch' => $job_epoch, 'created_at' => time() );
 				set_transient( $job_key, $job, self::RECOVERY_JOB_TTL );
 				if ( get_transient( $job_key ) === $job && function_exists( 'wp_schedule_single_event' ) ) {
 					wp_schedule_single_event( time() + 1, self::RECOVERY_JOB_HOOK, array( $job_token ) );
@@ -213,7 +221,8 @@ final class SA_Registration {
 		delete_transient( $key );
 		if ( ! is_array( $job ) || absint( $job['created_at'] ?? 0 ) < time() - self::RECOVERY_JOB_TTL ) { return; }
 		$user_id = absint( $job['user_id'] ?? 0 );
-		if ( ! $user_id ) { return; }
+		$epoch   = (string) ( $job['privacy_epoch'] ?? '' );
+		if ( ! $user_id || ! SAUTH_Privacy_Jobs::valid_snapshot( $user_id, $epoch ) ) { return; }
 		$user = get_userdata( $user_id );
 		if ( ! $user instanceof WP_User ) { return; }
 		$started = microtime( true );
