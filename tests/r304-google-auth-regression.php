@@ -4,7 +4,7 @@ $google = file_get_contents( $root . '/includes/class-sa-google-oauth.php' );
 $registration = file_get_contents( $root . '/includes/class-sauth-google-registration.php' );
 $fail = array();
 $checks = array(
-    array( $google, 'SAUTH_Login_Risk::evaluate( $user->ID, $completion )', 'Google sign-in bypasses risk evaluation' ),
+    array( $google, 'SAUTH_Login_Risk::evaluate( $locked_user->ID, $completion )', 'Google sign-in bypasses locked risk evaluation' ),
     array( $google, '\'challenge\' === ( $risk[\'action\'] ?? \'\' )', 'Google risk challenge path missing' ),
     array( $google, 'record_successful_login( $user->ID, \'google\', absint( $risk[\'score\'] ?? 0 ) )', 'Google success records a fake zero risk score' ),
     array( $google, 'public static function contain_linkage_failure', 'uncertain Google linkage has no common containment barrier' ),

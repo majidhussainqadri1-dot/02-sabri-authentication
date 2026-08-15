@@ -161,7 +161,8 @@ final class SA_Professional_Reauthentication {
 		$live = self::from_authentication_assurance( $assurance, $scope, $trace, false );
 		if ( 'valid' !== $live['result']
 			|| ! hash_equals( (string) $stored['subject_uuid'], (string) $live['subject_uuid'] )
-			|| ! hash_equals( (string) $stored['scope_hash'], (string) $live['scope_hash'] ) ) {
+			|| ! hash_equals( (string) $stored['scope_hash'], (string) $live['scope_hash'] )
+			|| ! hash_equals( (string) ( $stored['provider_trace_id'] ?? '' ), (string) ( $live['provider_trace_id'] ?? '' ) ) ) {
 			delete_transient( $key );
 			$result['result'] = 'invalid';
 			$result['reason_code'] = 'underlying_authentication_assurance_invalid';
@@ -230,6 +231,12 @@ final class SA_Professional_Reauthentication {
 		return self::valid_uuid( $receipt['subject_uuid'] ?? '' )
 			&& 'valid' === ( $receipt['result'] ?? '' )
 			&& 'professional_verification_review' === ( $receipt['purpose'] ?? '' )
+			&& self::AUTH_PURPOSE === ( $receipt['authentication_purpose'] ?? '' )
+			&& 'sa.cf01.authentication-assurance' === ( $receipt['provider_contract'] ?? '' )
+			&& '1.0.0' === ( $receipt['provider_version'] ?? '' )
+			&& hash_equals( self::scope_hash( $scope ), (string) ( $receipt['provider_scope_hash'] ?? '' ) )
+			&& self::valid_uuid( $receipt['provider_trace_id'] ?? '' )
+			&& hash_equals( strtolower( (string) ( $receipt['trace_id'] ?? '' ) ), strtolower( (string) ( $receipt['provider_trace_id'] ?? '' ) ) )
 			&& 'aal2' === ( $receipt['assurance_level'] ?? '' )
 			&& 'webauthn_passkey' === ( $receipt['method'] ?? '' );
 	}
@@ -251,25 +258,36 @@ final class SA_Professional_Reauthentication {
 		$result['reason_code'] = 'valid' === $auth_result
 			? 'professional_reauthentication_valid'
 			: 'authentication_' . sanitize_key( (string) ( $assurance['reason_code'] ?? 'unknown' ) );
+		$provider_scope_hash = (string) ( $assurance['scope_hash'] ?? '' );
+		$provider_trace_id = (string) ( $assurance['trace_id'] ?? '' );
+		$result['provider_contract'] = (string) ( $assurance['contract'] ?? '' );
+		$result['provider_version'] = (string) ( $assurance['contract_version'] ?? '' );
+		$result['provider_scope_hash'] = $provider_scope_hash;
+		$result['provider_trace_id'] = $provider_trace_id;
 		$result['subject_uuid']      = (string) ( $assurance['subject_uuid'] ?? '' );
-		$result['scope_hash']        = (string) ( $assurance['scope_hash'] ?? '' );
+		$result['scope_hash']        = self::scope_hash( $scope );
 		$result['method']            = sanitize_key( (string) ( $assurance['method'] ?? '' ) );
 		$result['assurance_level']   = sanitize_key( (string) ( $assurance['assurance_level'] ?? '' ) );
 		$result['verified_at']       = (string) ( $assurance['verified_at'] ?? '' );
 		$result['expires_at']        = (string) ( $assurance['expires_at'] ?? '' );
-		$result['trace_id']          = (string) ( $assurance['trace_id'] ?? $trace );
+		$result['trace_id']          = self::valid_uuid( $provider_trace_id ) ? strtolower( $provider_trace_id ) : $trace;
 		$result['password_verified'] = (bool) $password_verified;
 		if ( 'valid' === $auth_result ) {
 			$verified = strtotime( $result['verified_at'] );
 			$expires  = strtotime( $result['expires_at'] );
 			if ( ! self::valid_uuid( $result['subject_uuid'] )
-				|| ! hash_equals( self::scope_hash( $scope ), $result['scope_hash'] )
+				|| 'clinical_sign_in' !== (string) ( $assurance['purpose'] ?? '' )
+				|| ! hash_equals( $result['scope_hash'], $provider_scope_hash )
+				|| ! self::valid_uuid( $provider_trace_id )
+				|| ( $password_verified && ! hash_equals( strtolower( $trace ), strtolower( $provider_trace_id ) ) )
 				|| 'webauthn_passkey' !== $result['method']
 				|| 'aal2' !== $result['assurance_level']
 				|| false === $verified
 				|| false === $expires
 				|| $verified > time() + 60
-				|| $expires <= time() ) {
+				|| $verified < time() - 960
+				|| $expires <= time()
+				|| $expires > $verified + 900 ) {
 				$result['result'] = 'unknown';
 				$result['reason_code'] = 'authentication_evidence_invalid';
 			}
@@ -324,6 +342,10 @@ final class SA_Professional_Reauthentication {
 			'producer_version'       => defined( 'SAUTH_VERSION' ) ? SAUTH_VERSION : '',
 			'purpose'                => 'professional_verification_review',
 			'authentication_purpose' => self::AUTH_PURPOSE,
+			'provider_contract'       => '',
+			'provider_version'        => '',
+			'provider_scope_hash'     => '',
+			'provider_trace_id'       => '',
 			'subject_uuid'           => '',
 			'scope_hash'             => self::scope_hash( $scope ),
 			'method'                 => '',

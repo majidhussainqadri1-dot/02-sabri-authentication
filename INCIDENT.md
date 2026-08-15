@@ -1,4 +1,4 @@
-# File 02 Authentication Incident Runbook — 1.2.1
+# File 02 Authentication Incident Runbook — 1.3.0
 
 ## Severity examples
 

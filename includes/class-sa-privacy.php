@@ -4,7 +4,7 @@ defined( 'ABSPATH' ) || exit;
 
 /** File 02 privacy export, erasure and policy disclosure. */
 final class SA_Privacy {
-	const EXPORT_LIMIT = 200;
+	const EXPORT_LIMIT = 50;
 
 	public function hooks() {
 		add_filter( 'wp_privacy_personal_data_exporters', array( $this, 'register_exporter' ) );
@@ -42,6 +42,20 @@ final class SA_Privacy {
 		$done = $done && count( $sessions ) < self::EXPORT_LIMIT;
 		foreach ( $sessions as $row ) {
 			$data[] = array( 'group_id' => 'sabri-authentication-sessions', 'group_label' => __( 'Authentication sessions', 'sabri-authentication' ), 'item_id' => 'session-' . sanitize_key( (string) $row['public_id'] ), 'data' => $this->export_pairs( $row ) );
+		}
+
+		$devices = $wpdb->get_results( $wpdb->prepare( 'SELECT public_id,device_label,network_label,status,risk_score,first_seen_at,last_seen_at,last_login_at,updated_at FROM ' . SAUTH_Activator::table( 'auth_devices' ) . ' WHERE user_id=%d ORDER BY id DESC LIMIT %d OFFSET %d', $user_id, self::EXPORT_LIMIT, $offset ), ARRAY_A );
+		if ( ! is_array( $devices ) || '' !== (string) $wpdb->last_error ) { return array( 'data' => $data, 'done' => false ); }
+		$done = $done && count( $devices ) < self::EXPORT_LIMIT;
+		foreach ( $devices as $row ) {
+			$data[] = array( 'group_id' => 'sabri-authentication-devices', 'group_label' => __( 'Authentication devices', 'sabri-authentication' ), 'item_id' => 'device-' . sanitize_key( (string) $row['public_id'] ), 'data' => $this->export_pairs( $row ) );
+		}
+
+		$risk_challenges = $wpdb->get_results( $wpdb->prepare( 'SELECT public_id,risk_score,reason_code,remember_session,destination,status,attempts,expires_at,consumed_at,created_at,updated_at FROM ' . SAUTH_Activator::table( 'risk_challenges' ) . ' WHERE user_id=%d ORDER BY id DESC LIMIT %d OFFSET %d', $user_id, self::EXPORT_LIMIT, $offset ), ARRAY_A );
+		if ( ! is_array( $risk_challenges ) || '' !== (string) $wpdb->last_error ) { return array( 'data' => $data, 'done' => false ); }
+		$done = $done && count( $risk_challenges ) < self::EXPORT_LIMIT;
+		foreach ( $risk_challenges as $row ) {
+			$data[] = array( 'group_id' => 'sabri-authentication-risk-challenges', 'group_label' => __( 'Authentication risk challenges', 'sabri-authentication' ), 'item_id' => 'risk-challenge-' . sanitize_key( (string) $row['public_id'] ), 'data' => $this->export_pairs( $row ) );
 		}
 
 		$email_row = 1 === $page ? $wpdb->get_row( $wpdb->prepare( 'SELECT status,attempts,sent_at,expires_at,verified_at,created_at,updated_at FROM ' . SAUTH_Activator::table( 'email_verifications' ) . ' WHERE user_id=%d', $user_id ), ARRAY_A ) : null;
@@ -93,7 +107,8 @@ final class SA_Privacy {
 		}
 
 		$failed = false;
-		$more_outbox = false;
+		$more_rows = false;
+		$router_suspended = false;
 		try {
 			if ( ! SAUTH_Session_Manager::revoke_user_sessions( $user_id, 'privacy_erasure' ) ) {
 				$failed = true;
@@ -121,14 +136,23 @@ final class SA_Privacy {
 			if ( $passkey_count > 0 ) { $removed = true; }
 			if ( class_exists( 'SAUTH_Passkeys' ) && is_callable( array( 'SAUTH_Passkeys', 'privacy_erase' ) ) ) {
 				$passkey_erasure = SAUTH_Passkeys::privacy_erase( sanitize_email( $email_address ), $page );
-				if ( ! is_array( $passkey_erasure ) || ! empty( $passkey_erasure['items_retained'] ) ) { $failed = true; }
+				if ( ! is_array( $passkey_erasure ) ) {
+					$failed = true;
+				} elseif ( empty( $passkey_erasure['done'] ) ) {
+					$more_rows = true;
+				} elseif ( ! empty( $passkey_erasure['items_retained'] ) ) {
+					$failed = true;
+				}
 			}
 			$passkey_remaining = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$passkey_table} WHERE user_id=%d", $user_id ) );
-			if ( null === $passkey_remaining || '' !== (string) $wpdb->last_error || 0 !== (int) $passkey_remaining ) { $failed = true; }
-			delete_user_meta( $user_id, SAUTH_Passkeys::USER_HANDLE_META );
-			delete_user_meta( $user_id, SAUTH_Passkey_Runtime::EPOCH_META );
+			if ( null === $passkey_remaining || '' !== (string) $wpdb->last_error ) { $failed = true; }
+			elseif ( (int) $passkey_remaining > 0 ) { $more_rows = true; }
 
 			/* File 02 canonical and preserved legacy rows must both honor erasure. */
+			if ( class_exists( 'SAUTH_Storage_Router' ) ) {
+				SAUTH_Storage_Router::suspend();
+				$router_suspended = true;
+			}
 			$table_pairs = array(
 				array( SAUTH_Activator::table( 'email_verifications' ), SAUTH_Activator::legacy_table( 'email_verifications' ) ),
 				array( SAUTH_Activator::table( 'auth_sessions' ), SAUTH_Activator::legacy_table( 'auth_sessions' ) ),
@@ -142,9 +166,10 @@ final class SA_Privacy {
 					$count_raw = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM `{$table}` WHERE user_id=%d", $user_id ) );
 					if ( null === $count_raw || '' !== (string) $wpdb->last_error ) { throw new RuntimeException( 'privacy_table_count_failed' ); }
 					if ( (int) $count_raw > 0 ) { $removed = true; }
-					$result = $wpdb->query( $wpdb->prepare( "DELETE FROM `{$table}` WHERE user_id=%d", $user_id ) );
+					$result = $wpdb->query( $wpdb->prepare( "DELETE FROM `{$table}` WHERE user_id=%d LIMIT 50", $user_id ) );
 					$remaining_raw = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM `{$table}` WHERE user_id=%d", $user_id ) );
-					if ( false === $result || null === $remaining_raw || '' !== (string) $wpdb->last_error || 0 !== (int) $remaining_raw ) { $failed = true; }
+					if ( false === $result || null === $remaining_raw || '' !== (string) $wpdb->last_error ) { $failed = true; }
+					elseif ( (int) $remaining_raw > 0 ) { $more_rows = true; }
 				}
 			}
 
@@ -152,19 +177,32 @@ final class SA_Privacy {
 			 * identifiers and identity-key payload fields. */
 			foreach ( array_unique( array_filter( array( SAUTH_Activator::table( 'auth_outbox' ), SAUTH_Activator::legacy_table( 'auth_outbox' ) ) ) ) as $table ) {
 				if ( ! self::table_exists( $table ) ) { continue; }
-				$rows = $wpdb->get_results( $wpdb->prepare( "SELECT id,payload_json FROM `{$table}` WHERE actor_user_id=%d OR subject_user_id=%d LIMIT %d", $user_id, $user_id, 5000 ), ARRAY_A );
+				$rows = $wpdb->get_results( $wpdb->prepare( "SELECT id,payload_json FROM `{$table}` WHERE actor_user_id=%d OR subject_user_id=%d ORDER BY id ASC LIMIT %d", $user_id, $user_id, 50 ), ARRAY_A );
 				if ( ! is_array( $rows ) || '' !== (string) $wpdb->last_error ) { throw new RuntimeException( 'privacy_outbox_read_failed' ); }
 				foreach ( $rows as $row ) {
 					$payload = json_decode( (string) $row['payload_json'], true );
 					$payload = is_array( $payload ) ? self::erase_identity_payload( $payload ) : array();
 					$payload_json = wp_json_encode( $payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
-					$updated = $wpdb->update( $table, array( 'actor_user_id' => 0, 'subject_user_id' => 0, 'payload_json' => false === $payload_json ? '{}' : $payload_json, 'updated_at' => current_time( 'mysql', true ) ), array( 'id' => absint( $row['id'] ) ), array( '%d','%d','%s','%s' ), array( '%d' ) );
-					if ( false === $updated ) { $failed = true; }
+					$expected_payload = false === $payload_json ? '{}' : $payload_json;
+					$updated = $wpdb->query( $wpdb->prepare( "UPDATE `{$table}` SET actor_user_id=0,subject_user_id=0,payload_json=%s,updated_at=%s WHERE id=%d AND (actor_user_id=%d OR subject_user_id=%d)", $expected_payload, current_time( 'mysql', true ), absint( $row['id'] ), $user_id, $user_id ) );
+					$post = $wpdb->get_row( $wpdb->prepare( "SELECT actor_user_id,subject_user_id,payload_json FROM `{$table}` WHERE id=%d", absint( $row['id'] ) ), ARRAY_A );
+					$post_payload = is_array( $post ) ? json_decode( (string) ( $post['payload_json'] ?? '' ), true ) : null;
+					if ( false === $updated
+						|| ! is_array( $post )
+						|| '' !== (string) $wpdb->last_error
+						|| 0 !== absint( $post['actor_user_id'] ?? -1 )
+						|| 0 !== absint( $post['subject_user_id'] ?? -1 )
+						|| ! is_array( $post_payload )
+						|| self::payload_has_identity( $post_payload ) ) { $failed = true; }
 					else { $removed = true; }
 				}
 				$remaining_raw = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM `{$table}` WHERE actor_user_id=%d OR subject_user_id=%d", $user_id, $user_id ) );
 				if ( null === $remaining_raw || '' !== (string) $wpdb->last_error ) { $failed = true; }
-				elseif ( (int) $remaining_raw > 0 ) { $more_outbox = true; }
+				elseif ( (int) $remaining_raw > 0 ) { $more_rows = true; }
+			}
+			if ( $router_suspended ) {
+				SAUTH_Storage_Router::resume();
+				$router_suspended = false;
 			}
 
 			/* New asynchronous jobs are indexed and were purged by begin_erasure().
@@ -172,12 +210,16 @@ final class SA_Privacy {
 			 * after session/epoch revocation and expire within their original short TTL. */
 			$messages[] = __( 'Any pre-existing unindexed short-lived authentication receipt is invalidated immediately and expires under its original bounded transient lifetime.', 'sabri-authentication' );
 		} catch ( Throwable $error ) {
+			if ( $router_suspended ) {
+				SAUTH_Storage_Router::resume();
+				$router_suspended = false;
+			}
 			$failed = true;
 			$messages[] = __( 'File 02 privacy erasure encountered an internal failure and remains fail-closed.', 'sabri-authentication' );
 		}
 
-		if ( $more_outbox && ! $failed ) {
-			$messages[] = __( 'File 02 authentication-event anonymization is continuing in the next privacy-erasure page.', 'sabri-authentication' );
+		if ( $more_rows && ! $failed ) {
+			$messages[] = __( 'File 02 privacy erasure is continuing in the next bounded batch.', 'sabri-authentication' );
 			SA_Membership_Adapter::audit( 'authentication_privacy_erasure_continuation', $user_id );
 			return array( 'items_removed' => $removed, 'items_retained' => true, 'messages' => $messages, 'done' => false );
 		}
@@ -226,10 +268,25 @@ final class SA_Privacy {
 		$out = array();
 		foreach ( $payload as $key => $value ) {
 			$clean = sanitize_key( (string) $key );
-			if ( in_array( $clean, array( 'user_id','actor_user_id','subject_user_id','owner_user_id','platform_uuid','subject_uuid' ), true ) ) { continue; }
+			if ( self::identity_payload_key( $clean ) ) { continue; }
 			$out[ $clean ] = is_array( $value ) ? self::erase_identity_payload( $value, $depth + 1 ) : $value;
 		}
 		return $out;
+	}
+
+	private static function payload_has_identity( array $payload, $depth = 0 ) {
+		if ( $depth >= 6 ) { return true; }
+		foreach ( $payload as $key => $value ) {
+			$clean = sanitize_key( (string) $key );
+			if ( self::identity_payload_key( $clean ) ) { return true; }
+			if ( is_array( $value ) && self::payload_has_identity( $value, $depth + 1 ) ) { return true; }
+		}
+		return false;
+	}
+
+	private static function identity_payload_key( $key ) {
+		$key = str_replace( array( '-', '_' ), '', sanitize_key( (string) $key ) );
+		return in_array( $key, array( 'userid','actoruserid','subjectuserid','owneruserid','platformuuid','subjectuuid','sessionid','credentialid','googleid','googlesub','email','useremail' ), true );
 	}
 
 	private static function table_exists( $table ) {

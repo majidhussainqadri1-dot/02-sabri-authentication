@@ -3,7 +3,7 @@
  * Plugin Name: Sabri Authentication and Accounts
  * Plugin URI: https://www.sabrihomeopathy.com/
  * Description: Email/password, Google OAuth and WebAuthn/passkey authentication orchestration, registration, recovery, risk challenge, session controls and authentication assurance for the Sabri Social Homeopathy Platform. Requires Sabri Membership Core.
- * Version: 1.2.6
+ * Version: 1.3.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: Dr. Allama Majid Hussain Sabri
@@ -14,8 +14,8 @@
 defined( 'ABSPATH' ) || exit;
 
 /* Canonical File 02 constitution. */
-define( 'SAUTH_VERSION', '1.2.6' );
-define( 'SAUTH_DB_VERSION', '1.2.1' );
+define( 'SAUTH_VERSION', '1.3.0' );
+define( 'SAUTH_DB_VERSION', '1.3.0' );
 define( 'SAUTH_ACCOUNT_CONTRACT_VERSION', '1.1.0' );
 define( 'SAUTH_AUTH_EVENT_SCHEMA_VERSION', '1.0.0' );
 define( 'SAUTH_CF01_ASSURANCE_VERSION', '1.0.0' );
@@ -112,8 +112,8 @@ function sauth_passkey_assurance_epoch_rotated( $meta_id, $user_id, $meta_key, $
 	if ( SAUTH_Passkey_Runtime::EPOCH_META !== (string) $meta_key || ! $user_id || '' === (string) $meta_value ) {
 		return;
 	}
-	if ( class_exists( 'WP_Session_Tokens' ) ) {
-		WP_Session_Tokens::get_instance( absint( $user_id ) )->destroy_all();
+	if ( class_exists( 'SAUTH_Session_Manager' ) && ! SAUTH_Session_Manager::revoke_user_sessions( absint( $user_id ), 'passkey_assurance_epoch_rotated' ) ) {
+		SAUTH_Operations::enter_safe_mode();
 	}
 }
 add_action( 'updated_user_meta', 'sauth_passkey_assurance_epoch_rotated', 10, 4 );

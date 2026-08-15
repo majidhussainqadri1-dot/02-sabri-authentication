@@ -12,7 +12,6 @@ final class SAUTH_Google_Registration {
 	const COOKIE_NAME = 'sauth_google_registration_state';
 	const STATE_TTL   = 600;
 	const CONTEXT_TTL = 900;
-	const LOCK_TTL    = 30;
 	const CLAIM_TTL   = 3600;
 	const CLAIM_HOOK  = 'sauth_google_registration_release_claim';
 
@@ -236,7 +235,7 @@ final class SAUTH_Google_Registration {
 		}
 	}
 
-	public static function finalize_link( $user_id, array $context ) {
+	public static function finalize_link( $user_id, array $context, array $shared_lock = array() ) {
 		$user_id = absint( $user_id );
 		$email = sanitize_email( (string) ( $context['email'] ?? '' ) );
 		$sub = sanitize_text_field( (string) ( $context['sub'] ?? '' ) );
@@ -244,58 +243,71 @@ final class SAUTH_Google_Registration {
 		if ( ! $user instanceof WP_User || '' === $sub || ! is_email( $email ) || ! hash_equals( strtolower( (string) $user->user_email ), strtolower( $email ) ) ) {
 			return false;
 		}
-		$lock = self::acquire_link_lock( $sub );
-		if ( '' === $lock ) { return false; }
+		$owns_lock = empty( $shared_lock );
+		$lock = $owns_lock ? SA_Google_OAuth::acquire_link_locks( $sub, $user_id ) : $shared_lock;
+		if ( empty( $lock ) || ! SA_Google_OAuth::link_locks_owned( $lock, $sub, $user_id ) ) { return false; }
+		$result = false;
+		$released = ! $owns_lock;
 		try {
-			$matches = array();
-			foreach ( array( '_sauth_google_sub', '_sa_google_sub' ) as $meta_key ) {
-				foreach ( get_users( array( 'meta_key' => $meta_key, 'meta_value' => $sub, 'number' => 3, 'count_total' => false ) ) as $match ) {
-					$matches[ (int) $match->ID ] = $match;
-				}
-			}
-			foreach ( $matches as $match ) {
-				if ( (int) $match->ID !== $user_id ) { return false; }
-			}
-			$projection = array(
-				'sub' => $sub,
-				'email' => $email,
-				'email_verified' => '1',
-				'account' => '1',
-				'linked_at' => current_time( 'mysql', true ),
-				'link_version' => '4',
-				'picture' => empty( $context['picture'] ) ? '' : esc_url_raw( $context['picture'] ),
+			global $wpdb;
+			$matches = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT DISTINCT user_id FROM {$wpdb->usermeta} WHERE meta_key IN (%s,%s) AND meta_value=%s LIMIT 3",
+					'_sauth_google_sub',
+					'_sa_google_sub',
+					$sub
+				)
 			);
-			$before = array();
-			foreach ( array( '_sauth_google_', '_sa_google_' ) as $prefix ) {
-				foreach ( $projection as $suffix => $value ) {
-					$key = $prefix . $suffix;
-					$before[ $key ] = get_user_meta( $user_id, $key, true );
-					if ( 'picture' === $suffix && '' === $value ) { delete_user_meta( $user_id, $key ); }
-					else { update_user_meta( $user_id, $key, $value ); }
-				}
+			$conflict = ! is_array( $matches ) || '' !== (string) $wpdb->last_error;
+			foreach ( is_array( $matches ) ? $matches : array() as $match_user_id ) {
+				if ( absint( $match_user_id ) !== $user_id ) { $conflict = true; }
 			}
-			foreach ( array( '_sauth_google_', '_sa_google_' ) as $prefix ) {
-				foreach ( $projection as $suffix => $value ) {
-					$key = $prefix . $suffix;
-					$expected = ( 'picture' === $suffix && '' === $value ) ? '' : (string) $value;
-					if ( ! hash_equals( $expected, (string) get_user_meta( $user_id, $key, true ) ) ) {
-						foreach ( $before as $restore_key => $restore_value ) {
-							if ( '' === (string) $restore_value ) { delete_user_meta( $user_id, $restore_key ); }
-							else { update_user_meta( $user_id, $restore_key, $restore_value ); }
-						}
-						$restored = true;
-						foreach ( $before as $restore_key => $restore_value ) {
-							$restored = $restored && hash_equals( (string) $restore_value, (string) get_user_meta( $user_id, $restore_key, true ) );
-						}
-						if ( ! $restored ) { SA_Google_OAuth::contain_linkage_failure( $user_id, 'google_registration_link_rollback_failed' ); }
-						return false;
+			if ( ! $conflict ) {
+				$projection = array(
+					'sub' => $sub,
+					'email' => $email,
+					'email_verified' => '1',
+					'account' => '1',
+					'linked_at' => current_time( 'mysql', true ),
+					'link_version' => '4',
+					'picture' => empty( $context['picture'] ) ? '' : esc_url_raw( $context['picture'] ),
+				);
+				$before = array();
+				foreach ( array( '_sauth_google_', '_sa_google_' ) as $prefix ) {
+					foreach ( $projection as $suffix => $value ) {
+						$key = $prefix . $suffix;
+						$before[ $key ] = array( 'exists' => metadata_exists( 'user', $user_id, $key ), 'value' => get_user_meta( $user_id, $key, true ) );
+						if ( 'picture' === $suffix && '' === $value ) { delete_user_meta( $user_id, $key ); }
+						else { update_user_meta( $user_id, $key, $value ); }
 					}
 				}
+				$result = true;
+				foreach ( array( '_sauth_google_', '_sa_google_' ) as $prefix ) {
+					foreach ( $projection as $suffix => $value ) {
+						$key = $prefix . $suffix;
+						$expected = ( 'picture' === $suffix && '' === $value ) ? '' : (string) $value;
+						if ( ! hash_equals( $expected, (string) get_user_meta( $user_id, $key, true ) ) ) { $result = false; break 2; }
+					}
+				}
+				if ( ! $result ) {
+					foreach ( $before as $restore_key => $restore ) {
+						if ( empty( $restore['exists'] ) ) { delete_user_meta( $user_id, $restore_key ); }
+						else { update_user_meta( $user_id, $restore_key, $restore['value'] ); }
+					}
+					$restored = true;
+					foreach ( $before as $restore_key => $restore ) {
+						$restored = $restored
+							&& (bool) metadata_exists( 'user', $user_id, $restore_key ) === (bool) $restore['exists']
+							&& ( empty( $restore['exists'] ) || hash_equals( (string) $restore['value'], (string) get_user_meta( $user_id, $restore_key, true ) ) );
+					}
+					if ( ! $restored ) { SA_Google_OAuth::contain_linkage_failure( $user_id, 'google_registration_link_rollback_failed' ); }
+				}
 			}
-			return true;
 		} finally {
-			self::release_link_lock( $sub, $lock );
+			if ( $owns_lock ) { $released = SA_Google_OAuth::release_link_locks( $lock ); }
 		}
+		if ( ! $released ) { SA_Google_OAuth::contain_linkage_failure( $user_id, 'google_registration_lock_release_failed' ); }
+		return $result && $released;
 	}
 
 	private static function valid_claims( $claims, array $data ) {
@@ -315,26 +327,6 @@ final class SAUTH_Google_Registration {
 		$now = time(); $iat = (int) $claims['iat']; $exp = (int) $claims['exp'];
 		$time_ok = $iat > 0 && $iat <= $now + 60 && $iat >= $now - 600 && $exp > $now && $exp > $iat && $exp <= $iat + 7200;
 		return $issuer_ok && $nonce_ok && $email_verified && $audience_ok && $time_ok && is_email( $claims['email'] );
-	}
-
-	private static function acquire_link_lock( $sub ) {
-		$key = 'sauth_google_registration_link_lock_' . hash( 'sha256', (string) $sub );
-		$token = SA_Security::random_token( 16 );
-		if ( '' === $token ) { return ''; }
-		$value = array( 'token' => $token, 'expires' => time() + self::LOCK_TTL );
-		if ( add_option( $key, $value, '', false ) ) { return $token; }
-		$current = get_option( $key, array() );
-		if ( is_array( $current ) && ! empty( $current['expires'] ) && (int) $current['expires'] < time() ) {
-			delete_option( $key );
-			if ( add_option( $key, $value, '', false ) ) { return $token; }
-		}
-		return '';
-	}
-
-	private static function release_link_lock( $sub, $token ) {
-		$key = 'sauth_google_registration_link_lock_' . hash( 'sha256', (string) $sub );
-		$current = get_option( $key, array() );
-		if ( is_array( $current ) && isset( $current['token'] ) && hash_equals( (string) $current['token'], (string) $token ) ) { delete_option( $key ); }
 	}
 
 	private static function state_key( $state ) { return 'sauth_google_registration_state_' . hash( 'sha256', (string) $state ); }

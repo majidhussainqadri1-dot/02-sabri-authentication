@@ -2,6 +2,28 @@
 
 All notable changes to Sabri Authentication and Accounts are recorded here.
 
+## 1.3.0 — Comprehensive Concurrency, Evidence and Privacy Remediation
+
+### Corrected
+
+- Replaced query-text self-identification in legacy migration with an explicit, nested-safe storage-router suspension and advanced the File 02 DB marker so supported installations rerun the repaired copy.
+- Converted email-verification issuance and consumption to compare-and-set transitions with delivery/publication/readback containment.
+- Serialized Google registration, login, linking and unlinking on shared database subject/user locks; added exact subject, link, session and rollback postconditions.
+- Required password, Google and passkey success to own the exact WordPress token, File 02 session projection and durable device/risk evidence before emitting success.
+- Made session registration return an exact result, failed closed when lazy legacy projection cannot be proved, and routed user-facing “revoke others” through the exact-token postcondition helper.
+- Enforced immutable WebAuthn backup eligibility, non-zero counter regression including reset-to-zero, assertion-time algorithm/key-shape validation, RSA keys of at least 2048 bits with exponent 65537, exact challenge receipts and assurance/session invalidation.
+- Released every passkey enrollment lock before responding and removed any unproven credential row when the enrollment readback fails.
+- Bounded privacy export/erasure to 50-row batches, covered canonical and preserved legacy stores, exported device/risk state and recursively removed identity-bearing event fields.
+- Preserved File 00 as identity/membership/eligibility authority and validated professional reauthentication provider contract, purpose, scope and trace provenance.
+
+### Identity
+
+- Runtime: `1.3.0`.
+- File 02 DB schema: `1.3.0`.
+- Passkey schema: `1.0.1` unchanged.
+- Passkey assurance contract: `1.0.0` unchanged.
+- Exact-head QA/integration, staging, live deployment and operational status remain separate gates.
+
 ## 1.2.6 — Legacy Passkey Index Reconciliation Candidate
 
 ### Corrected

@@ -1,4 +1,4 @@
-# File 02 Architecture — Authentication and Accounts 1.2.6
+# File 02 Architecture — Authentication and Accounts 1.3.0
 
 ## Governing boundary
 
@@ -27,7 +27,8 @@ File 00 remains the sole canonical owner of membership legitimacy, identity assu
 - Challenges are 32 random bytes, RP/origin/fingerprint-bound, expire after five minutes and are atomically claimed exactly once before verification.
 - Credential IDs are random opaque WebAuthn identifiers. An encrypted copy is retained for exclusion UI; stable SHA-256 is used for lookup so WordPress salt rotation cannot orphan credentials.
 - Each account receives a random opaque File 02 user handle; it is not derived from a WordPress user ID or salt and is included in File 02 privacy erasure.
-- Non-zero signature-counter regression compromises the credential; zero counters remain valid for synchronized passkeys.
+- Backup eligibility is immutable after enrollment. Synchronized passkeys may remain at counter zero, but any non-increase after a non-zero stored counter—including reset to zero—compromises the credential.
+- RS256 credentials require an RSA modulus of at least 2048 bits and exponent 65537; OpenSSL key details are revalidated before acceptance.
 - Successful passkey authentication issues at most a five-minute, current-session/fingerprint-bound assurance projection to File 00: owner `file02`, contract `1.0.0`, level 3, `passkey_asserted=true`.
 - `hardware_backed` remains false under `attestation=none`; no hardware provenance is invented. File 00 may keep hardware-bound policy actions closed until independently proven.
 - Passkey enrollment/revocation requires fresh File 02 reauthentication: a current File 02 passkey assurance when present, otherwise current-password verification. Retired File 00 Authenticator/recovery codes are neither solicited nor accepted.
@@ -36,7 +37,8 @@ File 00 remains the sole canonical owner of membership legitimacy, identity assu
 
 - No File 02 role creation, account-class approval, identity approval, guardian decision, MFA policy or verification bypass.
 - No raw password, reset key, verification token, OAuth token, TOTP/recovery code, passkey private key, biometric template, raw session token or full IP in events/diagnostics/exports.
-- Every protected mutation rechecks current provider/state and fails closed on uncertainty.
+- Every protected mutation rechecks current provider/state and fails closed on uncertainty; Google subject and user mutations share ordered database locks.
+- Authentication success requires the exact WordPress session token, active File 02 projection and persisted device/risk evidence before success events are emitted.
 - Provider and authentication events are past-tense facts, not commands or permissions.
 - User-specific and token-bearing routes are `noindex`, `noarchive` and `no-store`.
 - Companion data is never repaired or deleted by File 02.
@@ -68,4 +70,4 @@ Pre-1.1 `SA_` classes/options/actions/page metadata and SQL literals are bounded
 - `sauth_auth_attempts`
 - `sauth_passkeys`
 
-The original seven canonical tables are additive and idempotently created through `dbDelta`; the passkey table has its own additive schema version `1.0.1` and is included in guarded repair. `SAUTH_Activator::migrate_legacy_tables()` copies old `sa_*` evidence without carrying legacy auto-increment IDs, preserves canonical rows on duplicate logical identities, and requires every legacy row's stable logical identity (`bucket_hash`, `event_id`, `user_id` or `public_id`) to be represented in canonical storage before migration success is published. Legacy tables remain rollback evidence and are not the active DB 1.2.1 source of truth.
+The original seven canonical tables are additive and idempotently created through `dbDelta`; the passkey table has its own additive schema version `1.0.1` and is included in guarded repair. `SAUTH_Activator::migrate_legacy_tables()` explicitly suspends compatibility routing while it copies old `sa_*` evidence, without carrying legacy auto-increment IDs, and proves every stable logical identity (`bucket_hash`, `event_id`, `user_id` or `public_id`) exists in canonical storage before publishing DB `1.3.0`. Legacy tables remain rollback evidence and are not the active source of truth.

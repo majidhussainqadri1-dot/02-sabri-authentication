@@ -204,24 +204,34 @@ final class SA_Google_OAuth {
 			if ( ! self::fresh_passkey( $user->ID ) ) {
 				$this->fail( 'The passkey assurance expired while Google linking was in progress. Verify the passkey and start linking again.', 'google_account' );
 			}
-			$lock = $this->acquire_link_lock( (string) $claims['sub'] );
-			if ( ! $lock ) {
+			$lock = self::acquire_link_locks( (string) $claims['sub'], $user->ID );
+			if ( empty( $lock ) ) {
 				$this->fail( 'This Google account is being linked in another request. Wait briefly and try again.', 'google_account' );
 			}
+			$link_error = '';
+			$released = false;
 			try {
-				$existing = $this->linked_user( (string) $claims['sub'], false );
-				if ( is_wp_error( $existing ) && 'sa_google_unlinked' !== $existing->get_error_code() ) {
-					$this->fail( 'This Google account link requires administrative review.', 'google_account' );
-				}
-				if ( $existing instanceof WP_User && $existing->ID !== $user->ID ) {
-					$this->fail( 'This Google account is already linked to another membership.', 'google_account' );
-				}
-				if ( ! $this->store_link( $user->ID, $claims, true ) ) {
-					$this->fail( 'The Google account link could not be stored safely.', 'google_account' );
+				$locked_user = $this->link_target( $claims, $data );
+				if ( ! self::link_locks_owned( $lock, (string) $claims['sub'], $user->ID ) || is_wp_error( $locked_user ) || ! ( $locked_user instanceof WP_User ) || $locked_user->ID !== $user->ID || ! self::fresh_passkey( $user->ID ) ) {
+					$link_error = 'The Google account link prerequisites changed. Verify your membership and passkey, then retry.';
+				} else {
+					$existing = $this->linked_user( (string) $claims['sub'], false );
+					if ( is_wp_error( $existing ) && 'sa_google_unlinked' !== $existing->get_error_code() ) {
+						$link_error = 'This Google account link requires administrative review.';
+					} elseif ( $existing instanceof WP_User && $existing->ID !== $user->ID ) {
+						$link_error = 'This Google account is already linked to another membership.';
+					} elseif ( ! $this->store_link( $user->ID, $claims, true ) ) {
+						$link_error = 'The Google account link could not be stored safely.';
+					}
 				}
 			} finally {
-				$this->release_link_lock( $lock );
+				$released = self::release_link_locks( $lock );
 			}
+			if ( ! $released ) {
+				self::contain_linkage_failure( $user->ID, 'google_link_lock_release_failed' );
+				$link_error = 'The Google account link could not be finalized safely. All sessions were revoked.';
+			}
+			if ( '' !== $link_error ) { $this->fail( $link_error, 'google_account' ); }
 			SAUTH_Event_Outbox::emit( 'GoogleAccountLinked.v1', $user->ID, $user->ID, array( 'method' => 'google_oidc' ), 'security' );
 			SA_Membership_Adapter::audit( 'google_account_linked', $user->ID );
 			wp_safe_redirect( SA_Security::message_url( 'google_account', 'success', 'Google has been linked to your account.' ) );
@@ -229,31 +239,92 @@ final class SA_Google_OAuth {
 		}
 
 		$user = $this->linked_user( (string) $claims['sub'], true );
-		if ( is_wp_error( $user ) ) {
-			$this->fail( $user->get_error_message(), 'login' );
+		if ( is_wp_error( $user ) ) { $this->fail( $user->get_error_message(), 'login' ); }
+		$lock = $user instanceof WP_User ? self::acquire_link_locks( (string) $claims['sub'], $user->ID ) : array();
+		if ( empty( $lock ) ) { $this->fail( 'This Google account is being changed by another request. Wait briefly and retry.', 'login' ); }
+		$login_error = '';
+		$completion = array();
+		$risk = array();
+		$login_token = '';
+		$released = false;
+		try {
+			$locked_user = $this->linked_user( (string) $claims['sub'], true );
+			if ( ! self::link_locks_owned( $lock, (string) $claims['sub'], $user->ID )
+				|| ! ( $locked_user instanceof WP_User )
+				|| $locked_user->ID !== $user->ID
+				|| 0 !== strcasecmp( (string) $locked_user->user_email, (string) $claims['email'] )
+				|| ! SA_Membership_Adapter::can_use_google( $locked_user->ID ) ) {
+				$login_error = 'The linked membership is not eligible for Google sign-in.';
+			} else {
+				$completion = SAUTH_Account_Contract::completion_state( $locked_user->ID, array( 'purpose' => 'google_sign_in' ) );
+				if ( ! is_array( $completion ) || 'allow' !== ( $completion['result'] ?? '' ) ) {
+					$login_error = 'Account completion status could not be verified for Google sign-in.';
+				} else {
+					$risk = SAUTH_Login_Risk::evaluate( $locked_user->ID, $completion );
+					if ( 'challenge' === ( $risk['action'] ?? '' ) || 'deny' === ( $risk['action'] ?? '' ) ) {
+						SAUTH_Login_Risk::record_failure( $locked_user->ID, 'google_' . sanitize_key( (string) ( $risk['reason_code'] ?? 'risk_rejected' ) ), absint( $risk['score'] ?? 100 ) );
+						SAUTH_Event_Outbox::emit( 'AccountAuthenticationFailed.v1', $locked_user->ID, $locked_user->ID, array( 'method' => 'google_oidc', 'reason' => 'passkey_step_up_required', 'risk_score' => absint( $risk['score'] ?? 100 ) ), 'security' );
+						$login_error = 'This Google sign-in needs stronger verification for the current device or network. Use your registered File 02 passkey to sign in.';
+					} elseif ( ! class_exists( 'WP_Session_Tokens' ) ) {
+						$login_error = 'Google sign-in could not establish a verifiable account session.';
+					} else {
+						$duration = (int) apply_filters( 'auth_cookie_expiration', 14 * DAY_IN_SECONDS, $locked_user->ID, true );
+						$expiration = time() + min( YEAR_IN_SECONDS, max( HOUR_IN_SECONDS, $duration ) );
+						$login_token = (string) WP_Session_Tokens::get_instance( $locked_user->ID )->create( $expiration );
+						if ( '' === $login_token ) {
+							$login_error = 'Google sign-in could not establish a verifiable account session.';
+						} else {
+							wp_set_current_user( $locked_user->ID );
+							wp_set_auth_cookie( $locked_user->ID, true, is_ssl(), $login_token );
+							if ( ! SAUTH_Session_Manager::session_binding_ready( $locked_user->ID, $login_token ) ) {
+								SAUTH_Session_Manager::revoke_user_sessions( $locked_user->ID, 'google_session_binding_failed' );
+								wp_clear_auth_cookie();
+								wp_set_current_user( 0 );
+								$login_error = 'Google sign-in could not persist its exact session evidence.';
+							} else {
+								$last_login = current_time( 'mysql', true );
+								update_user_meta( $locked_user->ID, '_sauth_google_last_login_at', $last_login );
+								update_user_meta( $locked_user->ID, '_sa_google_last_login_at', $last_login );
+								if ( ! hash_equals( $last_login, (string) get_user_meta( $locked_user->ID, '_sauth_google_last_login_at', true ) ) || ! hash_equals( $last_login, (string) get_user_meta( $locked_user->ID, '_sa_google_last_login_at', true ) ) ) {
+									SAUTH_Session_Manager::revoke_user_sessions( $locked_user->ID, 'google_login_projection_failed' );
+									wp_clear_auth_cookie();
+									wp_set_current_user( 0 );
+									$login_error = 'Google sign-in could not reconcile its linked-account evidence.';
+								}
+							}
+						}
+					}
+				}
+			}
+		} finally {
+			$released = self::release_link_locks( $lock );
 		}
-		if ( ! $user instanceof WP_User
-			|| 0 !== strcasecmp( (string) $user->user_email, (string) $claims['email'] )
-			|| ! SA_Membership_Adapter::can_use_google( $user->ID ) ) {
-			$this->fail( 'The linked membership is not eligible for Google sign-in.', 'login' );
+		if ( ! $released ) {
+			SAUTH_Session_Manager::revoke_user_sessions( $user->ID, 'google_login_lock_release_failed' );
+			SAUTH_Operations::enter_safe_mode();
+			wp_clear_auth_cookie();
+			wp_set_current_user( 0 );
+			$login_error = 'Google sign-in could not release its account-security lock safely.';
 		}
-		$completion = SAUTH_Account_Contract::completion_state( $user->ID, array( 'purpose' => 'google_sign_in' ) );
-		if ( ! is_array( $completion ) || 'allow' !== ( $completion['result'] ?? '' ) ) {
-			$this->fail( 'Account completion status could not be verified for Google sign-in.', 'login' );
+		if ( '' === $login_error && ! SAUTH_Session_Manager::session_binding_ready( $user->ID, $login_token ) ) {
+			SAUTH_Session_Manager::revoke_user_sessions( $user->ID, 'google_post_lock_session_failed' );
+			wp_clear_auth_cookie();
+			wp_set_current_user( 0 );
+			$login_error = 'Google sign-in session changed before completion.';
 		}
-		$risk = SAUTH_Login_Risk::evaluate( $user->ID, $completion );
-		if ( 'challenge' === ( $risk['action'] ?? '' ) || 'deny' === ( $risk['action'] ?? '' ) ) {
-			SAUTH_Login_Risk::record_failure( $user->ID, 'google_' . sanitize_key( (string) ( $risk['reason_code'] ?? 'risk_rejected' ) ), absint( $risk['score'] ?? 100 ) );
-			SAUTH_Event_Outbox::emit( 'AccountAuthenticationFailed.v1', $user->ID, $user->ID, array( 'method' => 'google_oidc', 'reason' => 'passkey_step_up_required', 'risk_score' => absint( $risk['score'] ?? 100 ) ), 'security' );
-			$this->fail( 'This Google sign-in needs stronger verification for the current device or network. Use your registered File 02 passkey to sign in.', 'login' );
+		$login_token = '';
+		if ( '' !== $login_error ) { $this->fail( $login_error, 'login' ); }
+		if ( ! SAUTH_Login_Risk::record_successful_login( $user->ID, 'google', absint( $risk['score'] ?? 0 ) ) ) {
+			SAUTH_Session_Manager::revoke_user_sessions( $user->ID, 'google_risk_evidence_store_failed' );
+			wp_clear_auth_cookie();
+			wp_set_current_user( 0 );
+			SAUTH_Login_Risk::record_failure( $user->ID, 'google_risk_evidence_store_failed', 100 );
+			SAUTH_Event_Outbox::emit( 'AccountAuthenticationFailed.v1', $user->ID, $user->ID, array( 'method' => 'google_oidc', 'reason' => 'risk_evidence_store_failed' ), 'security' );
+			SA_Membership_Adapter::audit( 'google_login_evidence_failed', $user->ID );
+			$this->fail( 'Google sign-in could not persist its device and risk evidence safely.', 'login' );
 		}
-		wp_set_current_user( $user->ID );
-		wp_set_auth_cookie( $user->ID, true, is_ssl() );
 		self::safe_observer_action( 'wp_login', array( $user->user_login, $user ) );
-		SAUTH_Login_Risk::record_successful_login( $user->ID, 'google', absint( $risk['score'] ?? 0 ) );
 		SAUTH_Event_Outbox::emit( 'AccountAuthenticationSucceeded.v1', $user->ID, $user->ID, array( 'method' => 'google_oidc', 'risk_score' => absint( $risk['score'] ?? 0 ) ), 'security' );
-		update_user_meta( $user->ID, '_sauth_google_last_login_at', current_time( 'mysql', true ) );
-		update_user_meta( $user->ID, '_sa_google_last_login_at', current_time( 'mysql', true ) );
 		SA_Membership_Adapter::audit( 'google_login_success', $user->ID );
 		$requested = isset( $data['redirect'] ) ? SA_Security::safe_redirect( $data['redirect'], SA_Membership_Adapter::profile_url() ) : SA_Membership_Adapter::profile_url();
 		$resolution = SAUTH_Completion_Resolver::resolve( $user->ID, $requested, $completion );
@@ -284,22 +355,54 @@ final class SA_Google_OAuth {
 			wp_safe_redirect( SA_Security::message_url( 'google_account', 'error', 'Verify a passkey in this session before unlinking Google.' ) );
 			exit;
 		}
-		foreach ( self::google_meta_keys() as $key ) {
-			delete_user_meta( $user_id, $key );
-		}
-		$remaining = array();
-		foreach ( self::google_meta_keys() as $key ) {
-			if ( metadata_exists( 'user', $user_id, $key ) ) { $remaining[] = $key; }
-		}
-		if ( ! empty( $remaining ) ) {
-			/* Fail closed even if the underlying store partially rejected deletion. */
-			self::contain_linkage_failure( $user_id, 'google_account_unlink_incomplete' );
-			SA_Membership_Adapter::audit( 'google_account_unlink_incomplete', $user_id, array( 'remaining_count' => count( $remaining ) ) );
-			wp_safe_redirect( SA_Security::message_url( 'google_account', 'error', 'Google unlinking could not be completed safely. All sessions were revoked; sign in again and contact support.' ) );
+		$canonical_sub = (string) get_user_meta( $user_id, '_sauth_google_sub', true );
+		$legacy_sub = (string) get_user_meta( $user_id, '_sa_google_sub', true );
+		if ( '' !== $canonical_sub && '' !== $legacy_sub && ! hash_equals( $canonical_sub, $legacy_sub ) ) {
+			self::contain_linkage_failure( $user_id, 'google_account_namespace_mismatch' );
+			wp_safe_redirect( SA_Security::message_url( 'google_account', 'error', 'The Google link namespaces disagree. All sessions were revoked for administrative review.' ) );
 			exit;
 		}
-		if ( class_exists( 'WP_Session_Tokens' ) ) {
-			WP_Session_Tokens::get_instance( $user_id )->destroy_others( wp_get_session_token() );
+		$sub = '' !== $canonical_sub ? $canonical_sub : $legacy_sub;
+		if ( '' === $sub ) {
+			wp_safe_redirect( SA_Security::message_url( 'google_account', 'success', 'Google was already unlinked.' ) );
+			exit;
+		}
+		$lock = self::acquire_link_locks( $sub, $user_id );
+		if ( empty( $lock ) ) {
+			wp_safe_redirect( SA_Security::message_url( 'google_account', 'error', 'This Google account is being used by another request. Wait briefly and retry.' ) );
+			exit;
+		}
+		$unlink_error = '';
+		$released = false;
+		try {
+			$locked_canonical_sub = (string) get_user_meta( $user_id, '_sauth_google_sub', true );
+			$locked_legacy_sub = (string) get_user_meta( $user_id, '_sa_google_sub', true );
+			$locked_sub_matches = ( '' === $locked_canonical_sub || hash_equals( $sub, $locked_canonical_sub ) )
+				&& ( '' === $locked_legacy_sub || hash_equals( $sub, $locked_legacy_sub ) )
+				&& ( '' !== $locked_canonical_sub || '' !== $locked_legacy_sub );
+			if ( ! self::link_locks_owned( $lock, $sub, $user_id ) || ! $locked_sub_matches || ! self::explicitly_linked( $user_id ) || ! self::fresh_passkey( $user_id ) ) {
+				$unlink_error = 'The Google link prerequisites changed. Verify your passkey and retry.';
+			} else {
+				foreach ( self::google_meta_keys() as $key ) { delete_user_meta( $user_id, $key ); }
+				$remaining = array();
+				foreach ( self::google_meta_keys() as $key ) { if ( metadata_exists( 'user', $user_id, $key ) ) { $remaining[] = $key; } }
+				$current_token = (string) wp_get_session_token();
+				if ( ! empty( $remaining ) || ! SAUTH_Session_Manager::revoke_other_sessions( $user_id, $current_token, 'google_unlink' ) ) {
+					self::contain_linkage_failure( $user_id, 'google_account_unlink_incomplete' );
+					SA_Membership_Adapter::audit( 'google_account_unlink_incomplete', $user_id, array( 'remaining_count' => count( $remaining ) ) );
+					$unlink_error = 'Google unlinking could not be completed safely. All sessions were revoked; sign in again and contact support.';
+				}
+			}
+		} finally {
+			$released = self::release_link_locks( $lock );
+		}
+		if ( ! $released ) {
+			self::contain_linkage_failure( $user_id, 'google_unlink_lock_release_failed' );
+			$unlink_error = 'Google unlinking could not release its account-security lock. All sessions were revoked.';
+		}
+		if ( '' !== $unlink_error ) {
+			wp_safe_redirect( SA_Security::message_url( 'google_account', 'error', $unlink_error ) );
+			exit;
 		}
 		SA_Security::clear_rate_limit( 'google_unlink', (string) $user_id );
 		SAUTH_Event_Outbox::emit( 'GoogleAccountUnlinked.v1', $user_id, $user_id, array( 'method' => 'google_oidc' ), 'security' );
@@ -310,19 +413,42 @@ final class SA_Google_OAuth {
 
 	public static function explicitly_linked( $user_id ) {
 		$user_id = absint( $user_id );
-		$account = (string) get_user_meta( $user_id, '_sauth_google_account', true );
-		$verified = (string) get_user_meta( $user_id, '_sauth_google_email_verified', true );
-		$version = (string) get_user_meta( $user_id, '_sauth_google_link_version', true );
-		$sub = (string) get_user_meta( $user_id, '_sauth_google_sub', true );
-		$email = (string) get_user_meta( $user_id, '_sauth_google_email', true );
-		if ( '' === $account && '' === $sub ) {
-			$account = (string) get_user_meta( $user_id, '_sa_google_account', true );
-			$verified = (string) get_user_meta( $user_id, '_sa_google_email_verified', true );
-			$version = (string) get_user_meta( $user_id, '_sa_google_link_version', true );
-			$sub = (string) get_user_meta( $user_id, '_sa_google_sub', true );
-			$email = (string) get_user_meta( $user_id, '_sa_google_email', true );
+		if ( ! $user_id ) { return false; }
+		$canonical = self::link_projection( $user_id, '_sauth_google_' );
+		$legacy = self::link_projection( $user_id, '_sa_google_' );
+		$canonical_present = self::projection_present( $canonical );
+		$legacy_present = self::projection_present( $legacy );
+		if ( $canonical_present && $legacy_present ) {
+			foreach ( array( 'sub','email','email_verified','account','link_version' ) as $field ) {
+				if ( ! hash_equals( (string) $canonical[ $field ], (string) $legacy[ $field ] ) ) { return false; }
+			}
+			$projection = $canonical;
+		} elseif ( $canonical_present ) {
+			$projection = $canonical;
+		} elseif ( $legacy_present ) {
+			$projection = $legacy;
+		} else {
+			return false;
 		}
-		return $user_id > 0 && '1' === $account && '1' === $verified && in_array( $version, array( '2', '4' ), true ) && '' !== $sub && is_email( $email );
+		$user = get_userdata( $user_id );
+		return $user instanceof WP_User
+			&& '1' === (string) $projection['account']
+			&& '1' === (string) $projection['email_verified']
+			&& in_array( (string) $projection['link_version'], array( '2', '4' ), true )
+			&& '' !== (string) $projection['sub']
+			&& is_email( (string) $projection['email'] )
+			&& 0 === strcasecmp( (string) $projection['email'], (string) $user->user_email );
+	}
+
+	private static function link_projection( $user_id, $prefix ) {
+		$out = array();
+		foreach ( array( 'sub','email','email_verified','account','link_version' ) as $field ) { $out[ $field ] = (string) get_user_meta( absint( $user_id ), (string) $prefix . $field, true ); }
+		return $out;
+	}
+
+	private static function projection_present( array $projection ) {
+		foreach ( $projection as $value ) { if ( '' !== (string) $value ) { return true; } }
+		return false;
 	}
 
 	/** Compatibility read for any old challenge URL; new flow does not create it. */
@@ -384,24 +510,33 @@ final class SA_Google_OAuth {
 	}
 
 	private function linked_user( $sub, $require_explicit = true ) {
+		global $wpdb;
 		$sub = sanitize_text_field( (string) $sub );
 		if ( '' === $sub ) {
 			return new WP_Error( 'sa_google_unlinked', 'This Google account is not linked.' );
 		}
-		$found = array();
-		foreach ( array( '_sauth_google_sub', '_sa_google_sub' ) as $meta_key ) {
-			$users = get_users( array( 'meta_key' => $meta_key, 'meta_value' => $sub, 'number' => 3, 'count_total' => false ) );
-			foreach ( $users as $user ) {
-				$found[ (int) $user->ID ] = $user;
-			}
+		$found = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT DISTINCT user_id FROM {$wpdb->usermeta} WHERE meta_key IN (%s,%s) AND meta_value=%s LIMIT 3",
+				'_sauth_google_sub',
+				'_sa_google_sub',
+				$sub
+			)
+		);
+		if ( ! is_array( $found ) || '' !== (string) $wpdb->last_error ) {
+			return new WP_Error( 'sa_google_storage', 'Google link ownership could not be verified safely.' );
 		}
+		$found = array_values( array_unique( array_filter( array_map( 'absint', $found ) ) ) );
 		if ( count( $found ) > 1 ) {
 			return new WP_Error( 'sa_google_duplicate', 'A duplicate Google account link requires administrative review.' );
 		}
 		if ( empty( $found ) ) {
 			return new WP_Error( 'sa_google_unlinked', 'This Google account is not linked. Sign in with another approved method and link Google first.' );
 		}
-		$user = reset( $found );
+		$user = get_userdata( (int) reset( $found ) );
+		if ( ! ( $user instanceof WP_User ) ) {
+			return new WP_Error( 'sa_google_subject_invalid', 'The linked Google account subject could not be verified.' );
+		}
 		if ( $require_explicit && ! self::explicitly_linked( $user->ID ) ) {
 			return new WP_Error( 'sa_google_legacy_link', 'This incomplete Google association must be explicitly re-linked before use.' );
 		}
@@ -428,7 +563,7 @@ final class SA_Google_OAuth {
 		foreach ( array( '_sauth_google_', '_sa_google_' ) as $prefix ) {
 			foreach ( $values as $suffix => $value ) {
 				$key = $prefix . $suffix;
-				$before[ $key ] = get_user_meta( $user_id, $key, true );
+				$before[ $key ] = array( 'exists' => metadata_exists( 'user', $user_id, $key ), 'value' => get_user_meta( $user_id, $key, true ) );
 				if ( '' === $value && 'picture' === $suffix ) {
 					delete_user_meta( $user_id, $key );
 				} else {
@@ -442,13 +577,15 @@ final class SA_Google_OAuth {
 				$stored = (string) get_user_meta( $user_id, $key, true );
 				$expected = ( '' === $value && 'picture' === $suffix ) ? '' : (string) $value;
 				if ( ! hash_equals( $expected, $stored ) ) {
-					foreach ( $before as $restore_key => $restore_value ) {
-						if ( '' === (string) $restore_value ) { delete_user_meta( $user_id, $restore_key ); }
-						else { update_user_meta( $user_id, $restore_key, $restore_value ); }
+					foreach ( $before as $restore_key => $restore ) {
+						if ( empty( $restore['exists'] ) ) { delete_user_meta( $user_id, $restore_key ); }
+						else { update_user_meta( $user_id, $restore_key, $restore['value'] ); }
 					}
 					$restored = true;
-					foreach ( $before as $restore_key => $restore_value ) {
-						$restored = $restored && hash_equals( (string) $restore_value, (string) get_user_meta( $user_id, $restore_key, true ) );
+					foreach ( $before as $restore_key => $restore ) {
+						$restored = $restored
+							&& (bool) metadata_exists( 'user', $user_id, $restore_key ) === (bool) $restore['exists']
+							&& ( empty( $restore['exists'] ) || hash_equals( (string) $restore['value'], (string) get_user_meta( $user_id, $restore_key, true ) ) );
 					}
 					if ( ! $restored ) { self::contain_linkage_failure( $user_id, 'google_link_rollback_failed' ); }
 					return false;
@@ -480,42 +617,107 @@ final class SA_Google_OAuth {
 	}
 
 	private static function fresh_passkey( $user_id ) {
-		if ( ! class_exists( 'SAUTH_Passkeys' ) || ! is_callable( array( 'SAUTH_Passkeys', 'file00_assurance' ) ) ) {
-			return false;
-		}
 		try {
-			$assurance = SAUTH_Passkeys::file00_assurance( array(), absint( $user_id ) );
+			if ( class_exists( 'SAUTH_Passkey_Runtime' ) && is_callable( array( 'SAUTH_Passkey_Runtime', 'current_assurance' ) ) ) {
+				$assurance = SAUTH_Passkey_Runtime::current_assurance( absint( $user_id ) );
+			} elseif ( class_exists( 'SAUTH_Passkeys' ) && is_callable( array( 'SAUTH_Passkeys', 'file00_assurance' ) ) ) {
+				$assurance = SAUTH_Passkeys::file00_assurance( array(), absint( $user_id ) );
+			} else {
+				return false;
+			}
 			return is_array( $assurance ) && 'file02' === ( $assurance['owner'] ?? '' ) && ! empty( $assurance['passkey_asserted'] ) && 'webauthn_passkey' === ( $assurance['method'] ?? '' );
 		} catch ( Throwable $error ) {
 			return false;
 		}
 	}
 
-	private function acquire_link_lock( $sub ) {
-		$name   = 'sa_google_link_lock_' . substr( hash( 'sha256', (string) $sub ), 0, 40 );
-		$token  = SA_Security::random_token( 16 );
-		$expiry = time() + 30;
-		if ( '' === $token ) { return array(); }
-		if ( add_option( $name, array( 'token' => $token, 'expires' => $expiry ), '', false ) ) {
-			return array( 'name' => $name, 'token' => $token );
-		}
-		$current = get_option( $name, array() );
-		if ( is_array( $current ) && ! empty( $current['expires'] ) && (int) $current['expires'] < time() ) {
-			delete_option( $name );
-			if ( add_option( $name, array( 'token' => $token, 'expires' => $expiry ), '', false ) ) {
-				return array( 'name' => $name, 'token' => $token );
+	/**
+	 * Acquire the shared Google-subject lock and, when known, its user lock on the
+	 * current MariaDB/MySQL connection. Subject always precedes user, preventing
+	 * cross-flow deadlocks while login, link, unlink and registration serialize on
+	 * the same namespace.
+	 */
+	public static function acquire_link_locks( $sub, $user_id = 0, array $existing = array() ) {
+		global $wpdb;
+		$sub = sanitize_text_field( (string) $sub );
+		$user_id = absint( $user_id );
+		if ( '' === $sub || strlen( $sub ) > 255 ) { return array(); }
+		$connection_id = absint( $wpdb->get_var( 'SELECT CONNECTION_ID()' ) );
+		if ( ! $connection_id || '' !== (string) $wpdb->last_error ) { return array(); }
+		$held = array();
+		if ( ! empty( $existing ) ) {
+			if ( absint( $existing['connection_id'] ?? 0 ) !== $connection_id || ! is_array( $existing['names'] ?? null ) ) { return array(); }
+			$held = array_values( array_unique( array_map( 'strval', $existing['names'] ) ) );
+			foreach ( $held as $name ) {
+				$owner = absint( $wpdb->get_var( $wpdb->prepare( 'SELECT IS_USED_LOCK(%s)', $name ) ) );
+				if ( $owner !== $connection_id || '' !== (string) $wpdb->last_error ) { return array(); }
 			}
 		}
-		return array();
+		$required = array( self::google_subject_lock_name( $sub ) );
+		if ( $user_id ) { $required[] = self::google_user_lock_name( $user_id ); }
+		$newly_acquired = array();
+		foreach ( $required as $name ) {
+			if ( in_array( $name, $held, true ) ) { continue; }
+			$acquired = $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s,%d)', $name, 0 ) );
+			$owner = absint( $wpdb->get_var( $wpdb->prepare( 'SELECT IS_USED_LOCK(%s)', $name ) ) );
+			if ( 1 !== (int) $acquired || $owner !== $connection_id || '' !== (string) $wpdb->last_error ) {
+				foreach ( array_reverse( $newly_acquired ) as $release_name ) { $wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $release_name ) ); }
+				return array();
+			}
+			$held[] = $name;
+			$newly_acquired[] = $name;
+		}
+		return array( 'connection_id' => $connection_id, 'names' => $held );
 	}
 
-	private function release_link_lock( array $lock ) {
-		if ( empty( $lock['name'] ) || empty( $lock['token'] ) ) { return; }
-		$current = get_option( $lock['name'], array() );
-		if ( is_array( $current ) && isset( $current['token'] ) && hash_equals( (string) $current['token'], (string) $lock['token'] ) ) {
-			delete_option( $lock['name'] );
+	public static function link_locks_owned( array $lock, $sub, $user_id = 0 ) {
+		global $wpdb;
+		$connection_id = absint( $wpdb->get_var( 'SELECT CONNECTION_ID()' ) );
+		$required = array( self::google_subject_lock_name( $sub ) );
+		if ( absint( $user_id ) ) { $required[] = self::google_user_lock_name( $user_id ); }
+		if ( ! $connection_id || $connection_id !== absint( $lock['connection_id'] ?? 0 ) || ! is_array( $lock['names'] ?? null ) || array_diff( $required, $lock['names'] ) ) { return false; }
+		foreach ( $required as $name ) {
+			if ( $connection_id !== absint( $wpdb->get_var( $wpdb->prepare( 'SELECT IS_USED_LOCK(%s)', $name ) ) ) || '' !== (string) $wpdb->last_error ) { return false; }
 		}
+		return true;
 	}
+
+	/**
+	 * Prove that a Google subject has no canonical or preserved-legacy owner while
+	 * the caller holds the shared subject lock. Registration uses this before the
+	 * File 00 account mutation, so a losing concurrent request cannot create an
+	 * otherwise valid but permanently orphaned account.
+	 */
+	public static function subject_available_for_registration( $sub, array $lock ) {
+		global $wpdb;
+		$sub = sanitize_text_field( (string) $sub );
+		if ( '' === $sub || ! self::link_locks_owned( $lock, $sub ) ) { return false; }
+		$found = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT DISTINCT user_id FROM {$wpdb->usermeta} WHERE meta_key IN (%s,%s) AND meta_value=%s LIMIT 3",
+				'_sauth_google_sub',
+				'_sa_google_sub',
+				$sub
+			)
+		);
+		return is_array( $found ) && '' === (string) $wpdb->last_error && empty( $found );
+	}
+
+	public static function release_link_locks( array $lock ) {
+		global $wpdb;
+		$connection_id = absint( $wpdb->get_var( 'SELECT CONNECTION_ID()' ) );
+		if ( ! $connection_id || $connection_id !== absint( $lock['connection_id'] ?? 0 ) || ! is_array( $lock['names'] ?? null ) ) { return false; }
+		$ok = true;
+		foreach ( array_reverse( array_values( array_unique( array_map( 'strval', $lock['names'] ) ) ) ) as $name ) {
+			$owner = absint( $wpdb->get_var( $wpdb->prepare( 'SELECT IS_USED_LOCK(%s)', $name ) ) );
+			if ( $owner !== $connection_id ) { $ok = false; continue; }
+			$ok = 1 === (int) $wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $name ) ) && $ok;
+		}
+		return $ok && '' === (string) $wpdb->last_error;
+	}
+
+	private static function google_subject_lock_name( $sub ) { return 'sauth:g:0:' . substr( hash( 'sha256', sanitize_text_field( (string) $sub ) ), 0, 40 ); }
+	private static function google_user_lock_name( $user_id ) { return 'sauth:g:1:' . absint( $user_id ); }
 
 	private function state_key( $state ) {
 		return 'sa_google_state_' . hash( 'sha256', (string) $state );

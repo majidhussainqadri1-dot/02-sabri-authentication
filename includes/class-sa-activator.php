@@ -373,6 +373,11 @@ final class SA_Activator {
 	public static function migrate_legacy_tables() {
 		global $wpdb;
 		$ok = true;
+		$router_suspended = false;
+		if ( class_exists( 'SAUTH_Storage_Router' ) ) {
+			SAUTH_Storage_Router::suspend();
+			$router_suspended = true;
+		}
 		$columns = array(
 			'rate_limits'         => 'bucket_hash,hits,window_started,expires_at,updated_at',
 			'auth_outbox'         => 'event_id,event_name,schema_version,privacy_class,actor_user_id,subject_user_id,trace_id,payload_json,status,attempts,available_at,published_at,last_error,created_at,updated_at',
@@ -391,26 +396,32 @@ final class SA_Activator {
 			'risk_challenges'     => 'public_id',
 			'auth_attempts'       => 'public_id',
 		);
-		foreach ( $columns as $key => $column_list ) {
-			$legacy    = self::legacy_table( $key );
-			$canonical = self::table( $key );
-			if ( '' === $legacy || '' === $canonical || $legacy === $canonical ) {
-				continue;
+		try {
+			foreach ( $columns as $key => $column_list ) {
+				$legacy    = self::legacy_table( $key );
+				$canonical = self::table( $key );
+				if ( '' === $legacy || '' === $canonical || $legacy === $canonical ) {
+					continue;
+				}
+				$exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $legacy ) ) );
+				if ( $legacy !== $exists ) {
+					continue;
+				}
+				$result = $wpdb->query( "INSERT IGNORE INTO {$canonical} ({$column_list}) SELECT {$column_list} FROM {$legacy}" ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+				if ( false === $result ) {
+					$ok = false;
+					continue;
+				}
+				$identity = isset( $identity_columns[ $key ] ) ? (string) $identity_columns[ $key ] : '';
+				if ( '' === $identity ) { $ok = false; continue; }
+				$missing_raw = $wpdb->get_var( "SELECT COUNT(*) FROM `{$legacy}` AS l LEFT JOIN `{$canonical}` AS c ON c.`{$identity}`=l.`{$identity}` WHERE c.`{$identity}` IS NULL" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				if ( null === $missing_raw || '' !== (string) $wpdb->last_error || (int) $missing_raw > 0 ) {
+					$ok = false;
+				}
 			}
-			$exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $legacy ) ) );
-			if ( $legacy !== $exists ) {
-				continue;
-			}
-			$result = $wpdb->query( "INSERT IGNORE INTO {$canonical} ({$column_list}) SELECT {$column_list} FROM {$legacy}" ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-			if ( false === $result ) {
-				$ok = false;
-				continue;
-			}
-			$identity = isset( $identity_columns[ $key ] ) ? (string) $identity_columns[ $key ] : '';
-			if ( '' === $identity ) { $ok = false; continue; }
-			$missing_raw = $wpdb->get_var( "SELECT COUNT(*) FROM `{$legacy}` AS l LEFT JOIN `{$canonical}` AS c ON c.`{$identity}`=l.`{$identity}` WHERE c.`{$identity}` IS NULL" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			if ( null === $missing_raw || '' !== (string) $wpdb->last_error || (int) $missing_raw > 0 ) {
-				$ok = false;
+		} finally {
+			if ( $router_suspended ) {
+				SAUTH_Storage_Router::resume();
 			}
 		}
 		if ( $ok ) {

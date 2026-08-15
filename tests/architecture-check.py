@@ -128,7 +128,8 @@ require_markers(
         "email_verified",
         "hash_equals",
         "finalize_link",
-        "get_users",
+        "$wpdb->usermeta",
+        "SA_Google_OAuth::link_locks_owned",
         "google_registration_context",
     ),
 )
@@ -220,7 +221,7 @@ for marker in (
     "userVerification' => 'required",
     "residentKey' => 'required",
     "hash( 'sha256', (string) $raw_id )",
-    "$hardware_backed = false;",
+    "'hardware_backed' => 0",
     "PasskeyRegistered.v1",
     "PasskeyAuthenticated.v1",
     "PasskeyRevoked.v1",

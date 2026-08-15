@@ -8,9 +8,9 @@
 4. Continuous-Value / Top-20 Superset plan, especially CV-005 Passkey/MFA, CV-006 Device/Session Center and CV-010 Account Recovery.
 5. Later cross-file ownership refinement: File 02 owns password/Google/passkey authentication ceremony and authentication assurance; File 00 owns membership, identity, guardian, roles/capabilities and eligibility and consumes the versioned File 02 assurance claim.
 
-**Candidate branch:** `fix/file02-passkey-index-reconciliation-1.2.6`
+**Candidate branch:** `agent/file02-comprehensive-remediation-1.3.0`
 **Repository main re-verified during R329:** `0f011b1876e217b7ee46f92903e5315538c1025e`
-**Candidate version/schema:** `1.2.6 / 1.2.1`; passkey schema `1.0.1`
+**Candidate version/schema:** `1.3.0 / 1.3.0`; passkey schema `1.0.1`
 **Paired File 00 account contract:** `smc.authentication-account 1.1.0`
 **Authentication-assurance producer:** `smc_file02_authentication_assurance_v1` / `1.0.0`
 
@@ -49,7 +49,7 @@
 
 ## Original functional requirements
 
-| Requirement | Version 1.2.x source evidence | Status |
+| Requirement | Version 1.3.0 source evidence | Status |
 |---|---|---|
 | F02-FR-001 Account registration | mandatory fields, password/Google methods, idempotency and File 00 provider | Implemented |
 | F02-FR-002 Email verification | signed one-time token, canonical email, expiry, resend/attempt controls, atomic replay protection and audit | Implemented |
@@ -80,13 +80,13 @@
 
 ## Passkey migration hardening
 
-R334 corrected dbDelta-incompatible combined key definitions by placing every passkey index definition on its own CREATE TABLE line. R335 then used direct MariaDB schema evidence to prove and correct the stale-index-name condition where unique key `credential_lookup_hash` remains bound to renamed legacy column `credential_hash`. The migration recognizes only that exact state, preserves legacy uniqueness, frees the canonical key name, fails closed on unexpected conflicts, and leaves DB identity `1.2.1` / passkey schema `1.0.1` unchanged because the intended final schema is unchanged.
+R334 corrected dbDelta-incompatible combined key definitions by placing every passkey index definition on its own CREATE TABLE line. R335 then used direct MariaDB schema evidence to prove and correct the stale-index-name condition where unique key `credential_lookup_hash` remains bound to renamed legacy column `credential_hash`. R337 advances DB identity to `1.3.0` specifically to rerun the repaired active-router legacy-table copy; passkey schema remains `1.0.1` because its intended physical schema is unchanged.
 
 ## Cross-file release boundary
 
 R331 aligned File 02 public account choices to the File 00 canonical taxonomy: `member`, `patient`, `student`, `doctor`, `teacher`, `researcher`, `pharmacy`, `clinic`, and `publisher`, with no aliases or lossy remap. File 00 runtime `1.2.44` corrected its `smc.authentication-account 1.1.0` provider to derive from the same canonical taxonomy.
 
-The former taxonomy/provider cross-file release blocker is now **closed at repository/integration level** by exact WordPress 7.0 / MariaDB 11.4 run `31850253635`, pairing File 02 `f740ca65fc33031b98d7d75e5f27b7ccbeeefbf9` with File 00 `1d7f215193d778b0977c8e50d738c42e1e5f66c2`. That run also proved File 00 deferred bootstrap, File 02 fresh activation, legacy passkey column/index upgrade, legacy logical-identity collision migration and final paired runtime/schema boundaries.
+Exact WordPress 7.0 / MariaDB 11.4 run `31850253635` closed the taxonomy/provider blocker for File 02 `1.2.6`. It remains historical evidence only. The current File 02 `1.3.0` head must pass the exact File 00 `1.2.44` integration workflow, including the repaired active-router legacy-table copy, before its cross-file blocker closes.
 
 ## Completion truth
 

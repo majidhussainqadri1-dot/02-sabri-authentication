@@ -30,6 +30,13 @@ final class SAUTH_Completion_Resolver {
 		}
 
 		$missing = array_values( array_unique( array_filter( array_map( 'sanitize_key', (array) ( $state['missing_steps'] ?? array() ) ) ) ) );
+		$retired = array_values( array_intersect( $missing, array( 'two_factor', 'mfa' ) ) );
+		if ( ! empty( $retired ) ) {
+			if ( ! self::file00_mfa_retirement_verified( $user_id ) ) {
+				return self::result( 'unknown', 'retired_mfa_policy_ambiguous', $missing, '', $requested_destination );
+			}
+			$missing = array_values( array_diff( $missing, $retired ) );
+		}
 		if ( empty( $missing ) ) {
 			self::clear_loop_state( $user_id );
 			return self::result( 'allow', 'completion_not_required', array(), '', $requested_destination );
@@ -55,6 +62,18 @@ final class SAUTH_Completion_Resolver {
 			array( 'email', 'email_verification', 'phone', 'mobile_verification', 'age', 'guardian', 'profile', 'profile_photo', 'identity', 'identity_reference', 'address', 'city', 'country', 'account_type', 'terms', 'privacy', 'ethical_conduct', 'two_factor', 'mfa', 'verification' ),
 			true
 		);
+	}
+
+	private static function file00_mfa_retirement_verified( $user_id ) {
+		$assertion = SA_Membership_Adapter::membership_assertion( absint( $user_id ), 'clinical_identity_link', 'account_completion' );
+		return is_array( $assertion )
+			&& 'smc.cf01.membership-assurance' === (string) ( $assertion['contract'] ?? '' )
+			&& version_compare( (string) ( $assertion['contract_version'] ?? '' ), '1.1.0', '>=' )
+			&& in_array( (string) ( $assertion['result'] ?? '' ), array( 'allow', 'deny' ), true )
+			&& 'not_owned_by_file00' === (string) ( $assertion['authentication_assurance'] ?? '' )
+			&& false === ( $assertion['file00_mfa_required'] ?? null )
+			&& false === ( $assertion['membership']['mfa_required'] ?? null )
+			&& 'none' === (string) ( $assertion['membership']['mfa_owner'] ?? '' );
 	}
 
 	private static function canonical_completion_route( $route ) {

@@ -1,8 +1,8 @@
 <?php
 /**
  * Source-level preservation guard: all prior three-plan requirements must remain
- * present in File 02 v1.2.6 while the fourth-plan passkey extension, the
- * live-proven storage-router bootstrap correction and R321-R329 hardening remain intact.
+ * present in File 02 v1.3.0 while the fourth-plan passkey extension, the
+ * storage-router bootstrap correction and later hardening remain intact.
  */
 
 $root = dirname( __DIR__ );
@@ -29,9 +29,9 @@ $main = sauth_three_plan_read( $root, 'sabri-authentication.php' );
 sauth_three_plan_require(
 	$main,
 	array(
-		'Version: 1.2.6',
-		"define( 'SAUTH_VERSION', '1.2.6' );",
-		"define( 'SAUTH_DB_VERSION', '1.2.1' );",
+		'Version: 1.3.0',
+		"define( 'SAUTH_VERSION', '1.3.0' );",
+		"define( 'SAUTH_DB_VERSION', '1.3.0' );",
 		"define( 'SAUTH_ACCOUNT_CONTRACT_VERSION', '1.1.0' );",
 		'class-sauth-storage-router.php',
 		'class-sauth-google-registration.php',
@@ -73,7 +73,7 @@ sauth_three_plan_require(
 );
 
 $google = sauth_three_plan_read( $root, 'includes/class-sauth-google-registration.php' );
-sauth_three_plan_require( $google, array('code_challenge_method',"'S256'","'nonce'",'hash_equals','email_verified','finalize_link','get_users','SAUTH_Provider_Health'), 'Google-first registration' );
+sauth_three_plan_require( $google, array('code_challenge_method',"'S256'","'nonce'",'hash_equals','email_verified','finalize_link','SA_Google_OAuth::link_locks_owned','SAUTH_Provider_Health'), 'Google-first registration' );
 
 $routes = sauth_three_plan_read( $root, 'includes/class-sauth-canonical-routes.php' );
 sauth_three_plan_require( $routes, array("'^account/sessions/?$'","'/account/sessions/'","'canonical_repository'","'02-sabri-authentication-and-accounts'","'php_prefix'","'SAUTH_'"), 'canonical routes and naming' );
@@ -82,12 +82,12 @@ $passkeys = sauth_three_plan_read( $root, 'includes/class-sauth-passkeys.php' );
 sauth_three_plan_require( $passkeys, array("const SCHEMA_VERSION        = '1.0.1';",'smc_file02_authentication_assurance_v1','webauthn.create','webauthn.get','parse_attestation_object','cose_public_key_to_pem','challenge_claim_key'), 'fourth-plan passkey extension' );
 
 $readme = sauth_three_plan_read( $root, 'readme.txt' );
-sauth_three_plan_require( $readme, array( 'Stable tag: 1.2.6', '/account/sessions/', 'Google-first registration', 'Passkey', 'city', 'ethical' ), 'readme' );
+sauth_three_plan_require( $readme, array( 'Stable tag: 1.3.0', '/account/sessions/', 'Google-first registration', 'Passkey', 'city', 'ethical' ), 'readme' );
 
 $status = sauth_three_plan_read( $root, 'STATUS.md' );
-sauth_three_plan_require( $status, array( 'Version 1.2.6', 'Source coding', 'Automated-QA', 'Staging-Accepted', 'Operational', 'Passkey' ), 'status truth' );
+sauth_three_plan_require( $status, array( 'Version 1.3.0', 'Source coding', 'Automated-QA', 'Staging-Accepted', 'Operational', 'Passkey' ), 'status truth' );
 
 $workflow = sauth_three_plan_read( $root, '.github/workflows/baseline-integrity.yml' );
-sauth_three_plan_require( $workflow, array( 'three-plan-completion-unit.php', 'passkey-webauthn-unit.php', 'tests/r32*-regression.php', 'deterministic-package', 'upload-artifact', '1.2.6' ), 'release workflow' );
+sauth_three_plan_require( $workflow, array( 'three-plan-completion-unit.php', 'passkey-webauthn-unit.php', 'tests/r32*-regression.php', 'tests/r33*-regression.php', 'deterministic-package', 'upload-artifact', '1.3.0' ), 'release workflow' );
 
-echo "File 02 prior three-plan requirements preserved inside 1.2.6 R321-R329 hardened candidate.\n";
+echo "File 02 prior three-plan requirements preserved inside the 1.3.0 R337 candidate.\n";

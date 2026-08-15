@@ -1,4 +1,4 @@
-# File 02 Data Dictionary — Version 1.2.2
+# File 02 Data Dictionary — Version 1.3.0
 
 ## Classification legend
 
@@ -18,7 +18,7 @@ Atomic fixed-window abuse counters keyed by a privacy-preserving bucket. Stores 
 Versioned authentication facts with event UUID, trace ID, privacy class, actor/subject IDs, sanitized JSON payload, delivery state, retry count and timestamps. **Classification:** Security. No passwords, tokens, passkey credential IDs or private keys permitted.
 
 ### `wp_sauth_email_verifications`
-One row per user: HMAC email binding, HMAC token binding, status, attempts, sent/expiry/verified timestamps. Raw email and raw token are not stored. **Classification:** Account-private / Derived-minimized.
+One row per user: HMAC email binding, HMAC token binding, status, attempts, sent/expiry/verified timestamps. Status includes transient `issuing`/`verifying`, published `pending`, terminal `verified`/`expired`, and recoverable `delivery_failed`. Raw email and raw token are not stored. **Classification:** Account-private / Derived-minimized.
 
 ### `wp_sauth_auth_sessions`
 Opaque public session ID, subject ID, HMAC session-token binding, HMAC device binding, generalized device/network labels, risk band, status, expiry/revocation/activity timestamps. **Classification:** Account-private / Derived-minimized.
@@ -55,7 +55,7 @@ Passkey privacy law:
 - `sauth_passkey_schema_version` — File 02 passkey table schema version.
 - `sauth_pk_claim_*` — short-lived atomic replay-claim options for completed WebAuthn challenges; cleanup removes stale claims.
 
-Legacy `sa_*` options are bounded mirrors/read fallbacks only and are not canonical 1.2.1 configuration names.
+Legacy `sa_*` options are bounded mirrors/read fallbacks only and are not canonical 1.3.0 configuration names.
 
 ## File 02-owned user metadata
 
@@ -71,4 +71,4 @@ File 00 Advanced Trust also remains the policy owner for MFA/identity assurance.
 
 ## Storage migration and rollback compatibility
 
-Pre-1.1 installations may contain corresponding `wp_sa_*` tables. Activation/repair creates the canonical `wp_sauth_*` baseline and copies legacy rows idempotently through `INSERT IGNORE`. Version 1.2.0 adds `wp_sauth_passkeys` without rewriting File 00 data. Current review hardening also reconciles legacy File 02 passkey columns `credential_hash` / `credential_cipher` into canonical `credential_lookup_hash` / `credential_id_ciphertext` before passkey schema readiness can succeed. Legacy tables and source columns are not destructively purged automatically and remain rollback evidence until a separately approved purge.
+Pre-1.1 installations may contain corresponding `wp_sa_*` tables. Activation/repair creates the canonical `wp_sauth_*` baseline and copies legacy rows idempotently through `INSERT IGNORE` while compatibility routing is explicitly suspended. DB `1.3.0` reruns the repaired copy and proves stable logical identities after it. Version 1.2.0 added `wp_sauth_passkeys` without rewriting File 00 data; current hardening still reconciles legacy passkey columns `credential_hash` / `credential_cipher` into canonical `credential_lookup_hash` / `credential_id_ciphertext` before readiness can succeed. Legacy tables and source columns are not destructively purged automatically and remain rollback evidence until a separately approved purge.

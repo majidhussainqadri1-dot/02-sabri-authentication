@@ -78,10 +78,23 @@ final class SAUTH_Session_Manager {
 		global $wpdb;
 		$user_id = absint( $user_id );
 		$token   = (string) $token;
-		if ( ! $user_id || '' === $token || 'logged_in' !== (string) $scheme ) { return; }
+		if ( ! $user_id || '' === $token || 'logged_in' !== (string) $scheme ) { return false; }
 		$token_hash = self::token_hash( $token );
 		$now = current_time( 'mysql', true );
-		$existing = $wpdb->get_var( $wpdb->prepare( 'SELECT public_id FROM ' . self::table() . ' WHERE user_id=%d AND token_hash=%s', $user_id, $token_hash ) );
+		$existing = $wpdb->get_row( $wpdb->prepare( 'SELECT public_id,status,expires_at FROM ' . self::table() . ' WHERE user_id=%d AND token_hash=%s', $user_id, $token_hash ), ARRAY_A );
+		if ( '' !== (string) $wpdb->last_error ) {
+			if ( class_exists( 'WP_Session_Tokens' ) ) { WP_Session_Tokens::get_instance( $user_id )->destroy( $token ); }
+			SA_Membership_Adapter::audit( 'session_projection_read_failed', $user_id );
+			return false;
+		}
+		if ( is_array( $existing ) ) {
+			$existing_expiry = strtotime( (string) ( $existing['expires_at'] ?? '' ) . ' UTC' );
+			if ( 'active' !== (string) ( $existing['status'] ?? '' ) || false === $existing_expiry || $existing_expiry <= time() ) {
+				if ( class_exists( 'WP_Session_Tokens' ) ) { WP_Session_Tokens::get_instance( $user_id )->destroy( $token ); }
+				SA_Membership_Adapter::audit( 'session_reactivation_blocked', $user_id );
+				return false;
+			}
+		}
 		$data = array(
 			'user_id' => $user_id,
 			'token_hash' => $token_hash,
@@ -90,25 +103,28 @@ final class SAUTH_Session_Manager {
 			'network_label' => self::generalize_ip( self::request_ip() ),
 			'risk_level' => self::current_risk_level( $user_id ),
 			'status' => 'active',
+			'revocation_reason' => '',
 			'last_seen_at' => $now,
 			'expires_at' => gmdate( 'Y-m-d H:i:s', max( time() + HOUR_IN_SECONDS, absint( $expiration ) ) ),
 			'revoked_at' => null,
 			'updated_at' => $now,
 		);
 		$result = false;
-		if ( $existing ) {
-			$result = $wpdb->update( self::table(), $data, array( 'public_id' => (string) $existing, 'user_id' => $user_id ), array( '%d','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s' ), array( '%s','%d' ) );
-			$public_id = (string) $existing;
+		if ( is_array( $existing ) ) {
+			$public_id = (string) $existing['public_id'];
+			$result = $wpdb->update( self::table(), $data, array( 'public_id' => $public_id, 'user_id' => $user_id, 'status' => 'active' ), array( '%d','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s' ), array( '%s','%d','%s' ) );
 		} else {
 			$public_id = strtolower( wp_generate_uuid4() );
 			$data['public_id'] = $public_id; $data['created_at'] = $now;
-			$result = $wpdb->insert( self::table(), $data, array( '%d','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s' ) );
+			$result = $wpdb->insert( self::table(), $data, array( '%d','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s' ) );
 		}
 		$post = $wpdb->get_row( $wpdb->prepare( 'SELECT user_id,token_hash,status FROM ' . self::table() . ' WHERE public_id=%s', $public_id ), ARRAY_A );
 		if ( false === $result || ! is_array( $post ) || absint( $post['user_id'] ?? 0 ) !== $user_id || 'active' !== (string) ( $post['status'] ?? '' ) || ! hash_equals( $token_hash, (string) ( $post['token_hash'] ?? '' ) ) ) {
 			if ( class_exists( 'WP_Session_Tokens' ) ) { WP_Session_Tokens::get_instance( $user_id )->destroy( $token ); }
 			SA_Membership_Adapter::audit( 'session_projection_store_failed', $user_id );
+			return false;
 		}
+		return true;
 	}
 
 	/** Deny a registry-revoked token after WordPress resolved the candidate user. */
@@ -118,20 +134,28 @@ final class SAUTH_Session_Manager {
 		if ( ! $user_id ) { return $user_id; }
 		$token = (string) wp_get_session_token();
 		if ( '' === $token ) { return $user_id; }
-		$status = $wpdb->get_var( $wpdb->prepare( 'SELECT status FROM ' . self::table() . ' WHERE user_id=%d AND token_hash=%s', $user_id, self::token_hash( $token ) ) );
+		$row = $wpdb->get_row( $wpdb->prepare( 'SELECT status,expires_at FROM ' . self::table() . ' WHERE user_id=%d AND token_hash=%s', $user_id, self::token_hash( $token ) ), ARRAY_A );
 		if ( '' !== (string) $wpdb->last_error ) {
 			SA_Membership_Adapter::audit( 'session_registry_read_failed', $user_id );
 			return 0;
 		}
-		if ( null === $status ) {
+		if ( ! is_array( $row ) ) {
 			return $user_id; // Legitimate pre-registry/upgrade session; reconciled on init.
 		}
-		return 'active' === (string) $status ? $user_id : 0;
+		$expires = strtotime( (string) ( $row['expires_at'] ?? '' ) . ' UTC' );
+		return 'active' === (string) ( $row['status'] ?? '' ) && false !== $expires && $expires > time() ? $user_id : 0;
 	}
 
 	/** Lazily reconcile a legitimate pre-registry/upgrade session. */
 	public static function ensure_authenticated_projection() {
-		if ( is_user_logged_in() ) { self::ensure_current_registered( get_current_user_id() ); }
+		if ( ! is_user_logged_in() ) { return; }
+		$user_id = get_current_user_id();
+		if ( self::ensure_current_registered( $user_id ) ) { return; }
+		$token = (string) wp_get_session_token();
+		if ( class_exists( 'WP_Session_Tokens' ) && '' !== $token ) { WP_Session_Tokens::get_instance( $user_id )->destroy( $token ); }
+		wp_clear_auth_cookie();
+		wp_set_current_user( 0 );
+		SA_Membership_Adapter::audit( 'legacy_session_projection_failed_closed', $user_id );
 	}
 
 	public static function touch_current() {
@@ -163,16 +187,11 @@ final class SAUTH_Session_Manager {
 	}
 
 	public static function revoke_others() {
-		global $wpdb;
 		if ( ! is_user_logged_in() ) { auth_redirect(); }
 		check_admin_referer( 'sauth_revoke_other_sessions', 'sauth_nonce' );
-		$user_id = get_current_user_id(); $token = (string) wp_get_session_token(); $current = self::current_token_hash();
-		if ( '' === $token || '' === $current || ! class_exists( 'WP_Session_Tokens' ) ) { self::redirect( 'error', 'The current session could not be verified.' ); }
-		$now = current_time( 'mysql', true );
-		$db_result = $wpdb->query( $wpdb->prepare( 'UPDATE ' . self::table() . " SET status='revoked', revoked_at=%s, revocation_reason=%s, updated_at=%s WHERE user_id=%d AND status='active' AND token_hash<>%s", $now, 'user_revoke_others', $now, $user_id, $current ) );
-		WP_Session_Tokens::get_instance( $user_id )->destroy_others( $token );
-		$remaining = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . self::table() . " WHERE user_id=%d AND status='active' AND token_hash<>%s", $user_id, $current ) );
-		if ( false === $db_result || '' !== (string) $wpdb->last_error || $remaining > 0 ) { self::redirect( 'error', 'Other WordPress sessions were revoked, but session evidence could not be reconciled completely. Reload and review again.' ); }
+		$user_id = get_current_user_id();
+		$token = (string) wp_get_session_token();
+		if ( ! self::revoke_other_sessions( $user_id, $token, 'user_revoke_others' ) ) { self::redirect( 'error', 'Other sessions could not be revoked with exact WordPress and File 02 postconditions. Reload and review again.' ); }
 		SAUTH_Event_Outbox::emit( 'AuthSessionRevoked.v1', $user_id, $user_id, array( 'scope' => 'other_sessions', 'reason' => 'user_request' ), 'security' );
 		SA_Membership_Adapter::audit( 'authentication_sessions_revoked', $user_id, array( 'scope' => 'others' ) );
 		self::redirect( 'success', 'All other sessions were revoked.' );
@@ -198,17 +217,64 @@ final class SAUTH_Session_Manager {
 		if ( ! $user_id || ! class_exists( 'WP_Session_Tokens' ) ) { return false; }
 		$now = current_time( 'mysql', true );
 		$db_result = $wpdb->query( $wpdb->prepare( 'UPDATE ' . self::table() . " SET status='revoked', revoked_at=%s, revocation_reason=%s, updated_at=%s WHERE user_id=%d AND status='active'", $now, sanitize_key( (string) $reason ), $now, $user_id ) );
-		WP_Session_Tokens::get_instance( $user_id )->destroy_all();
+		$wp_manager = WP_Session_Tokens::get_instance( $user_id );
+		$wp_manager->destroy_all();
+		$wp_remaining = $wp_manager->get_all();
 		$remaining_raw = $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . self::table() . " WHERE user_id=%d AND status='active'", $user_id ) );
 		if ( null === $remaining_raw || '' !== (string) $wpdb->last_error ) { return false; }
-		return false !== $db_result && 0 === (int) $remaining_raw;
+		return false !== $db_result && is_array( $wp_remaining ) && empty( $wp_remaining ) && 0 === (int) $remaining_raw;
+	}
+
+	/** Revoke every session except the explicitly bound current token. */
+	public static function revoke_other_sessions( $user_id, $current_token, $reason = 'security_policy' ) {
+		global $wpdb;
+		$user_id = absint( $user_id );
+		$current_token = (string) $current_token;
+		if ( ! $user_id || '' === $current_token || ! class_exists( 'WP_Session_Tokens' ) ) { return false; }
+		$current_hash = self::token_hash( $current_token );
+		$now = current_time( 'mysql', true );
+		$db_result = $wpdb->query( $wpdb->prepare( 'UPDATE ' . self::table() . " SET status='revoked', revoked_at=%s, revocation_reason=%s, updated_at=%s WHERE user_id=%d AND status='active' AND token_hash<>%s", $now, sanitize_key( (string) $reason ), $now, $user_id, $current_hash ) );
+		$db_write_failed = false === $db_result || '' !== (string) $wpdb->last_error;
+		$wp_manager = WP_Session_Tokens::get_instance( $user_id );
+		$wp_manager->destroy_others( $current_token );
+		$wp_remaining = $wp_manager->get_all();
+		$remaining_raw = $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . self::table() . " WHERE user_id=%d AND status='active' AND token_hash<>%s", $user_id, $current_hash ) );
+		$remaining_read_failed = null === $remaining_raw || '' !== (string) $wpdb->last_error;
+		$current_status = $wpdb->get_var( $wpdb->prepare( 'SELECT status FROM ' . self::table() . ' WHERE user_id=%d AND token_hash=%s', $user_id, $current_hash ) );
+		$current_wp_session = WP_Session_Tokens::get_instance( $user_id )->get( $current_token );
+		return ! $db_write_failed
+			&& ! $remaining_read_failed
+			&& '' === (string) $wpdb->last_error
+			&& 0 === (int) $remaining_raw
+			&& 'active' === (string) $current_status
+			&& is_array( $current_wp_session )
+			&& is_array( $wp_remaining )
+			&& 1 === count( $wp_remaining )
+			&& absint( $current_wp_session['expiration'] ?? 0 ) > time();
+	}
+
+	/** Prove both WordPress and the File 02 projection own the exact token. */
+	public static function session_binding_ready( $user_id, $token ) {
+		global $wpdb;
+		$user_id = absint( $user_id );
+		$token = (string) $token;
+		if ( ! $user_id || '' === $token || ! class_exists( 'WP_Session_Tokens' ) ) { return false; }
+		$wp_session = WP_Session_Tokens::get_instance( $user_id )->get( $token );
+		if ( ! is_array( $wp_session ) || absint( $wp_session['expiration'] ?? 0 ) <= time() ) { return false; }
+		$row = $wpdb->get_row( $wpdb->prepare( 'SELECT status,expires_at FROM ' . self::table() . ' WHERE user_id=%d AND token_hash=%s', $user_id, self::token_hash( $token ) ), ARRAY_A );
+		$expires = is_array( $row ) ? strtotime( (string) ( $row['expires_at'] ?? '' ) . ' UTC' ) : false;
+		return is_array( $row )
+			&& '' === (string) $wpdb->last_error
+			&& 'active' === (string) ( $row['status'] ?? '' )
+			&& false !== $expires
+			&& $expires > time();
 	}
 
 	public static function cleanup() {
 		global $wpdb;
 		$now = current_time( 'mysql', true );
 		$wpdb->query( $wpdb->prepare( 'UPDATE ' . self::table() . " SET status='expired', updated_at=%s WHERE status='active' AND expires_at<%s", $now, $now ) );
-		$wpdb->query( $wpdb->prepare( 'DELETE FROM ' . self::table() . " WHERE status IN ('revoked','expired') AND updated_at<%s", gmdate( 'Y-m-d H:i:s', time() - self::HISTORY_RETENTION ) ) );
+		$wpdb->query( $wpdb->prepare( 'DELETE FROM ' . self::table() . " WHERE status IN ('revoked','expired') AND expires_at<%s AND updated_at<%s", $now, gmdate( 'Y-m-d H:i:s', time() - self::HISTORY_RETENTION ) ) );
 	}
 
 	private static function list_for_user( $user_id ) {
@@ -223,10 +289,10 @@ final class SAUTH_Session_Manager {
 	private static function ensure_current_registered( $user_id ) {
 		global $wpdb;
 		$token = (string) wp_get_session_token();
-		if ( '' === $token ) { return; }
+		if ( '' === $token ) { return false; }
 		$hash = self::token_hash( $token );
 		$exists = $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . self::table() . ' WHERE user_id=%d AND token_hash=%s', absint( $user_id ), $hash ) );
-		if ( '' !== (string) $wpdb->last_error ) { return; }
+		if ( '' !== (string) $wpdb->last_error ) { return false; }
 		if ( 0 === (int) $exists ) {
 			$expiration = time() + YEAR_IN_SECONDS;
 			if ( class_exists( 'WP_Session_Tokens' ) ) {
@@ -235,8 +301,9 @@ final class SAUTH_Session_Manager {
 					$expiration = absint( $session['expiration'] );
 				}
 			}
-			self::register_cookie( '', $expiration, $expiration, $user_id, 'logged_in', $token );
+			if ( ! self::register_cookie( '', $expiration, $expiration, $user_id, 'logged_in', $token ) ) { return false; }
 		}
+		return self::session_binding_ready( $user_id, $token );
 	}
 
 	private static function mark_revoked( $user_id, array $public_ids, $reason ) {

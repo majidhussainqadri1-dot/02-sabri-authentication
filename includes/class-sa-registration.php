@@ -122,6 +122,7 @@ final class SA_Registration {
 		}
 
 		$consumed_google = array();
+		$google_locks = array();
 		if ( 'google' === $payload['authentication_method'] ) {
 			/* Consume immediately before the first account mutation so concurrent form
 			 * submissions cannot reuse the same Google proof. */
@@ -130,6 +131,14 @@ final class SA_Registration {
 				|| ! hash_equals( strtolower( (string) $payload['email'] ), strtolower( (string) ( $consumed_google['email'] ?? '' ) ) )
 				|| ! hash_equals( (string) $payload['google_subject'], (string) ( $consumed_google['sub'] ?? '' ) ) ) {
 				$this->registration_redirect( 'error', 'The Google registration proof was already used or changed. Start Google registration again.' );
+			}
+			$google_locks = SA_Google_OAuth::acquire_link_locks( $payload['google_subject'] );
+			if ( empty( $google_locks ) ) {
+				$this->registration_redirect( 'error', 'Google registration is busy or could not be serialized safely. Start Google registration again.' );
+			}
+			if ( ! SA_Google_OAuth::subject_available_for_registration( $payload['google_subject'], $google_locks ) ) {
+				self::release_google_registration_locks( $google_locks, 0, 'google_registration_subject_check_failed' );
+				$this->registration_redirect( 'error', 'This Google account is already linked, or its ownership could not be proved safely. Use Google sign-in or contact support.' );
 			}
 		}
 
@@ -148,6 +157,7 @@ final class SA_Registration {
 		$payload['password_confirm'] = '';
 		unset( $_POST['password'], $_POST['password_confirm'] );
 		if ( 'allow' !== ( $result['result'] ?? '' ) || empty( $result['user_id'] ) ) {
+			self::release_google_registration_locks( $google_locks, 0, 'google_registration_provider_rejected_lock_release_failed' );
 			SAUTH_Provider_Health::record_failure( 'membership', sanitize_key( (string) ( $result['reason_code'] ?? 'provider_rejected' ) ), $latency );
 			SAUTH_Event_Outbox::emit( 'AccountAuthenticationFailed.v1', 0, 0, array( 'method' => 'registration', 'reason' => sanitize_key( (string) ( $result['reason_code'] ?? 'provider_rejected' ) ) ), 'security' );
 			$this->registration_redirect( 'error', 'Registration could not be completed. The details may already belong to an account, or the membership service may require review.' );
@@ -155,15 +165,31 @@ final class SA_Registration {
 		SAUTH_Provider_Health::record_success( 'membership', $latency );
 		$user_id = absint( $result['user_id'] );
 		if ( 'google' === $payload['authentication_method'] ) {
-			if ( ! SAUTH_Google_Registration::finalize_link( $user_id, $consumed_google ) ) {
-				SAUTH_Session_Manager::revoke_user_sessions( $user_id, 'google_registration_link_failed' );
-				SA_Membership_Adapter::audit( 'google_registration_link_failed', $user_id );
+			$extended_locks = SA_Google_OAuth::acquire_link_locks( $payload['google_subject'], $user_id, $google_locks );
+			if ( empty( $extended_locks ) ) {
+				SA_Google_OAuth::contain_linkage_failure( $user_id, 'google_registration_user_lock_failed' );
+				self::release_google_registration_locks( $google_locks, $user_id, 'google_registration_subject_lock_release_failed' );
+				$this->registration_redirect( 'error', 'The account was placed in protected incomplete state because Google ownership could not be serialized safely. Use password recovery or contact support.' );
+			}
+			$google_locks = $extended_locks;
+			if ( ! self::registration_subject_matches( $user_id, (string) ( $result['subject_uuid'] ?? '' ) ) ) {
+				SA_Google_OAuth::contain_linkage_failure( $user_id, 'google_registration_subject_mismatch' );
+				self::release_google_registration_locks( $google_locks, $user_id, 'google_registration_subject_mismatch_lock_release_failed' );
+				$this->registration_redirect( 'error', 'The account was placed in protected incomplete state because its membership identity could not be verified. Contact support.' );
+			}
+			if ( ! SAUTH_Google_Registration::finalize_link( $user_id, $consumed_google, $google_locks ) ) {
+				SA_Google_OAuth::contain_linkage_failure( $user_id, 'google_registration_link_failed' );
+				self::release_google_registration_locks( $google_locks, $user_id, 'google_registration_link_failure_lock_release_failed' );
 				$this->registration_redirect( 'error', 'The account was placed in protected incomplete state because the Google link could not be finalized. Use password recovery or contact support.' );
 			}
 			$verified = SAUTH_Account_Contract::mark_email_verified( $user_id, $payload['email'], array( 'purpose' => 'google_registration_email_ownership' ) );
 			if ( 'allow' !== ( $verified['result'] ?? '' ) ) {
-				SAUTH_Session_Manager::revoke_user_sessions( $user_id, 'google_registration_email_completion_failed' );
+				SA_Google_OAuth::contain_linkage_failure( $user_id, 'google_registration_email_completion_failed' );
+				self::release_google_registration_locks( $google_locks, $user_id, 'google_registration_email_failure_lock_release_failed' );
 				$this->registration_redirect( 'error', 'The account was created but email ownership completion failed safely. Contact support.' );
+			}
+			if ( ! self::release_google_registration_locks( $google_locks, $user_id, 'google_registration_success_lock_release_failed' ) ) {
+				$this->registration_redirect( 'error', 'The account was placed in protected incomplete state because the final Google ownership lock could not be verified. Contact support.' );
 			}
 			SAUTH_Event_Outbox::emit( 'EmailVerified.v1', $user_id, $user_id, array( 'method' => 'google_oidc_registration' ), 'security' );
 			wp_safe_redirect( SA_Security::message_url( 'complete', 'success', 'Your Google email was verified. Complete the remaining identity, profile photograph, phone, guardian and verification steps.' ) );
@@ -379,7 +405,7 @@ final class SA_Registration {
 		if ( strlen( (string) $payload['guardian_reference'] ) > 200 || ( $age < 18 && '' === trim( (string) $payload['guardian_reference'] ) ) ) { return new WP_Error( 'sauth_registration_guardian', 'A verifiable guardian reference is required for every minor account.' ); }
 		if ( strlen( (string) $payload['address'] ) > 1000 || strlen( (string) $payload['city'] ) > 120 || strlen( (string) $payload['country'] ) > 120 || '' === trim( (string) $payload['address'] ) || '' === trim( (string) $payload['city'] ) || '' === trim( (string) $payload['country'] ) ) { return new WP_Error( 'sauth_registration_address', 'Enter your full address, city and country.' ); }
 		if ( ! array_key_exists( $payload['account_type'], self::account_types() ) ) { return new WP_Error( 'sauth_registration_account_type', 'Select the account type that truthfully describes your intended use.' ); }
-		if ( in_array( $payload['account_type'], array( 'doctor', 'teacher', 'clinic_staff', 'institution_representative' ), true ) && $age < 18 ) { return new WP_Error( 'sauth_registration_professional_age', 'Professional and institutional account declarations require an adult account.' ); }
+		if ( in_array( $payload['account_type'], array( 'doctor', 'teacher', 'researcher', 'pharmacy', 'clinic', 'publisher' ), true ) && $age < 18 ) { return new WP_Error( 'sauth_registration_professional_age', 'Professional and institutional account declarations require an adult account.' ); }
 		if ( ! in_array( $payload['identity_type'], array( 'national_id', 'passport' ), true ) ) { return new WP_Error( 'sauth_registration_identity_type', 'Select National ID or Passport.' ); }
 		if ( strlen( trim( (string) $payload['identity_reference'] ) ) < 5 || strlen( (string) $payload['identity_reference'] ) > 200 ) { return new WP_Error( 'sauth_registration_identity', 'Enter the selected National ID or Passport reference required by Membership Core.' ); }
 		if ( empty( $payload['profile_photo_required'] ) ) { return new WP_Error( 'sauth_registration_profile_photo', 'Acknowledge that a profile photograph must be completed through the canonical profile workflow.' ); }
@@ -406,6 +432,32 @@ final class SA_Registration {
 			&& 'allow' === ( $completion['result'] ?? '' )
 			&& ! empty( $completion['missing_steps'] )
 			&& ! empty( $completion['next_route'] );
+	}
+
+	private static function registration_subject_matches( $user_id, $expected_uuid ) {
+		$expected_uuid = strtolower( (string) $expected_uuid );
+		if ( 1 !== preg_match( '/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/', $expected_uuid ) ) { return false; }
+		$assertion = SA_Membership_Adapter::membership_assertion( absint( $user_id ), 'clinical_identity_link', 'account_registration' );
+		$live_uuid = strtolower( (string) ( $assertion['subject']['platform_uuid'] ?? '' ) );
+		return 'smc.cf01.membership-assurance' === (string) ( $assertion['contract'] ?? '' )
+			&& version_compare( (string) ( $assertion['contract_version'] ?? '' ), '1.1.0', '>=' )
+			&& in_array( (string) ( $assertion['result'] ?? '' ), array( 'allow', 'deny' ), true )
+			&& 1 === preg_match( '/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/', $live_uuid )
+			&& hash_equals( $expected_uuid, $live_uuid );
+	}
+
+	private static function release_google_registration_locks( array &$locks, $user_id, $reason ) {
+		if ( empty( $locks ) ) { return true; }
+		$released = SA_Google_OAuth::release_link_locks( $locks );
+		$locks = array();
+		if ( ! $released ) {
+			if ( absint( $user_id ) ) { SA_Google_OAuth::contain_linkage_failure( $user_id, $reason ); }
+			else {
+				SAUTH_Operations::enter_safe_mode();
+				SA_Membership_Adapter::audit( sanitize_key( (string) $reason ), 0 );
+			}
+		}
+		return $released;
 	}
 
 	private function login_failure( $user_id, $redirect, $reason ) {

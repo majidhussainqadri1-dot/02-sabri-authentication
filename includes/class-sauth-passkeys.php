@@ -27,6 +27,9 @@ final class SAUTH_Passkeys {
 	const OPTION_SCHEMA_VERSION = 'sauth_passkey_schema_version';
 	const CLEANUP_HOOK          = 'sauth_passkey_cleanup';
 	const USER_HANDLE_META      = '_sauth_passkey_user_handle_v1';
+	private static $pending_assurance_receipt_id = '';
+	private static $pending_assurance_bound = false;
+	private static $pending_session_token = '';
 
 	public static function init() {
 		add_action( 'init', array( __CLASS__, 'maybe_install' ), 5 );
@@ -422,44 +425,89 @@ final class SAUTH_Passkeys {
 			self::json_error( 'credential_public_key_invalid' );
 		}
 		$credential_hash = self::credential_hash( $raw_id );
-		if ( self::credential_exists( $credential_hash ) ) {
-			self::json_error( 'credential_already_registered' );
-		}
 		$cipher = SA_Security::encrypt( self::base64url_encode( $raw_id ) );
 		if ( '' === $cipher ) {
 			self::json_error( 'credential_encryption_failed' );
 		}
 		$backup_eligible = ! empty( $parsed['backup_eligible'] );
-		/* With attestation=none, authenticator hardware provenance is unknown. */
-		$hardware_backed = false;
 		$now = current_time( 'mysql', true );
 		global $wpdb;
-		$inserted = $wpdb->insert(
-			self::table(),
-			array(
-				'public_id' => strtolower( wp_generate_uuid4() ),
-				'user_id' => $user_id,
-				'credential_lookup_hash' => $credential_hash,
-				'credential_id_ciphertext' => $cipher,
-				'public_key_pem' => (string) $key['pem'],
-				'algorithm' => intval( $key['algorithm'] ),
-				'transports' => $transports,
-				'attachment' => in_array( $attachment, array( 'platform', 'cross-platform' ), true ) ? $attachment : '',
-				'discoverable' => 1,
-				'backup_eligible' => $backup_eligible ? 1 : 0,
-				'backup_state' => ! empty( $parsed['backup_state'] ) ? 1 : 0,
-				'hardware_backed' => 0,
-				'sign_count' => absint( $parsed['sign_count'] ),
-				'nickname' => $nickname,
-				'status' => 'active',
-				'created_at' => $now,
-				'updated_at' => $now,
-			),
-			array( '%s','%d','%s','%s','%s','%d','%s','%s','%d','%d','%d','%d','%s','%s','%s','%s' )
-		);
-		if ( 1 !== (int) $inserted ) {
-			self::json_error( 'credential_store_failed' );
+		$lock = self::acquire_named_lock( 'passkey-enrollment', $user_id );
+		if ( empty( $lock ) ) { self::json_error( 'credential_enrollment_busy' ); }
+		$store_error = '';
+		$public_id = strtolower( wp_generate_uuid4() );
+		try {
+			$active_count = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM " . self::table() . " WHERE user_id=%d AND status='active'", $user_id ) );
+			$existing_id = $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM ' . self::table() . ' WHERE credential_lookup_hash=%s LIMIT 1', $credential_hash ) );
+			if ( null === $active_count || '' !== (string) $wpdb->last_error ) {
+				$store_error = 'credential_storage_unavailable';
+			} elseif ( (int) $active_count >= self::MAX_CREDENTIALS ) {
+				$store_error = 'credential_limit_reached';
+			} elseif ( null !== $existing_id ) {
+				$store_error = 'credential_already_registered';
+			} else {
+				$inserted = $wpdb->insert(
+					self::table(),
+					array(
+						'public_id' => $public_id,
+						'user_id' => $user_id,
+						'credential_lookup_hash' => $credential_hash,
+						'credential_id_ciphertext' => $cipher,
+						'public_key_pem' => (string) $key['pem'],
+						'algorithm' => intval( $key['algorithm'] ),
+						'transports' => $transports,
+						'attachment' => in_array( $attachment, array( 'platform', 'cross-platform' ), true ) ? $attachment : '',
+						'discoverable' => 1,
+						'backup_eligible' => $backup_eligible ? 1 : 0,
+						'backup_state' => ! empty( $parsed['backup_state'] ) ? 1 : 0,
+						'hardware_backed' => 0,
+						'sign_count' => absint( $parsed['sign_count'] ),
+						'nickname' => $nickname,
+						'status' => 'active',
+						'created_at' => $now,
+						'updated_at' => $now,
+					),
+					array( '%s','%d','%s','%s','%s','%d','%s','%s','%d','%d','%d','%d','%s','%s','%s','%s' )
+				);
+				$post = $wpdb->get_row( $wpdb->prepare( 'SELECT public_id,user_id,credential_lookup_hash,public_key_pem,algorithm,backup_eligible,backup_state,status,sign_count FROM ' . self::table() . ' WHERE public_id=%s', $public_id ), ARRAY_A );
+				if ( 1 !== (int) $inserted
+					|| ! is_array( $post )
+					|| '' !== (string) $wpdb->last_error
+					|| absint( $post['user_id'] ?? 0 ) !== $user_id
+					|| 'active' !== (string) ( $post['status'] ?? '' )
+					|| ! hash_equals( $credential_hash, (string) ( $post['credential_lookup_hash'] ?? '' ) )
+					|| ! hash_equals( (string) $key['pem'], (string) ( $post['public_key_pem'] ?? '' ) )
+					|| intval( $post['algorithm'] ?? 0 ) !== intval( $key['algorithm'] )
+					|| absint( $post['backup_eligible'] ?? 0 ) !== ( $backup_eligible ? 1 : 0 )
+					|| absint( $post['backup_state'] ?? 0 ) !== ( ! empty( $parsed['backup_state'] ) ? 1 : 0 )
+					|| absint( $post['sign_count'] ?? 0 ) !== absint( $parsed['sign_count'] ) ) {
+					$deleted = $wpdb->delete(
+						self::table(),
+						array( 'public_id' => $public_id, 'user_id' => $user_id ),
+						array( '%s', '%d' )
+					);
+					$remaining = $wpdb->get_var(
+						$wpdb->prepare(
+							'SELECT COUNT(*) FROM ' . self::table() . ' WHERE public_id=%s AND user_id=%d',
+							$public_id,
+							$user_id
+						)
+					);
+					if ( false === $deleted || null === $remaining || '' !== (string) $wpdb->last_error || 0 !== (int) $remaining ) {
+						SAUTH_Operations::enter_safe_mode();
+						$store_error = 'credential_store_rollback_failed';
+					} else {
+						$store_error = 'credential_store_failed';
+					}
+				}
+			}
+		} finally {
+			if ( ! self::release_named_lock( $lock ) ) {
+				SAUTH_Operations::enter_safe_mode();
+				$store_error = 'credential_enrollment_lock_release_failed';
+			}
 		}
+		if ( '' !== $store_error ) { self::json_error( $store_error ); }
 		SAUTH_Event_Outbox::emit( 'PasskeyRegistered.v1', $user_id, $user_id, array( 'method' => 'webauthn', 'backup_eligible' => $backup_eligible ? 1 : 0 ), 'security' );
 		SA_Membership_Adapter::audit( 'passkey_registered', $user_id, array( 'backup_eligible' => $backup_eligible ? 1 : 0 ) );
 		wp_send_json_success( array( 'message' => 'Passkey added successfully.', 'reload' => true ) );
@@ -516,6 +564,10 @@ final class SAUTH_Passkeys {
 			self::authentication_failure( 0, 'credential_unknown' );
 		}
 		$user_id = absint( $credential['user_id'] );
+		if ( absint( $credential['backup_eligible'] ?? 0 ) !== ( ! empty( $parsed['backup_eligible'] ) ? 1 : 0 ) ) {
+			self::mark_credential_compromised( $credential );
+			self::authentication_failure( $user_id, 'backup_eligibility_changed' );
+		}
 		$expected_handle = self::user_handle( $user_id, false );
 		if ( '' !== $user_handle && ( '' === $expected_handle || ! hash_equals( self::base64url_decode( $expected_handle ), $user_handle ) ) ) {
 			self::authentication_failure( $user_id, 'user_handle_mismatch' );
@@ -526,34 +578,73 @@ final class SAUTH_Passkeys {
 		}
 		$stored_count = absint( $credential['sign_count'] );
 		$new_count = absint( $parsed['sign_count'] );
-		if ( $stored_count > 0 && $new_count > 0 && $new_count <= $stored_count ) {
+		if ( ( $stored_count > 0 || $new_count > 0 ) && $new_count <= $stored_count ) {
 			self::mark_credential_compromised( $credential );
 			self::authentication_failure( $user_id, 'signature_counter_regression' );
 		}
 
 		$completion = SAUTH_Account_Contract::completion_state( $user_id, array( 'purpose' => 'passkey_sign_in' ) );
-		$membership = SA_Membership_Adapter::membership_assertion( $user_id, 'authentication_sign_in', 'authentication' );
+		$membership = SA_Membership_Adapter::membership_assertion( $user_id, 'clinical_identity_link', 'authentication_sign_in' );
 		if ( ! self::sign_in_allowed( $membership, $completion ) ) {
 			self::authentication_failure( $user_id, 'membership_not_eligible' );
 		}
 
 		global $wpdb;
-		$wpdb->update(
-			self::table(),
-			array(
-				'sign_count' => max( $stored_count, $new_count ),
-				'backup_state' => ! empty( $parsed['backup_state'] ) ? 1 : 0,
-				'last_used_at' => current_time( 'mysql', true ),
-				'updated_at' => current_time( 'mysql', true ),
-			),
-			array( 'id' => absint( $credential['id'] ), 'status' => 'active' ),
-			array( '%d','%d','%s','%s' ),
-			array( '%d','%s' )
+		$next_count = max( $stored_count, $new_count );
+		$next_backup_state = ! empty( $parsed['backup_state'] ) ? 1 : 0;
+		$used_at = current_time( 'mysql', true );
+		$updated = $wpdb->query(
+			$wpdb->prepare(
+				'UPDATE ' . self::table() . " SET sign_count=%d,backup_state=%d,last_used_at=%s,updated_at=%s WHERE id=%d AND status='active' AND sign_count=%d AND backup_eligible=%d",
+				$next_count,
+				$next_backup_state,
+				$used_at,
+				$used_at,
+				absint( $credential['id'] ),
+				$stored_count,
+				! empty( $parsed['backup_eligible'] ) ? 1 : 0
+			)
 		);
-		self::store_pending_assurance( $user_id, ! empty( $credential['hardware_backed'] ) );
+		$post = $wpdb->get_row( $wpdb->prepare( 'SELECT status,sign_count,backup_eligible,backup_state,last_used_at FROM ' . self::table() . ' WHERE id=%d', absint( $credential['id'] ) ), ARRAY_A );
+		if ( false === $updated
+			|| ( ( $stored_count > 0 || $new_count > 0 ) && 1 !== (int) $updated )
+			|| ! is_array( $post )
+			|| '' !== (string) $wpdb->last_error
+			|| 'active' !== (string) ( $post['status'] ?? '' )
+			|| absint( $post['sign_count'] ?? 0 ) !== $next_count
+			|| absint( $post['backup_eligible'] ?? 0 ) !== ( ! empty( $parsed['backup_eligible'] ) ? 1 : 0 )
+			|| absint( $post['backup_state'] ?? 0 ) !== $next_backup_state
+			|| ! hash_equals( $used_at, (string) ( $post['last_used_at'] ?? '' ) ) ) {
+			self::authentication_failure( $user_id, 'credential_state_store_failed' );
+		}
+		$pending_receipt = self::store_pending_assurance( $user_id, ! empty( $credential['hardware_backed'] ) );
+		if ( '' === $pending_receipt ) { self::authentication_failure( $user_id, 'assurance_receipt_store_failed' ); }
 		wp_set_current_user( $user_id );
 		wp_set_auth_cookie( $user_id, ! empty( $_POST['remember'] ), is_ssl() );
-		SAUTH_Login_Risk::record_successful_login( $user_id, 'passkey', 0 );
+		$session_persisted = self::$pending_assurance_bound
+			&& '' !== self::$pending_session_token
+			&& SAUTH_Session_Manager::session_binding_ready( $user_id, self::$pending_session_token );
+		if ( ! self::$pending_assurance_bound || ! $session_persisted ) {
+			if ( '' !== self::$pending_session_token ) {
+				delete_transient( self::session_assurance_key( $user_id, self::$pending_session_token ) );
+			}
+			if ( class_exists( 'WP_Session_Tokens' ) && '' !== self::$pending_session_token ) {
+				WP_Session_Tokens::get_instance( $user_id )->destroy( self::$pending_session_token );
+			} else {
+				SAUTH_Session_Manager::revoke_user_sessions( $user_id, 'passkey_session_binding_failed' );
+			}
+			wp_clear_auth_cookie();
+			self::clear_assurance_for_user( $user_id );
+			self::authentication_failure( $user_id, 'session_assurance_binding_failed' );
+		}
+		self::$pending_assurance_receipt_id = '';
+		self::$pending_assurance_bound = false;
+		self::$pending_session_token = '';
+		if ( ! SAUTH_Login_Risk::record_successful_login( $user_id, 'passkey', 0 ) ) {
+			SAUTH_Session_Manager::revoke_user_sessions( $user_id, 'passkey_risk_evidence_store_failed' );
+			wp_clear_auth_cookie();
+			self::authentication_failure( $user_id, 'risk_evidence_store_failed' );
+		}
 		SAUTH_Event_Outbox::emit( 'AccountAuthenticationSucceeded.v1', $user_id, $user_id, array( 'method' => 'passkey', 'risk' => 'strong_authentication' ), 'security' );
 		SAUTH_Event_Outbox::emit( 'PasskeyAuthenticated.v1', $user_id, $user_id, array( 'backup_state' => ! empty( $parsed['backup_state'] ) ? 1 : 0 ), 'security' );
 		SA_Membership_Adapter::audit( 'passkey_authentication_succeeded', $user_id );
@@ -618,6 +709,11 @@ final class SAUTH_Passkeys {
 		if ( ! self::valid_assurance_receipt( $receipt, $user_id, $token ) ) {
 			return $baseline;
 		}
+		$membership = SA_Membership_Adapter::membership_assertion( $user_id, 'clinical_identity_link', 'authentication_assurance' );
+		if ( 'allow' !== ( $membership['result'] ?? '' ) || empty( $membership['membership']['active'] ) || ! empty( $membership['membership']['suspended'] ) ) {
+			delete_transient( self::session_assurance_key( $user_id, $token ) );
+			return $baseline;
+		}
 		return array(
 			'contract_version' => self::CONTRACT_VERSION,
 			'owner' => 'file02',
@@ -632,24 +728,40 @@ final class SAUTH_Passkeys {
 	public static function bind_pending_assurance_to_session( $cookie, $expire, $expiration, $user_id, $scheme, $token ) {
 		$user_id = absint( $user_id );
 		$token = (string) $token;
-		if ( ! $user_id || 'logged_in' !== $scheme || '' === $token ) {
+		$receipt_id = self::$pending_assurance_receipt_id;
+		if ( ! $user_id || 'logged_in' !== $scheme || '' === $token || '' === $receipt_id ) {
 			return;
 		}
-		$key = self::pending_assurance_key( $user_id );
+		$key = self::pending_assurance_key( $user_id, $receipt_id );
 		$receipt = get_transient( $key );
 		delete_transient( $key );
-		if ( ! is_array( $receipt ) || absint( $receipt['user_id'] ?? 0 ) !== $user_id || ! hash_equals( (string) ( $receipt['fingerprint'] ?? '' ), SA_Security::client_fingerprint() ) || absint( $receipt['expires_at'] ?? 0 ) <= time() ) {
+		self::$pending_assurance_receipt_id = '';
+		self::$pending_session_token = $token;
+		if ( false !== get_transient( $key )
+			|| ! is_array( $receipt )
+			|| absint( $receipt['user_id'] ?? 0 ) !== $user_id
+			|| ! hash_equals( $receipt_id, (string) ( $receipt['receipt_id'] ?? '' ) )
+			|| ! hash_equals( (string) ( $receipt['fingerprint'] ?? '' ), SA_Security::client_fingerprint() )
+			|| absint( $receipt['expires_at'] ?? 0 ) <= time() ) {
 			return;
 		}
 		$receipt['session_binding'] = self::session_binding( $token );
 		$ttl = max( 1, min( self::ASSURANCE_TTL, absint( $receipt['expires_at'] ) - time() ) );
-		set_transient( self::session_assurance_key( $user_id, $token ), $receipt, $ttl );
+		$session_key = self::session_assurance_key( $user_id, $token );
+		set_transient( $session_key, $receipt, $ttl );
+		$stored = get_transient( $session_key );
+		self::$pending_assurance_bound = is_array( $stored ) && $stored === $receipt;
+		if ( ! self::$pending_assurance_bound ) { delete_transient( $session_key ); }
 	}
 
 	private static function store_pending_assurance( $user_id, $hardware_backed ) {
+		$raw_id = self::secure_random( 24 );
+		if ( '' === $raw_id ) { return ''; }
+		$receipt_id = self::base64url_encode( $raw_id );
 		$receipt = array(
 			'contract_version' => self::CONTRACT_VERSION,
 			'owner' => 'file02',
+			'receipt_id' => $receipt_id,
 			'user_id' => absint( $user_id ),
 			'method' => 'webauthn_passkey',
 			'hardware_backed' => (bool) $hardware_backed,
@@ -658,14 +770,27 @@ final class SAUTH_Passkeys {
 			'fingerprint' => SA_Security::client_fingerprint(),
 			'session_binding' => '',
 		);
-		set_transient( self::pending_assurance_key( $user_id ), $receipt, self::ASSURANCE_TTL );
+		$key = self::pending_assurance_key( $user_id, $receipt_id );
+		set_transient( $key, $receipt, self::ASSURANCE_TTL );
+		$stored = get_transient( $key );
+		if ( ! is_array( $stored ) || $stored !== $receipt ) {
+			delete_transient( $key );
+			return '';
+		}
+		self::$pending_assurance_receipt_id = $receipt_id;
+		self::$pending_assurance_bound = false;
+		self::$pending_session_token = '';
+		return $receipt_id;
 	}
 
 	private static function valid_assurance_receipt( $receipt, $user_id, $token ) {
 		if ( ! is_array( $receipt ) || self::CONTRACT_VERSION !== (string) ( $receipt['contract_version'] ?? '' ) || 'file02' !== (string) ( $receipt['owner'] ?? '' ) ) {
 			return false;
 		}
-		if ( absint( $receipt['user_id'] ?? 0 ) !== absint( $user_id ) || absint( $receipt['expires_at'] ?? 0 ) <= time() || absint( $receipt['verified_at'] ?? 0 ) > time() + 60 ) {
+		if ( absint( $receipt['user_id'] ?? 0 ) !== absint( $user_id )
+			|| absint( $receipt['expires_at'] ?? 0 ) <= time()
+			|| absint( $receipt['verified_at'] ?? 0 ) > time() + 60
+			|| absint( $receipt['verified_at'] ?? 0 ) < time() - self::ASSURANCE_TTL - 60 ) {
 			return false;
 		}
 		return hash_equals( (string) ( $receipt['fingerprint'] ?? '' ), SA_Security::client_fingerprint() )
@@ -679,7 +804,9 @@ final class SAUTH_Passkeys {
 		if ( ! $user_id ) {
 			return false;
 		}
-		$current = self::file00_assurance( array(), $user_id );
+		$current = class_exists( 'SAUTH_Passkey_Runtime' ) && is_callable( array( 'SAUTH_Passkey_Runtime', 'current_assurance' ) )
+			? SAUTH_Passkey_Runtime::current_assurance( $user_id )
+			: self::file00_assurance( array(), $user_id );
 		if ( 'file02' === ( $current['owner'] ?? '' ) && ! empty( $current['passkey_asserted'] ) ) {
 			return true;
 		}
@@ -851,10 +978,12 @@ final class SAUTH_Passkeys {
 			return self::public_key_matches_algorithm( $pem, -7 ) ? array( 'pem' => $pem, 'algorithm' => -7 ) : new WP_Error( 'sauth_cose_ec2_pem', 'EC2 public key is invalid.' );
 		}
 		if ( 3 === $kty && -257 === $alg ) {
-			if ( ! isset( $cose[-1], $cose[-2] ) || ! is_string( $cose[-1] ) || ! is_string( $cose[-2] ) || strlen( $cose[-1] ) < 128 || strlen( $cose[-1] ) > 1024 || strlen( $cose[-2] ) < 1 || strlen( $cose[-2] ) > 8 ) {
+			$modulus = isset( $cose[-1] ) && is_string( $cose[-1] ) ? ltrim( $cose[-1], "\x00" ) : '';
+			$exponent = isset( $cose[-2] ) && is_string( $cose[-2] ) ? ltrim( $cose[-2], "\x00" ) : '';
+			if ( strlen( $modulus ) < 256 || strlen( $modulus ) > 1024 || "\x01\x00\x01" !== $exponent ) {
 				return new WP_Error( 'sauth_cose_rsa', 'Unsupported RSA key.' );
 			}
-			$rsa = self::asn1( 0x30, self::asn1_integer( $cose[-1] ) . self::asn1_integer( $cose[-2] ) );
+			$rsa = self::asn1( 0x30, self::asn1_integer( $modulus ) . self::asn1_integer( $exponent ) );
 			$algorithm_identifier = hex2bin( '300d06092a864886f70d0101010500' );
 			$der = self::asn1( 0x30, $algorithm_identifier . self::asn1( 0x03, "\x00" . $rsa ) );
 			$pem = self::pem_from_der( $der );
@@ -870,6 +999,11 @@ final class SAUTH_Passkeys {
 		}
 		$key = openssl_pkey_get_public( (string) $public_key_pem );
 		if ( false === $key ) {
+			return false;
+		}
+		$details = openssl_pkey_get_details( $key );
+		if ( ! self::key_details_match_algorithm( $details, $algorithm ) ) {
+			if ( is_resource( $key ) ) { openssl_free_key( $key ); }
 			return false;
 		}
 		$result = openssl_verify( (string) $signed_data, (string) $signature, $key, OPENSSL_ALGO_SHA256 );
@@ -891,11 +1025,28 @@ final class SAUTH_Passkeys {
 		if ( is_resource( $key ) ) {
 			openssl_free_key( $key );
 		}
-		if ( ! is_array( $details ) || ! isset( $details['type'] ) ) {
-			return false;
+		return self::key_details_match_algorithm( $details, $algorithm );
+	}
+
+	/** Revalidate stored keys at every assertion, not only during enrollment. */
+	private static function key_details_match_algorithm( $details, $algorithm ) {
+		if ( ! is_array( $details ) || ! isset( $details['type'] ) ) { return false; }
+		$algorithm = intval( $algorithm );
+		if ( -7 === $algorithm ) {
+			$curve = strtolower( (string) ( $details['ec']['curve_name'] ?? '' ) );
+			return defined( 'OPENSSL_KEYTYPE_EC' )
+				&& OPENSSL_KEYTYPE_EC === $details['type']
+				&& 256 === absint( $details['bits'] ?? 0 )
+				&& in_array( $curve, array( 'prime256v1', 'secp256r1' ), true );
 		}
-		return ( -7 === intval( $algorithm ) && defined( 'OPENSSL_KEYTYPE_EC' ) && OPENSSL_KEYTYPE_EC === $details['type'] )
-			|| ( -257 === intval( $algorithm ) && OPENSSL_KEYTYPE_RSA === $details['type'] );
+		$exponent = isset( $details['rsa']['e'] ) && is_string( $details['rsa']['e'] ) ? ltrim( $details['rsa']['e'], "\x00" ) : '';
+		$bits = absint( $details['bits'] ?? 0 );
+		return -257 === $algorithm
+			&& defined( 'OPENSSL_KEYTYPE_RSA' )
+			&& OPENSSL_KEYTYPE_RSA === $details['type']
+			&& $bits >= 2048
+			&& $bits <= 8192
+			&& "\x01\x00\x01" === $exponent;
 	}
 
 	private static function cbor_decode_item( $data, &$offset, $depth ) {
@@ -1095,17 +1246,49 @@ final class SAUTH_Passkeys {
 		return is_array( $rows ) ? $rows : array();
 	}
 
+	/** Acquire a MariaDB/MySQL connection-owned lock for one security subject. */
+	private static function acquire_named_lock( $purpose, $subject ) {
+		global $wpdb;
+		$name = 'sauth:' . substr( hash( 'sha256', sanitize_key( (string) $purpose ) . '|' . (string) $subject ), 0, 50 );
+		$connection_id = absint( $wpdb->get_var( 'SELECT CONNECTION_ID()' ) );
+		$acquired = $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s,%d)', $name, 0 ) );
+		$owner = $wpdb->get_var( $wpdb->prepare( 'SELECT IS_USED_LOCK(%s)', $name ) );
+		if ( ! $connection_id || 1 !== (int) $acquired || $connection_id !== absint( $owner ) || '' !== (string) $wpdb->last_error ) {
+			if ( 1 === (int) $acquired ) { $wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $name ) ); }
+			return array();
+		}
+		return array( 'name' => $name, 'connection_id' => $connection_id );
+	}
+
+	private static function release_named_lock( array $lock ) {
+		global $wpdb;
+		if ( empty( $lock['name'] ) || empty( $lock['connection_id'] ) ) { return false; }
+		$connection_id = absint( $wpdb->get_var( 'SELECT CONNECTION_ID()' ) );
+		$owner = absint( $wpdb->get_var( $wpdb->prepare( 'SELECT IS_USED_LOCK(%s)', (string) $lock['name'] ) ) );
+		if ( $connection_id !== absint( $lock['connection_id'] ) || $owner !== $connection_id || '' !== (string) $wpdb->last_error ) { return false; }
+		$released = $wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', (string) $lock['name'] ) );
+		return 1 === (int) $released && '' === (string) $wpdb->last_error;
+	}
+
 	private static function mark_credential_compromised( array $credential ) {
 		global $wpdb;
-		$wpdb->update(
+		$changed = $wpdb->update(
 			self::table(),
 			array( 'status' => 'compromised', 'revoked_at' => current_time( 'mysql', true ), 'updated_at' => current_time( 'mysql', true ) ),
 			array( 'id' => absint( $credential['id'] ), 'status' => 'active' ),
 			array( '%s','%s','%s' ),
 			array( '%d','%s' )
 		);
+		$status = (string) $wpdb->get_var( $wpdb->prepare( 'SELECT status FROM ' . self::table() . ' WHERE id=%d AND user_id=%d', absint( $credential['id'] ), absint( $credential['user_id'] ) ) );
+		$contained = ( 1 === (int) $changed || 0 === (int) $changed ) && 'compromised' === $status && '' === (string) $wpdb->last_error;
 		self::clear_assurance_for_user( absint( $credential['user_id'] ) );
+		$invalidated = class_exists( 'SAUTH_Passkey_Runtime' ) && SAUTH_Passkey_Runtime::invalidate_user_assurance( absint( $credential['user_id'] ) );
+		if ( ! $contained || ! $invalidated ) {
+			SAUTH_Session_Manager::revoke_user_sessions( absint( $credential['user_id'] ), 'passkey_compromise_containment' );
+			SAUTH_Operations::enter_safe_mode();
+		}
 		SA_Membership_Adapter::audit( 'passkey_counter_regression', absint( $credential['user_id'] ) );
+		return $contained && $invalidated;
 	}
 
 	private static function authentication_failure( $user_id, $reason ) {
@@ -1168,8 +1351,8 @@ final class SAUTH_Passkeys {
 		return array_values( array_filter( explode( ',', (string) $value ) ) );
 	}
 
-	private static function pending_assurance_key( $user_id ) {
-		return 'sauth_pk_pending_' . absint( $user_id ) . '_' . substr( SA_Security::client_fingerprint(), 0, 20 );
+	private static function pending_assurance_key( $user_id, $receipt_id ) {
+		return 'sauth_pk_pending_' . absint( $user_id ) . '_' . substr( hash( 'sha256', (string) $receipt_id ), 0, 32 );
 	}
 
 	private static function session_assurance_key( $user_id, $token ) {
@@ -1189,7 +1372,12 @@ final class SAUTH_Passkeys {
 	}
 
 	private static function clear_assurance_for_user( $user_id ) {
-		delete_transient( self::pending_assurance_key( $user_id ) );
+		if ( absint( $user_id ) && '' !== self::$pending_assurance_receipt_id ) {
+			delete_transient( self::pending_assurance_key( $user_id, self::$pending_assurance_receipt_id ) );
+			self::$pending_assurance_receipt_id = '';
+			self::$pending_assurance_bound = false;
+			self::$pending_session_token = '';
+		}
 		$token = (string) wp_get_session_token();
 		if ( '' !== $token ) {
 			delete_transient( self::session_assurance_key( $user_id, $token ) );
@@ -1281,27 +1469,48 @@ final class SAUTH_Passkeys {
 		}
 		$user_id = absint( $user->ID );
 		global $wpdb;
-		$before = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . self::table() . ' WHERE user_id=%d', $user_id ) );
+		$before_raw = $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . self::table() . ' WHERE user_id=%d', $user_id ) );
 		$handle_before = function_exists( 'metadata_exists' ) && metadata_exists( 'user', $user_id, self::USER_HANDLE_META );
 		$epoch_before = class_exists( 'SAUTH_Passkey_Runtime' ) && function_exists( 'metadata_exists' ) && metadata_exists( 'user', $user_id, SAUTH_Passkey_Runtime::EPOCH_META );
-		$deleted = $wpdb->delete( self::table(), array( 'user_id' => $user_id ), array( '%d' ) );
-		delete_user_meta( $user_id, self::USER_HANDLE_META );
-		if ( class_exists( 'SAUTH_Passkey_Runtime' ) ) {
-			SAUTH_Passkey_Runtime::invalidate_user_assurance( $user_id );
-			delete_user_meta( $user_id, SAUTH_Passkey_Runtime::EPOCH_META );
+		$ids = $wpdb->get_col( $wpdb->prepare( 'SELECT id FROM ' . self::table() . ' WHERE user_id=%d ORDER BY id ASC LIMIT 50', $user_id ) );
+		$failed = null === $before_raw || ! is_array( $ids ) || '' !== (string) $wpdb->last_error;
+		$deleted = 0;
+		if ( ! $failed && ! empty( $ids ) ) {
+			$ids = array_values( array_filter( array_map( 'absint', $ids ) ) );
+			if ( ! empty( $ids ) ) {
+				$result = $wpdb->query( $wpdb->prepare( 'DELETE FROM ' . self::table() . ' WHERE user_id=%d AND id IN (' . implode( ',', array_fill( 0, count( $ids ), '%d' ) ) . ')', array_merge( array( $user_id ), $ids ) ) );
+				$deleted = false === $result ? 0 : (int) $result;
+				$selected_remaining = (int) $wpdb->get_var( 'SELECT COUNT(*) FROM ' . self::table() . ' WHERE id IN (' . implode( ',', $ids ) . ')' ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+				if ( false === $result || '' !== (string) $wpdb->last_error || $selected_remaining > 0 ) { $failed = true; }
+			}
 		}
 		self::clear_assurance_for_user( $user_id );
 
-		$remaining = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . self::table() . ' WHERE user_id=%d', $user_id ) );
+		$remaining_raw = $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . self::table() . ' WHERE user_id=%d', $user_id ) );
+		$remaining = null === $remaining_raw ? -1 : (int) $remaining_raw;
+		if ( $remaining < 0 || '' !== (string) $wpdb->last_error ) { $failed = true; }
+		$more = $remaining > 0;
+		if ( ! $failed && ! $more ) {
+			delete_user_meta( $user_id, self::USER_HANDLE_META );
+			if ( class_exists( 'SAUTH_Passkey_Runtime' ) ) {
+				if ( ! SAUTH_Passkey_Runtime::invalidate_user_assurance( $user_id ) ) {
+					$failed = true;
+				} else {
+					delete_user_meta( $user_id, SAUTH_Passkey_Runtime::EPOCH_META );
+				}
+			}
+		}
 		$handle_retained = function_exists( 'metadata_exists' ) && metadata_exists( 'user', $user_id, self::USER_HANDLE_META );
 		$epoch_retained = class_exists( 'SAUTH_Passkey_Runtime' ) && function_exists( 'metadata_exists' ) && metadata_exists( 'user', $user_id, SAUTH_Passkey_Runtime::EPOCH_META );
-		$failed = false === $deleted || $remaining > 0 || $handle_retained || $epoch_retained;
-		$had_data = $before > 0 || $handle_before || $epoch_before;
+		if ( ! $more && ( $handle_retained || $epoch_retained ) ) { $failed = true; }
+		$had_data = (int) $before_raw > 0 || $handle_before || $epoch_before;
 		return array(
-			'items_removed' => ! $failed && $had_data,
-			'items_retained' => $failed,
-			'messages' => $failed ? array( __( 'Some passkey authentication data could not be erased. An administrator must review the retained data before the request is considered complete.', 'sabri-authentication' ) ) : array(),
-			'done' => true,
+			'items_removed' => $deleted > 0 || ( ! $failed && ! $more && $had_data ),
+			'items_retained' => $failed || $more,
+			'messages' => $failed
+				? array( __( 'Some passkey authentication data could not be erased. An administrator must review the retained data before the request is considered complete.', 'sabri-authentication' ) )
+				: ( $more ? array( __( 'Passkey erasure is continuing in the next bounded batch.', 'sabri-authentication' ) ) : array() ),
+			'done' => $failed || ! $more,
 		);
 	}
 

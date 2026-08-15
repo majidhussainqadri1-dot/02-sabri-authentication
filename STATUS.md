@@ -1,9 +1,9 @@
-# File 02 Status — Version 1.2.6
+# File 02 Status — Version 1.3.0
 
 ## Current candidate
 
-- Branch: `fix/file02-passkey-index-reconciliation-1.2.6`
-- Version/schema: `1.2.6 / 1.2.1`; passkey table schema `1.0.1`
+- Branch: `agent/file02-comprehensive-remediation-1.3.0`
+- Version/schema: `1.3.0 / 1.3.0`; passkey table schema `1.0.1`
 - Repository `main` re-verified during R319: `0f011b1876e217b7ee46f92903e5315538c1025e`
 - Governing corpus: Definitive Master Plan v3.0; `SSH-F02-PLAN-2026-v1.0`; Consolidated All-Chats Directives v2.1; Continuous-Value/Top-20 Superset plan; later cross-file ownership refinement for File 02 passkey/WebAuthn ceremony
 - Intended canonical repository name: `02-sabri-authentication-and-accounts` (rename not yet performed)
@@ -11,7 +11,8 @@
 - Required account provider: `smc.authentication-account 1.1.0`
 - Authentication-assurance producer: File 02 `smc_file02_authentication_assurance_v1` / contract `1.0.0`
 - Historical incident baseline main: `8192c45b595b34e13e09934e3b2d554aa2d8553f`
-- Exact cross-file repository integration: **GREEN**, run `31850253635`, File 02 `f740ca65fc33031b98d7d75e5f27b7ccbeeefbf9` paired with File 00 `1d7f215193d778b0977c8e50d738c42e1e5f66c2` / runtime `1.2.44`.
+- Exact current cross-file repository integration: **PENDING** for File 02 `1.3.0`; File 00 remains pinned to `1d7f215193d778b0977c8e50d738c42e1e5f66c2` / runtime `1.2.44`.
+- Historical paired evidence: run `31850253635` proved File 02 `1.2.6`, not this candidate.
 
 ## Source candidate capabilities
 
@@ -29,22 +30,25 @@
 - Loop-safe completion resolver, canonical `/account/sessions/` route, canonical `SAUTH_` identifiers and bounded legacy aliases.
 - R334/R335 correct real MariaDB passkey migration: dbDelta-safe one-index-per-line DDL plus exact reconciliation of the MariaDB-preserved stale `credential_lookup_hash => credential_hash` unique-index binding.
 - R336 binds architecture release identity to `RELEASE-LOCK.json` and records exact cross-file integration closure without advancing external deployment gates.
+- R337 replaces query-text migration bypass with an explicit router suspension scope; hardens email issuance/verification CAS state transitions; serializes Google subject/user mutations with database locks; proves exact WordPress/File 02 session binding; closes passkey backup/counter/RSA gaps; and makes privacy export/erasure bounded, canonical-and-legacy aware and postcondition-driven.
 
 ## Seven separate completion gates
 
 | Gate | Status | Evidence boundary |
 |---|---|---|
 | Specified | Complete | Governing File 02 + central/Continuous-Value + cross-file ownership traced |
-| Source coding | **Review candidate** | R331–R336 corrective line; product/source regressions green before R336 release-evidence correction |
-| Packaged | Pending exact-head Release Integrity | Deterministic package proof must come from the corrected exact-head workflow |
-| Automated-QA | Pending final exact-head R336 run | PHP 7.4/8.3 were green at `f740ca...`; final release constitution/package must be rerun after R336 evidence correction |
+| Source coding | **Review candidate** | R337 comprehensive remediation implemented; exact-head CI pending |
+| Packaged | Pending exact-head Release Integrity | Deterministic package proof must come from this exact head |
+| Automated-QA | Pending exact-head R337 run | Local parser/static/package checks do not replace PHP 7.4/8.3 and real MariaDB CI |
 | Staging-Accepted | No | Real Hostinger/WebAuthn/provider/browser acceptance evidence absent |
 | Live-Deployed | No | No production authorization/evidence for this candidate |
 | Operational | No | Monitoring/support/restore evidence absent |
 
 ## Cross-file repository integration evidence
 
-The former File 00 taxonomy/provider release blocker is **closed at repository/integration level only**. Exact run `31850253635` passed WordPress 7.0 / MariaDB 11.4 fresh installation, File 00 deferred administrator bootstrap to DB `1.4.5`, File 02 fresh activation at `1.2.6 / DB 1.2.1 / passkey 1.0.1`, all nine canonical account types on both sides, legacy passkey column/index upgrade, legacy logical-identity collision migration, and final paired boundaries.
+The current File 02 `1.3.0` / File 00 `1.2.44` integration gate is **open** until the exact candidate head passes WordPress 7.0 / MariaDB 11.4. It must prove fresh activation, all nine canonical account types, the legacy passkey upgrade, logical-identity collision preservation, the repaired active-router legacy copy and final paired boundaries.
+
+Exact run `31850253635` remains valid historical evidence for File 02 `1.2.6 / DB 1.2.1 / passkey 1.0.1`; it cannot be promoted to current-head evidence.
 
 This does not substitute for Hostinger staging or live deployment evidence.
 

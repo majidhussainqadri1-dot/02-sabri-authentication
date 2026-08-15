@@ -11,6 +11,7 @@ defined( 'ABSPATH' ) || exit;
  */
 final class SAUTH_Storage_Router {
 	private static $initialized = false;
+	private static $suspension_depth = 0;
 
 	public static function init() {
 		if ( self::$initialized ) {
@@ -23,7 +24,7 @@ final class SAUTH_Storage_Router {
 	public static function canonicalize_query( $query ) {
 		global $wpdb;
 		$query = (string) $query;
-		if ( '' === $query || ! isset( $wpdb->prefix ) ) {
+		if ( self::suspended() || '' === $query || ! isset( $wpdb->prefix ) ) {
 			return $query;
 		}
 		$map = array(
@@ -40,13 +41,6 @@ final class SAUTH_Storage_Router {
 				continue;
 			}
 
-			/* Do not rewrite the source side of the explicit one-way migration. */
-			$migration = preg_match( '/\bINSERT\s+IGNORE\s+INTO\s+`?' . preg_quote( $canonical, '/' ) . '`?/i', $query )
-				&& preg_match( '/\bFROM\s+`?' . preg_quote( $legacy, '/' ) . '`?/i', $query );
-			if ( $migration ) {
-				continue;
-			}
-
 			/* Rewrite only SQL table-identifier positions. Broad string replacement
 			 * can corrupt literal values, JSON or diagnostic text that merely contains
 			 * a legacy table name. */
@@ -60,6 +54,24 @@ final class SAUTH_Storage_Router {
 			);
 		}
 		return $query;
+	}
+
+	/**
+	 * Explicitly suspend compatibility routing around the activator's audited,
+	 * one-way legacy copy. Query text is never trusted to declare itself a
+	 * migration because attacker-controlled literal values can contain SQL-like
+	 * text. The depth counter keeps nested repair calls balanced.
+	 */
+	public static function suspend() {
+		self::$suspension_depth++;
+	}
+
+	public static function resume() {
+		self::$suspension_depth = max( 0, self::$suspension_depth - 1 );
+	}
+
+	public static function suspended() {
+		return self::$suspension_depth > 0;
 	}
 
 	public static function canonical_tables() {

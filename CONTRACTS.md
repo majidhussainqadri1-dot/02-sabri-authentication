@@ -1,4 +1,4 @@
-# File 02 Contract Register — Version 1.2.6
+# File 02 Contract Register — Version 1.3.0
 
 ## Required consumers
 
@@ -35,7 +35,7 @@ result: allow | deny | unknown
 reason_code
 ```
 
-Registration success additionally returns `user_id` and canonical subject identity. Completion state returns `missing_steps` and a same-origin `next_route`. Missing, incompatible or malformed responses fail closed.
+Registration success additionally returns `user_id` and canonical `subject_uuid`; Google registration verifies that subject against a fresh File 00 assertion before final linkage. Completion state returns `missing_steps` and a same-origin `next_route`. Missing, incompatible or malformed responses fail closed.
 
 ### `smc.cf01.membership-assurance` 1.0.0
 
@@ -46,6 +46,8 @@ Provider: File 00. Supplies current membership, suspension, verification and eli
 ### `sa.cf01.authentication-assurance` 1.0.0
 
 Session-, purpose- and scope-bound authentication assurance for approved clinical/professional consumers. It never authorizes the consumer's native object or action.
+
+Professional reauthentication accepts valid provider evidence only when contract/version, `purpose=clinical_sign_in`, local scope hash, subject UUID, trace ID, AAL2 method and bounded timestamps all match. Stored receipts retain that provider provenance and are invalidated by session, fingerprint, password-binding or underlying-assurance changes.
 
 ### `smc_file02_authentication_assurance_v1` / File 02 Advanced Trust projection 1.0.0
 
@@ -118,7 +120,8 @@ File 02 publishes its module and route manifests. File 20 remains the only globa
 - UP + UV flags required;
 - optional userHandle must equal the account's random opaque File 02 handle;
 - assertion signature verified over `authenticatorData || SHA256(clientDataJSON)`;
-- non-zero signature-counter regression marks credential compromised;
+- stored backup eligibility must equal the signed authenticator flag;
+- after a non-zero stored counter, any non-increase including zero marks the credential compromised;
 - membership/suspension/completion rechecked before session issuance;
 - successful session remains subject to File 00 and every native domain owner's authorization.
 

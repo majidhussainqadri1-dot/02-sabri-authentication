@@ -4,14 +4,14 @@ Tags: authentication, passkeys, webauthn, google login, registration, accounts, 
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.2.6
+Stable tag: 1.3.0
 License: GPLv2 or later
 
 Complete authentication and account-entry orchestration for the Sabri Social Homeopathy Platform. File 00 — Sabri Membership Core remains the exclusive identity, membership, account-class, guardian, role, verification and MFA-policy authority; File 02 owns password, Google OAuth and WebAuthn/passkey authentication ceremonies.
 
 == Truthful release status ==
 
-Version 1.2.6 is the current post-R331 repository/source candidate. It retains the R321–R330 hardening and adds canonical File 00 account-taxonomy parity without aliases or lossy remapping. DB identity remains 1.2.1 and passkey schema identity remains 1.0.1. Source/CI completion does not by itself prove Hostinger staging, deployment or operations.
+Version 1.3.0 is the R337 comprehensive-remediation source candidate. Runtime and DB identity are 1.3.0; passkey schema identity remains 1.0.1. Exact-head CI and File 00 integration are pending, and source/CI completion does not by itself prove Hostinger staging, deployment or operations.
 
 == Canonical constitution ==
 
@@ -61,7 +61,7 @@ If a required contract is missing, malformed or circuit-open, protected mutation
 * Credential IDs are opaque random identifiers; an encrypted copy supports exclusion UI while a stable SHA-256 lookup prevents WordPress salt rotation from breaking credential lookup.
 * User handles are random opaque File 02 values and are erased with File 02 passkey data.
 * Challenge completion uses an atomic WordPress option claim plus expiring challenge state so concurrent replay attempts cannot both succeed.
-* Synchronized passkeys may legitimately use a zero signature counter; non-zero counter regression is treated as compromise and the credential is disabled.
+* Synchronized passkeys may legitimately remain at a zero signature counter; once a non-zero stored counter exists, any non-increase including a reset to zero is treated as compromise and the credential is disabled.
 * Authentication is not authorization. Every post-authentication protected action remains subject to File 00 claims and the native domain owner's object/state checks.
 
 == External acceptance gates ==
@@ -78,6 +78,13 @@ If a required contract is missing, malformed or circuit-open, protected mutation
 Passwords, reset keys, verification tokens, OAuth tokens, TOTP/recovery codes, passkey private keys, biometric templates, raw session tokens, full IP addresses and provider secrets are excluded from events and public diagnostics. Authentication success is never authorization.
 
 == Changelog ==
+
+= 1.3.0 =
+* Repairs active-router legacy-table migration with an explicit scoped suspension and advances DB identity to 1.3.0 so the corrected copy reruns.
+* Makes email issuance/verification, Google subject linkage, passkey enrollment/authentication, session creation and risk evidence exact, race-aware and fail-closed.
+* Enforces passkey backup-eligibility immutability, strict counter regression, RSA-2048/65537 minimums and exact challenge/session receipt ownership.
+* Completes bounded canonical-and-legacy privacy erasure plus device/risk export and recursive event identity anonymization.
+* Keeps exact-head integration, staging, live deployment and operational status explicitly unclaimed until their separate gates pass.
 
 = 1.2.6 =
 * Corrects the proven MariaDB legacy passkey index-name collision: a unique key named credential_lookup_hash can remain bound to renamed legacy column credential_hash.

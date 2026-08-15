@@ -5,8 +5,8 @@ $outbox = file_get_contents( $root . '/includes/class-sauth-event-outbox.php' );
 $jobs = file_get_contents( $root . '/includes/class-sauth-privacy-jobs.php' );
 $fail = array();
 $checks = array(
-    array( $privacy, '$more_outbox = false;', 'privacy eraser lacks a distinct outbox continuation state' ),
-    array( $privacy, '$more_outbox = true;', 'remaining outbox rows are still treated only as fatal failure' ),
+    array( $privacy, '$more_rows = false;', 'privacy eraser lacks a unified bounded continuation state' ),
+    array( $privacy, '$more_rows = true;', 'remaining File 02 rows are still treated only as fatal failure' ),
     array( $privacy, "'done' => false", 'privacy eraser cannot request the next WordPress erasure page' ),
     array( $privacy, 'authentication_privacy_erasure_continuation', 'privacy continuation lacks audit evidence' ),
     array( $jobs, 'begin_erasure', 'privacy asynchronous-job barrier missing' ),

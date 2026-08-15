@@ -8,7 +8,7 @@ $professional = file_get_contents( $root . '/includes/class-sa-professional-reau
 $fail = array();
 $checks = array(
     array( $session, 'session_registry_read_failed', 'session registry read failure still fails open' ),
-    array( $session, '\'active\' === (string) $status ? $user_id : 0', 'unknown/revoked session state can remain authenticated' ),
+    array( $session, "'active' === (string) ( \$row['status'] ?? '' ) && false !== \$expires", 'unknown, revoked or expired session state can remain authenticated' ),
     array( $session, 'WP_Session_Tokens::get_instance( absint( $user_id ) )->get( $token )', 'lazy session projection ignores real WordPress expiration' ),
     array( $session, 'SET status=\'revoked\', revoked_at=%s, revocation_reason=%s', 'revoke-others still depends on display list limit' ),
     array( $passkey, 'public static function authentication_ready()', 'risk engine lacks passkey readiness contract' ),

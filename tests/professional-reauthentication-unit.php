@@ -63,6 +63,7 @@ $scope_hash = hash_hmac( 'sha256', $scope, wp_salt( 'nonce' ) );
 $valid = array(
 	'contract' => 'sa.cf01.authentication-assurance',
 	'contract_version' => '1.0.0',
+	'purpose' => 'clinical_sign_in',
 	'subject_uuid' => '123e4567-e89b-42d3-a456-426614174000',
 	'scope_hash' => $scope_hash,
 	'method' => 'webauthn_passkey',
@@ -87,6 +88,18 @@ $GLOBALS['sa_auth_result'] = array( 'contract' => 'wrong', 'contract_version' =>
 $result = SA_Professional_Reauthentication::verify_and_record( 7, 'password', 'ignored', array( 'scope' => $scope ) );
 sa_prof_assert( 'unknown' === $result['result'] && 'authentication_contract_invalid' === $result['reason_code'], 'invalid downstream contract fails closed' );
 
+$tampered = $valid;
+$tampered['purpose'] = 'authentication_sign_in';
+$GLOBALS['sa_auth_result'] = $tampered;
+$result = SA_Professional_Reauthentication::verify_and_record( 7, 'password', 'ignored', array( 'scope' => $scope ) );
+sa_prof_assert( 'unknown' === $result['result'] && 'authentication_evidence_invalid' === $result['reason_code'], 'provider purpose tampering fails closed' );
+
+$tampered = $valid;
+$tampered['scope_hash'] = str_repeat( '0', 64 );
+$GLOBALS['sa_auth_result'] = $tampered;
+$result = SA_Professional_Reauthentication::verify_and_record( 7, 'password', 'ignored', array( 'scope' => $scope ) );
+sa_prof_assert( 'unknown' === $result['result'] && 'authentication_evidence_invalid' === $result['reason_code'], 'provider scope tampering fails closed' );
+
 $GLOBALS['sa_auth_result'] = $valid;
 $result = SA_Professional_Reauthentication::verify_and_record( 7, 'password', 'ignored', array( 'scope' => $scope ) );
 sa_prof_assert( 'valid' === $result['result'], 'password plus File 02 AAL2 passkey evidence succeeds' );
@@ -95,10 +108,22 @@ sa_prof_assert( 'professional_verification_review' === $result['purpose'], 'prof
 sa_prof_assert( 'clinical_sign_in' === $result['authentication_purpose'], 'delegated authentication purpose remains explicit' );
 sa_prof_assert( 'aal2' === $result['assurance_level'], 'AAL2 level is preserved' );
 sa_prof_assert( 'webauthn_passkey' === $result['method'], 'professional receipt must retain File 02 passkey method' );
+sa_prof_assert( 'sa.cf01.authentication-assurance' === $result['provider_contract'], 'provider contract provenance is retained' );
+sa_prof_assert( '1.0.0' === $result['provider_version'], 'provider contract version provenance is retained' );
+sa_prof_assert( $scope_hash === $result['provider_scope_hash'], 'provider scope provenance is retained' );
+sa_prof_assert( $valid['trace_id'] === $result['provider_trace_id'], 'provider trace provenance is retained' );
 
 $result = SA_Professional_Reauthentication::assertion( 7, $scope );
 sa_prof_assert( 'valid' === $result['result'], 'existing session-bound professional receipt can be re-read' );
 sa_prof_assert( true === $result['password_verified'], 'existing receipt retains verified-password evidence' );
+
+$tampered = $valid;
+$tampered['trace_id'] = '223e4567-e89b-42d3-a456-426614174000';
+$GLOBALS['sa_auth_result'] = $tampered;
+$result = SA_Professional_Reauthentication::assertion( 7, $scope );
+sa_prof_assert( 'invalid' === $result['result'] && 'underlying_authentication_assurance_invalid' === $result['reason_code'], 'live provider trace change invalidates stored receipt' );
+$GLOBALS['sa_auth_result'] = $valid;
+SA_Professional_Reauthentication::verify_and_record( 7, 'password', 'ignored', array( 'scope' => $scope ) );
 
 $GLOBALS['sa_user_pass'] = 'changed-hash';
 $result = SA_Professional_Reauthentication::assertion( 7, $scope );

@@ -25,12 +25,12 @@ r299_not( $js, 'step_up_code', 'browser still transmits retired factor code' );
 r299_has( $email, 'SAUTH_Privacy_Jobs::register_job( $job_user_id, $job_key )', 'email resend job is not privacy-indexed' );
 r299_has( $email, 'SAUTH_Privacy_Jobs::forget_job( $user_id, $key )', 'email resend worker does not clear privacy index' );
 r299_has( $registration, 'Password reset is temporarily unavailable. No credential was changed.', 'password reset is not dependency/Safe-Mode fail-closed' );
-r299_has( $google, 'SAUTH_Login_Risk::evaluate( $user->ID, $completion )', 'Google login is absent from risk evaluation' );
+r299_has( $google, 'SAUTH_Login_Risk::evaluate( $locked_user->ID, $completion )', 'Google login is absent from locked risk evaluation' );
 r299_has( $google, 'SAUTH_Login_Risk::record_successful_login( $user->ID, \'google\', absint( $risk[\'score\'] ?? 0 ) )', 'Google login is absent from risk/session trust projection' );
 r299_has( $google, 'AccountAuthenticationSucceeded.v1', 'Google login success event is missing' );
 r299_has( $google, 'GoogleAccountLinked.v1', 'Google link event is missing' );
 r299_has( $google, 'GoogleAccountUnlinked.v1', 'Google unlink event is missing' );
-r299_has( $google, 'completion_state( $user->ID, array( \'purpose\' => \'google_sign_in\' ) )', 'Google login does not enforce completion state' );
+r299_has( $google, 'completion_state( $locked_user->ID, array( \'purpose\' => \'google_sign_in\' ) )', 'Google login does not enforce completion state under its lock' );
 r299_has( $google, 'google_account_unlink_incomplete', 'Google unlink lacks postcondition containment' );
 r299_not( $google_reg, "SAUTH_Provider_Health::record_failure( 'google'", 'Google registration double-counts HTTP circuit failures' );
 r299_not( $google_reg, "SAUTH_Provider_Health::record_success( 'google'", 'Google registration double-counts HTTP circuit success' );
@@ -39,7 +39,7 @@ foreach ( array( 'sa_forgot_password', 'sauth_forgot_password', 'sa_reset_passwo
 foreach ( array( 'profile_photo', 'identity_reference', 'address', 'city', 'country', 'account_type', 'ethical_conduct' ) as $step ) { r299_has( $completion, "'" . $step . "'", 'completion helper misses ' . $step ); }
 r299_has( $plugin, '$snapshot = array();', 'Google settings lack transactional snapshot' );
 r299_has( $plugin, 'settings_store_failed', 'Google settings lack rollback failure path' );
-r299_has( $plan, 'fix/file02-passkey-index-reconciliation-1.2.6', 'traceability candidate branch is stale' );
-r299_has( $status, 'fix/file02-passkey-index-reconciliation-1.2.6', 'status candidate branch is stale' );
+r299_has( $plan, 'agent/file02-comprehensive-remediation-1.3.0', 'traceability candidate branch is stale' );
+r299_has( $status, 'agent/file02-comprehensive-remediation-1.3.0', 'status candidate branch is stale' );
 if ( $fail ) { fwrite( STDERR, "R299 regression failures:\n- " . implode( "\n- ", $fail ) . "\n" ); exit( 1 ); }
 echo 'R299 cross-flow regression PASS (' . $n . " assertions).\n";

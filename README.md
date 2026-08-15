@@ -3,8 +3,9 @@
 **Canonical repository name:** `02-sabri-authentication-and-accounts`
 **Current historical GitHub transport repository:** `02-sabri-authentication`
 **Package folder / WordPress slug:** `02-sabri-authentication` / `sabri-authentication`
-**Source candidate:** `1.2.6`
-**Database schema:** `1.2.1`
+**Candidate branch:** `agent/file02-comprehensive-remediation-1.3.0`
+**Source candidate:** `1.3.0`
+**Database schema:** `1.3.0`
 **Governing corpus:** Definitive Master Plan v3.0, `SSH-F02-PLAN-2026-v1.0`, Consolidated All-Chats Directives v2.1, Continuous-Value/Top-20 Superset plan and the later File 00 Advanced Trust ownership boundary.
 
 ## Canonical ownership
@@ -13,9 +14,9 @@ File 02 owns email/password, Google OAuth and WebAuthn/passkey authentication ce
 
 File 00 remains the sole owner of platform identity, membership eligibility, declared account class, age/guardian truth, roles/capabilities, verification, suspension, institutional authority and MFA policy. File 24 may contribute risk/assurance policy. Authentication never grants native object authorization.
 
-## Version 1.2.6 completion scope
+## Version 1.3.0 completion scope
 
-Version 1.2.6 carries the 1.2.1 bootstrap correction plus the sequential R321–R330 security, migration, passkey, provider, session, privacy, route/UI, dependency-contract and release-truth hardening. DB identity advances to `1.2.1` and passkey schema identity to `1.0.1` so supported upgrades explicitly reconcile canonical columns and security-critical indexes before successful markers are published.
+Version 1.3.0 preserves the complete 1.2.6 line and adds the R337 comprehensive concurrency, persistence and privacy correction. DB identity advances to `1.3.0` so installations rerun the repaired one-way legacy-table migration with compatibility routing explicitly suspended; passkey schema identity remains `1.0.1` because its physical schema is unchanged.
 
 The candidate retains:
 
@@ -30,6 +31,10 @@ The candidate retains:
 - opaque session/device registry, canonical `/account/sessions/`, individual/other/all-session revocation and generalized device/network presentation;
 - suspicious-login risk policy with elevated password risk requiring a separate File 02 passkey sign-in;
 - privacy-minimized authentication/passkey events, privacy export/erasure, provider circuits, Safe Mode, System Check and guarded repair;
+- compare-and-set email-verification issuance/claim publication, exact post-write evidence, and fail-closed delivery recovery;
+- shared database locks across Google registration/login/link/unlink, subject-to-user ordering, exact linkage/session postconditions and rollback containment;
+- passkey backup-eligibility immutability, strict non-zero counter regression handling, RSA-2048/65537 minimums and exact challenge/session receipts;
+- bounded canonical-and-legacy privacy erasure, complete device/risk export and recursive outbox identity anonymization;
 - File 01/File 20 manifests, migration/rollback/backup/incident documentation and deterministic packaging;
 - canonical `SAUTH_` public naming with bounded legacy `SA_` compatibility.
 
@@ -37,16 +42,16 @@ The candidate retains:
 
 File 00 must provide `smc.authentication-account 1.1.0` and the existing assurance provider. The later Advanced Trust consumer reads the File 02 passkey projection through `smc_file02_authentication_assurance_v1` contract `1.0.0` and independently validates owner/version/freshness/revalidation before any elevation.
 
-The File 00 integration dependency is a separate repository truth. R319 re-verifies its current `main` at `c4ab298b3ba2b870d507d32b36b1b4afd2771621` (runtime 1.2.43 / DB 1.4.5); File 02 release evidence must prove compatibility with that exact dependency or a later explicitly approved replacement.
+The File 00 integration dependency is a separate repository truth. The current exact pin is `1d7f215193d778b0977c8e50d738c42e1e5f66c2` (runtime `1.2.44`, DB `1.4.5`). The earlier File 02 1.2.6 paired run is retained as historical evidence only; exact File 02 1.3.0 integration must pass before the current blocker can close.
 
 ## Truthful status
 
 | Gate | Status |
 |---|---|
 | Specified | Complete |
-| Source coding | **Review candidate**; R321–R330 ten-round corrective review is complete at source level |
-| Packaged | Not claimed from this review branch; separate deterministic release gate |
-| Automated QA | Review exact-head lint/regression gate only; real WordPress/File 00 integration remains separate |
+| Source coding | **Review candidate**; R337 comprehensive remediation implemented |
+| Packaged | Pending exact-head deterministic release gate |
+| Automated QA | Pending exact-head PHP and real WordPress/File 00 integration |
 | Hostinger staging | Pending |
 | Real WebAuthn/SMTP/Google/browser/RTL/WCAG/load | Pending |
 | Backup/restore and rollback rehearsal | Pending |

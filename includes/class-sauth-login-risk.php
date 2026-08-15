@@ -64,9 +64,15 @@ final class SAUTH_Login_Risk {
 	public static function record_successful_login( $user_id, $method = 'provider', $score = 0 ) {
 		$user_id = absint( $user_id );
 		if ( ! $user_id ) { return false; }
-		self::upsert_device( $user_id, max( 0, absint( $score ) ), 'trusted' );
-		self::record_attempt( $user_id, 'success', sanitize_key( $method ), absint( $score ) );
-		return true;
+		$device_stored = self::upsert_device( $user_id, max( 0, absint( $score ) ), 'trusted' );
+		$attempt_stored = $device_stored && self::record_attempt( $user_id, 'success', sanitize_key( $method ), absint( $score ) );
+		if ( $device_stored && ! $attempt_stored ) {
+			/* A device is not allowed to remain trusted when the corresponding
+			 * success fact could not be proved durable. */
+			$contained = self::upsert_device( $user_id, 100, 'expired' );
+			if ( ! $contained && class_exists( 'SAUTH_Operations' ) ) { SAUTH_Operations::enter_safe_mode(); }
+		}
+		return $device_stored && $attempt_stored;
 	}
 
 	public static function record_failure( $user_id, $reason, $score = 0 ) {
@@ -117,16 +123,42 @@ final class SAUTH_Login_Risk {
 	}
 
 	private static function establish_session( WP_User $user, $remember, $requested_destination, array $completion_state, array $risk ) {
+		if ( ! class_exists( 'WP_Session_Tokens' ) ) {
+			self::fail_session_establishment( $user->ID, 'session_provider_unavailable' );
+		}
+		$default_duration = $remember ? 14 * DAY_IN_SECONDS : 2 * DAY_IN_SECONDS;
+		$duration = (int) apply_filters( 'auth_cookie_expiration', $default_duration, $user->ID, (bool) $remember );
+		$expiration = time() + min( YEAR_IN_SECONDS, max( HOUR_IN_SECONDS, $duration ) );
+		$token = (string) WP_Session_Tokens::get_instance( $user->ID )->create( $expiration );
+		if ( '' === $token ) { self::fail_session_establishment( $user->ID, 'session_token_create_failed' ); }
 		wp_set_current_user( $user->ID );
-		wp_set_auth_cookie( $user->ID, (bool) $remember, is_ssl() );
+		wp_set_auth_cookie( $user->ID, (bool) $remember, is_ssl(), $token );
+		if ( ! SAUTH_Session_Manager::session_binding_ready( $user->ID, $token ) ) {
+			$token = '';
+			self::fail_session_establishment( $user->ID, 'session_projection_failed' );
+		}
+		$token = '';
+		if ( ! self::record_successful_login( $user->ID, (string) ( $risk['reason_code'] ?? 'password' ), absint( $risk['score'] ?? 0 ) ) ) {
+			self::fail_session_establishment( $user->ID, 'risk_evidence_store_failed' );
+		}
 		try { do_action( 'wp_login', $user->user_login, $user ); } catch ( Throwable $error ) { SA_Membership_Adapter::audit( 'authentication_observer_failed', $user->ID, array( 'observer' => 'wp_login' ) ); }
-		self::upsert_device( $user->ID, absint( $risk['score'] ?? 0 ), 'trusted' );
-		self::record_attempt( $user->ID, 'success', sanitize_key( (string) ( $risk['reason_code'] ?? 'authenticated' ) ), absint( $risk['score'] ?? 0 ) );
 		$resolution = SAUTH_Completion_Resolver::resolve( $user->ID, $requested_destination, $completion_state );
 		$destination = 'allow' === ( $resolution['result'] ?? '' ) ? (string) $resolution['destination'] : SA_Membership_Adapter::profile_url();
 		SAUTH_Event_Outbox::emit( 'AccountAuthenticationSucceeded.v1', $user->ID, $user->ID, array( 'method' => 'password', 'risk' => self::risk_band( absint( $risk['score'] ?? 0 ) ), 'step_up' => false, 'completion_required' => ! empty( $resolution['missing_steps'] ) ), 'security' );
 		SA_Membership_Adapter::audit( 'password_authentication_succeeded', $user->ID, array( 'risk' => self::risk_band( absint( $risk['score'] ?? 0 ) ) ) );
 		wp_safe_redirect( SA_Security::safe_redirect( $destination, home_url( '/' ) ) );
+		exit;
+	}
+
+	private static function fail_session_establishment( $user_id, $reason ) {
+		$user_id = absint( $user_id );
+		if ( $user_id ) { SAUTH_Session_Manager::revoke_user_sessions( $user_id, sanitize_key( (string) $reason ) ); }
+		wp_clear_auth_cookie();
+		wp_set_current_user( 0 );
+		self::record_attempt( $user_id, 'failure', sanitize_key( (string) $reason ), 100 );
+		SAUTH_Event_Outbox::emit( 'AccountAuthenticationFailed.v1', $user_id, $user_id, array( 'method' => 'password', 'reason' => sanitize_key( (string) $reason ) ), 'security' );
+		SA_Membership_Adapter::audit( 'password_session_establishment_failed', $user_id, array( 'reason' => sanitize_key( (string) $reason ) ) );
+		wp_safe_redirect( SA_Security::message_url( 'login', 'error', 'The password was accepted, but a verifiable session could not be established. Retry later.' ) );
 		exit;
 	}
 
@@ -148,15 +180,43 @@ final class SAUTH_Login_Risk {
 		$now = current_time( 'mysql', true );
 		$table = self::device_table();
 		$existing = $wpdb->get_var( $wpdb->prepare( "SELECT public_id FROM {$table} WHERE user_id=%d AND fingerprint_hash=%s", absint( $user_id ), SA_Security::client_fingerprint() ) );
+		if ( '' !== (string) $wpdb->last_error ) { return false; }
 		$data = array( 'user_id' => absint( $user_id ), 'fingerprint_hash' => SA_Security::client_fingerprint(), 'network_hash' => self::network_hash(), 'device_label' => self::device_label(), 'network_label' => self::network_label(), 'status' => sanitize_key( $status ), 'risk_score' => min( 100, absint( $risk_score ) ), 'last_seen_at' => $now, 'last_login_at' => $now, 'updated_at' => $now );
-		if ( $existing ) { $wpdb->update( $table, $data, array( 'public_id' => (string) $existing ), array( '%d','%s','%s','%s','%s','%s','%d','%s','%s','%s' ), array( '%s' ) ); return; }
-		$data['public_id'] = strtolower( wp_generate_uuid4() ); $data['first_seen_at'] = $now;
-		$wpdb->insert( $table, $data, array( '%d','%s','%s','%s','%s','%s','%d','%s','%s','%s','%s','%s' ) );
+		if ( $existing ) {
+			$stored = $wpdb->update( $table, $data, array( 'public_id' => (string) $existing ), array( '%d','%s','%s','%s','%s','%s','%d','%s','%s','%s' ), array( '%s' ) );
+			$public_id = (string) $existing;
+		} else {
+			$public_id = strtolower( wp_generate_uuid4() );
+			$data['public_id'] = $public_id;
+			$data['first_seen_at'] = $now;
+			$stored = $wpdb->insert( $table, $data, array( '%d','%s','%s','%s','%s','%s','%d','%s','%s','%s','%s','%s' ) );
+		}
+		$post = $wpdb->get_row( $wpdb->prepare( "SELECT user_id,fingerprint_hash,network_hash,status,risk_score,last_seen_at,last_login_at FROM {$table} WHERE public_id=%s", $public_id ), ARRAY_A );
+		return false !== $stored
+			&& is_array( $post )
+			&& '' === (string) $wpdb->last_error
+			&& absint( $post['user_id'] ?? 0 ) === absint( $user_id )
+			&& hash_equals( (string) $data['fingerprint_hash'], (string) ( $post['fingerprint_hash'] ?? '' ) )
+			&& hash_equals( (string) $data['network_hash'], (string) ( $post['network_hash'] ?? '' ) )
+			&& hash_equals( (string) $data['status'], (string) ( $post['status'] ?? '' ) )
+			&& absint( $post['risk_score'] ?? 0 ) === (int) $data['risk_score']
+			&& hash_equals( $now, (string) ( $post['last_seen_at'] ?? '' ) )
+			&& hash_equals( $now, (string) ( $post['last_login_at'] ?? '' ) );
 	}
 
 	private static function record_attempt( $user_id, $result, $reason, $risk_score ) {
 		global $wpdb;
-		$wpdb->insert( self::attempt_table(), array( 'public_id' => strtolower( wp_generate_uuid4() ), 'user_id' => absint( $user_id ), 'fingerprint_hash' => SA_Security::client_fingerprint(), 'network_hash' => self::network_hash(), 'result' => sanitize_key( (string) $result ), 'reason_code' => sanitize_key( (string) $reason ), 'risk_score' => min( 100, absint( $risk_score ) ), 'created_at' => current_time( 'mysql', true ) ), array( '%s','%d','%s','%s','%s','%s','%d','%s' ) );
+		$public_id = strtolower( wp_generate_uuid4() );
+		$data = array( 'public_id' => $public_id, 'user_id' => absint( $user_id ), 'fingerprint_hash' => SA_Security::client_fingerprint(), 'network_hash' => self::network_hash(), 'result' => sanitize_key( (string) $result ), 'reason_code' => sanitize_key( (string) $reason ), 'risk_score' => min( 100, absint( $risk_score ) ), 'created_at' => current_time( 'mysql', true ) );
+		$stored = $wpdb->insert( self::attempt_table(), $data, array( '%s','%d','%s','%s','%s','%s','%d','%s' ) );
+		$post = $wpdb->get_row( $wpdb->prepare( 'SELECT user_id,result,reason_code,risk_score FROM ' . self::attempt_table() . ' WHERE public_id=%s', $public_id ), ARRAY_A );
+		return 1 === (int) $stored
+			&& is_array( $post )
+			&& '' === (string) $wpdb->last_error
+			&& absint( $post['user_id'] ?? 0 ) === (int) $data['user_id']
+			&& hash_equals( (string) $data['result'], (string) ( $post['result'] ?? '' ) )
+			&& hash_equals( (string) $data['reason_code'], (string) ( $post['reason_code'] ?? '' ) )
+			&& absint( $post['risk_score'] ?? 0 ) === (int) $data['risk_score'];
 	}
 
 	private static function risk_band( $score ) { $score = absint( $score ); return $score >= self::HIGH_RISK_THRESHOLD ? 'high' : ( $score >= self::CHALLENGE_THRESHOLD ? 'medium' : 'low' ); }
