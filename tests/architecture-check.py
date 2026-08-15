@@ -241,13 +241,13 @@ for event in ("PasskeyRegistered.v1", "PasskeyAuthenticated.v1", "PasskeyRevoked
 require_markers(
     "includes/class-sauth-operations.php",
     (
-        "sauth.system-check",
         "SAFE_MODE_OPTION",
+        "safe_mode_entered_at",
+        "enforce_safe_mode_request_gate",
+        "high_risk_actions_available",
+        "run_repair",
         "system_check",
-        "handle_repair",
-        "foundation_manifest",
-        "shell_manifest",
-        "route_manifest",
+        "sauth_guarded_repair",
     ),
 )
 
