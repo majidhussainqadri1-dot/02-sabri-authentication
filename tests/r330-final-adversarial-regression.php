@@ -18,8 +18,17 @@ $req( false !== strpos( $baseline, 'round-ledger-apply.yml' ) && false !== strpo
 $req( false !== strpos( $baseline, 'tests/r330-final-adversarial-regression.php' ), 'release constitution does not require R330 final regression' );
 $req( false !== strpos( $main, 'Version: 1.2.6' ) && false !== strpos( $main, "SAUTH_VERSION', '1.2.6" ), 'current runtime release identity is not synchronized' );
 $req( false !== strpos( $main, "SAUTH_DB_VERSION', '1.2.1" ), 'DB identity changed after R330' );
-$req( is_array( $lock ) && 'passkey_index_reconciliation_candidate_r335_corrected' === ( $lock['status']['coded'] ?? '' ), 'release lock coded status is not synchronized to the current corrective line' );
-$req( 'R331-R335-corrective' === ( $lock['review_line'] ?? '' ), 'release lock review line is not synchronized to the current corrective line' );
+
+/* R330 is a permanent historical regression. Later corrective rounds may
+ * legitimately advance the release-line label, so this guard proves the
+ * line has not moved backwards instead of pinning an obsolete R335 string. */
+$coded = is_array( $lock ) ? (string) ( $lock['status']['coded'] ?? '' ) : '';
+$review_line = is_array( $lock ) ? (string) ( $lock['review_line'] ?? '' ) : '';
+$coded_round = preg_match( '/_r(\d+)_corrected$/i', $coded, $coded_match ) ? (int) $coded_match[1] : 0;
+$review_round = preg_match( '/R331-R(\d+)-corrective$/', $review_line, $review_match ) ? (int) $review_match[1] : 0;
+$req( $coded_round >= 335, 'release lock coded status regressed below the R335 corrective baseline' );
+$req( $review_round >= 335, 'release lock review line regressed below the R335 corrective baseline' );
+
 $req( false === ( $lock['status']['staging_accepted'] ?? true ) && false === ( $lock['status']['live_deployed'] ?? true ) && false === ( $lock['status']['operational'] ?? true ), 'later corrective work falsely advances external completion gates' );
 foreach ( array( $readme, $status, $manifest, $changelog, $report ) as $evidence ) { $req( false !== strpos( $evidence, '1.2.6' ), 'release-facing evidence is not synchronized to the current runtime identity' ); }
 $req( false !== strpos( $status, 'Live-Deployed | No' ), 'status must continue to deny live-deployed completion' );
