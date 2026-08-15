@@ -253,12 +253,14 @@ require_markers(
 
 privacy = PHP["includes/class-sa-privacy.php"]
 for marker in (
-    "sa_email_verifications",
-    "sa_auth_sessions",
-    "sa_auth_devices",
-    "sa_auth_risk_challenges",
-    "sa_auth_attempts",
-    "privacy_anonymized",
+    "SAUTH_Activator::table( 'email_verifications' )",
+    "SAUTH_Activator::table( 'auth_sessions' )",
+    "SAUTH_Activator::table( 'auth_devices' )",
+    "SAUTH_Activator::table( 'risk_challenges' )",
+    "SAUTH_Activator::table( 'auth_attempts' )",
+    "SAUTH_Privacy_Jobs::begin_erasure",
+    "SAUTH_Passkeys::privacy_erase",
+    "erase_identity_payload",
 ):
     if marker not in privacy:
         fail(f"privacy lifecycle is missing {marker}")
