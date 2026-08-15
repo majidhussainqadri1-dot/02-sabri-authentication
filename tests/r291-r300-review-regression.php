@@ -55,7 +55,7 @@ r291_r300_before( $main, 'includes/class-sauth-privacy-jobs.php', 'includes/clas
 r291_r300_before( $main, 'includes/class-sauth-passkeys.php', 'includes/class-sauth-passkey-runtime.php', 'Passkey parser must load before hardened runtime controller.' );
 r291_r300_before( $main, 'SAUTH_Passkeys::init();', 'SAUTH_Passkey_Runtime::init();', 'Historical passkey parser/runtime must initialize before hardened endpoint replacement.' );
 r291_r300_contains( $main, "register_activation_hook( SAUTH_FILE, 'sauth_validate_activation_dependencies' );", 'Dependency readiness gate must execute before File 02 activation mutations.' );
-r291_r300_contains( $main, "SAUTH_Session_Manager::revoke_user_sessions( absint( $user_id ), 'passkey_assurance_epoch_rotated' )", 'Passkey assurance epoch rotation must use the verified all-session revocation boundary.' );
+r291_r300_contains( $main, 'SAUTH_Session_Manager::revoke_user_sessions( absint( $user_id ), \'passkey_assurance_epoch_rotated\' )', 'Passkey assurance epoch rotation must use the verified all-session revocation boundary.' );
 r291_r300_contains( $main, 'SAUTH_Operations::enter_safe_mode();', 'Failed passkey assurance epoch revocation must enter Safe Mode.' );
 
 r291_r300_contains( $privacy, "const ACTIVE_META = '_sauth_privacy_erasure_active';", 'Privacy erasure barrier marker missing.' );
