@@ -14,6 +14,15 @@ $GLOBALS['sa_test_options'] = array(
 );
 $GLOBALS['sa_test_meta'] = array();
 
+class WP_User {
+	public $ID;
+	public $user_email;
+	public function __construct( $user_id, $email ) {
+		$this->ID = (int) $user_id;
+		$this->user_email = (string) $email;
+	}
+}
+
 function wp_salt( $scheme = 'auth' ) {
 	return hash( 'sha256', 'file02-test-salt|' . $scheme );
 }
@@ -49,6 +58,9 @@ function get_option( $name, $default = false ) {
 }
 function get_user_meta( $user_id, $key, $single = false ) {
 	return isset( $GLOBALS['sa_test_meta'][ $user_id ][ $key ] ) ? $GLOBALS['sa_test_meta'][ $user_id ][ $key ] : '';
+}
+function get_userdata( $user_id ) {
+	return 7 === (int) $user_id ? new WP_User( 7, 'member@example.test' ) : false;
 }
 function is_email( $email ) {
 	return false !== filter_var( $email, FILTER_VALIDATE_EMAIL );

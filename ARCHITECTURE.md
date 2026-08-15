@@ -10,7 +10,7 @@ File 00 remains the sole canonical owner of membership legitimacy, identity assu
 
 1. **Entry surfaces** — semantic templates for login, registration, email confirmation, risk challenge, recovery, sessions, passkeys and provider management.
 2. **Security utilities** — atomic rate limits, same-origin redirects, cryptographic tokens, encrypted provider configuration and privacy-minimized fingerprints.
-3. **File 00 contracts** — fail-closed consumers for `smc.authentication-account 1.1.0` and membership/eligibility assertions; File 00 consumes the fresh File 02 passkey assurance projection. Retired File 00 factor codes are not authentication ceremonies.
+3. **File 00 contracts** — fail-closed consumers for `smc.authentication-account 1.1.0` and membership/eligibility assertions; File 00 consumes the fresh File 02 passkey assurance projection, while retired File 00 factor codes are not authentication ceremonies.
 4. **Google-first bridge** — state, nonce, PKCE, exact claims validation and one-time context; Google proves email ownership only.
 5. **WebAuthn ceremony** — HTTPS/RP ID/origin binding, random one-time challenges, discoverable credentials, required user verification, server-side CBOR/COSE parsing, ES256/RS256 verification and credential lifecycle.
 6. **Risk and session controls** — privacy-minimized device/network projections, risk challenges and an HMAC-only opaque WordPress-session registry.
