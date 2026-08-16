@@ -28,7 +28,7 @@
   "historical_incident_baseline_main": "8192c45b595b34e13e09934e3b2d554aa2d8553f",
   "prior_bootstrap_incident_root_cause": "File 02 1.2.0 called SAUTH_Storage_Router::init() after successful activation without requiring includes/class-sauth-storage-router.php, producing a fatal on the next WordPress request.",
   "live_1_3_0_activation_incident": {
-    "status": "root_cause_proven_fix_candidate_not_live_verified",
+    "status": "root_cause_proven_fix_candidate_repository_qa_green_not_live_verified",
     "deployed_runtime": "1.3.0",
     "stored_runtime_marker_before_fix": "1.2.0",
     "stored_database_marker_before_fix": "1.2.0",
@@ -43,8 +43,8 @@
   "status": {
     "specified": "complete",
     "coded": "live_root_cause_hotfix_candidate_r338",
-    "packaged": "pending_exact_head_release_integrity",
-    "automated_qa": "pending_final_1.3.1_exact_head",
+    "packaged": "repository_package_green_on_f76576e76b1887fa73606c9c0aa9128b72322b8a",
+    "automated_qa": "repository_qa_green_on_f76576e76b1887fa73606c9c0aa9128b72322b8a",
     "staging_accepted": false,
     "live_deployed": false,
     "operational": false
@@ -62,17 +62,17 @@
   "review_line": "R338-live-passkey-user-status-index-reconciliation",
   "cross_file_blockers": [],
   "cross_file_integration_evidence": {
-    "status": "repository_integration_green_on_pre_release_identity_head",
-    "workflow_run_id": 31953012754,
-    "file02_sha": "662b8f27c11da547dbb83c5c2adfff25b5a82bc8",
-    "file02_runtime": "1.3.0",
+    "status": "repository_integration_green",
+    "workflow_run_id": 31953732443,
+    "file02_sha": "f76576e76b1887fa73606c9c0aa9128b72322b8a",
+    "file02_runtime": "1.3.1",
     "file02_database": "1.3.0",
     "file02_passkey_schema": "1.0.1",
     "file00_sha": "1d7f215193d778b0977c8e50d738c42e1e5f66c2",
     "file00_runtime": "1.2.44",
     "wordpress": "7.0",
     "mariadb": "11.4",
-    "scope": "Proves the bounded stale user_status index recovery behavior before the immutable 1.3.1 release-identity bump. A fresh exact 1.3.1 head run is still required.",
+    "scope": "Exact-head repository integration proved fresh activation, supported legacy upgrade paths, the exact live-proven stale user_status index recovery, File 00 taxonomy parity and final File 00/File 02 boundaries. This remains repository evidence, not live-resolution evidence.",
     "required_proofs": [
       "fresh activation and exact runtime/schema markers",
       "canonical account taxonomy parity",
@@ -82,6 +82,24 @@
       "active-router legacy-table migration",
       "final paired runtime/schema boundaries"
     ]
+  },
+  "release_integrity_evidence": {
+    "status": "repository_release_green",
+    "workflow_run_id": 31953732419,
+    "file02_sha": "f76576e76b1887fa73606c9c0aa9128b72322b8a",
+    "php": ["7.4", "8.3"],
+    "deterministic_package": true,
+    "clean_extract_parity": true
+  },
+  "review_integrity_evidence": {
+    "status": "repository_review_green",
+    "workflow_run_id": 31953732410,
+    "file02_sha": "f76576e76b1887fa73606c9c0aa9128b72322b8a"
+  },
+  "canonical_storage_docs_evidence": {
+    "status": "repository_gate_green",
+    "workflow_run_id": 31953732436,
+    "file02_sha": "f76576e76b1887fa73606c9c0aa9128b72322b8a"
   },
   "prior_cross_file_integration_evidence": {
     "status": "repository_integration_green",
