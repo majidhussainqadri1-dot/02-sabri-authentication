@@ -1,70 +1,78 @@
-# File 02 Status — Version 1.3.0
+# File 02 Status — Recoverable Runtime Marker 1.3.0
 
 ## R338 authoritative source-lineage status
 
-The current recoverable repository tree is **not** the latest approved File 02 product-source lineage. The Founder-approved X24 amendment requires passkey schema `1.1.0`, the six X24 owner classes, the security-timeline/recovery/shared-signals data plane, the X24 routes and Authentication Assurance v2/Modern Auth/Shared Signals contracts. The later reviewed corpus records runtime `1.3.8 / DB 1.3.0 / passkey 1.1.0`; exact source bytes are not recovered here. `SOURCE-LINEAGE-LOCK.json` therefore blocks packaging, staging and deployment. R338 source hardening may be reviewed, but it is not a production-complete replacement.
+The current recoverable repository tree is **not** the latest approved File 02 product-source lineage. The Founder-approved amendment `SSH-F02-AMD-2026-08-08-X24` requires passkey schema `1.1.0`, six X24 owner classes, the security-timeline/recovery/shared-signals data plane, the X24 routes and Authentication Assurance v2/Modern Auth/Shared Signals contracts. The later reviewed corpus records runtime `1.3.8 / DB 1.3.0 / passkey 1.1.0`; exact source bytes are not recovered in the current evidence.
 
+`SOURCE-LINEAGE-LOCK.json` is therefore authoritative for this branch and sets `packaging_allowed=false`, `staging_allowed=false`, and `deployment_allowed=false`. R338 source hardening may be reviewed and regression-tested, but this tree is **not** a production-complete replacement and must not be packaged for installation.
 
-## Current candidate
+## Current recoverable review source
 
 - Branch: `review/file02-r338-fresh-review-fix-2026-08-16`
-- Version/schema: `1.3.0 / 1.3.0`; passkey table schema `1.0.1`
-- Repository `main` re-verified during R319: `0f011b1876e217b7ee46f92903e5315538c1025e`
-- Governing corpus: Definitive Master Plan v3.0; `SSH-F02-PLAN-2026-v1.0`; Consolidated All-Chats Directives v2.1; Continuous-Value/Top-20 Superset plan; later cross-file ownership refinement for File 02 passkey/WebAuthn ceremony
-- Intended canonical repository name: `02-sabri-authentication-and-accounts` (rename not yet performed)
-- Current transport repository: `02-sabri-authentication`
-- Required account provider: `smc.authentication-account 1.1.0`
-- Authentication-assurance producer: File 02 `smc_file02_authentication_assurance_v1` / contract `1.0.0`
+- R338 frozen pre-correction HEAD: `6e007be952817c400efe93fbecbd5101689dfeb7`
+- Recoverable runtime/DB marker: `1.3.0 / 1.3.0`
+- Recoverable passkey table schema: `1.0.1`
+- Later approved reviewed lineage evidence: `1.3.8 / DB 1.3.0 / passkey 1.1.0` — exact source bytes unrecovered
+- Repository `main`: `0f011b1876e217b7ee46f92903e5315538c1025e`
+- Required File 00 runtime: `1.2.44+`
+- Required account provider: `smc.authentication-account 1.1.0+`
+- Minimum WordPress: `6.4+`
+- Authentication-assurance producer present in this recoverable tree: File 02 `smc_file02_authentication_assurance_v1` / contract `1.0.0`
 - Historical incident baseline main: `8192c45b595b34e13e09934e3b2d554aa2d8553f`
-- Exact current cross-file repository integration: **PENDING** for File 02 `1.3.0`; File 00 remains pinned to `1d7f215193d778b0977c8e50d738c42e1e5f66c2` / runtime `1.2.44`.
-- Historical paired evidence: run `31850253635` proved File 02 `1.2.6`, not this candidate.
+- Historical paired evidence: run `31850253635` proved File 02 `1.2.6`; it does not prove this branch or recover the approved X24/1.3.8 source.
 
-## Source candidate capabilities
+## What the recoverable tree does contain
 
-- Full password and Google-first registration orchestration plus mandatory identity/guardian/completion fields passed to the File 00 owner contract.
-- Password login, signed email verification, recovery/reset, Google OAuth/link/unlink, provider circuits, Safe Mode and fail-closed membership checks.
-- Device/session registry, generalized device/network display, individual revoke, revoke others and sign out everywhere.
-- New-device/network/recent-failure policy with elevated password risk requiring a separate File 02 passkey sign-in; retired File 00 factor codes are not treated as a File 02 ceremony.
-- WebAuthn/passkey registration and usernameless authentication with HTTPS/RP ID/origin binding, required user verification and discoverable credentials.
-- Server-side attestation-object CBOR parsing and COSE ES256/RS256 public-key extraction; client-supplied public keys are not trusted.
-- Atomic one-time challenge replay claim, credential collision protection, signature verification, signature-counter regression containment and revoked/compromised states.
-- Fresh passkey assurance projected as `owner=file02`, `contract_version=1.0.0`, `level=3`, session/fingerprint-bound and five-minute limited.
-- Conservative provenance: `attestation=none` never fabricates `hardware_backed=true`.
-- Passkey management uses a fresh File 02 passkey assurance when present, otherwise current-password reauthentication; retired File 00 authenticator/recovery codes are neither solicited nor accepted.
-- Privacy export/erasure for passkeys, opaque random user handles, no biometric/private-key retention, privacy-minimized passkey events and bounded revoked-credential cleanup.
-- Loop-safe completion resolver, canonical `/account/sessions/` route, canonical `SAUTH_` identifiers and bounded legacy aliases.
-- R334/R335 correct real MariaDB passkey migration: dbDelta-safe one-index-per-line DDL plus exact reconciliation of the MariaDB-preserved stale `credential_lookup_hash => credential_hash` unique-index binding.
-- R336 binds architecture release identity to `RELEASE-LOCK.json` and records exact cross-file integration closure without advancing external deployment gates.
-- R337 replaces query-text migration bypass with an explicit router suspension scope; hardens email issuance/verification CAS state transitions; serializes Google subject/user mutations with database locks; proves exact WordPress/File 02 session binding; closes passkey backup/counter/RSA gaps; and makes privacy export/erasure bounded, canonical-and-legacy aware and postcondition-driven.
+The recoverable hardening line contains password and Google-first registration, email verification, password login/recovery, Google OAuth/link/unlink, provider circuits, Safe Mode, device/session controls, login-risk checks, WebAuthn/passkey registration/authentication, server-side attestation/COSE parsing, challenge replay protection, signature-counter containment, passkey assurance v1, completion routing, privacy export/erasure, canonical route handling, and the later R331–R337 migration/concurrency/session/privacy hardening.
+
+These capabilities remain useful source evidence, but they do **not** substitute for the missing Founder-approved F02-X24-001..024 implementation layer.
+
+## Approved X24 scope currently missing from this exact recoverable tree
+
+The current source does not contain the complete approved X24 architecture, including the six owner classes `SAUTH_Modern_Auth`, `SAUTH_Security_Orchestrator`, `SAUTH_Shared_Signals`, `SAUTH_Password_Safety`, `SAUTH_DPoP`, and `SAUTH_FIDO_Trust`; the required `sauth_security_timeline`, `sauth_recovery_changes`, and `sauth_shared_signals` tables; passkey schema `1.1.0`; `/account-security/` and `/resolve-account/`; or the approved Authentication Assurance v2 `2.0.0`, Modern Auth `1.0.0`, and Shared Signals `1.0.0` contracts.
+
+That absence is an **open release blocker**, not a completed feature set and not a request to infer the missing implementation from old branch names or documentation.
+
+## R338 corrections completed on the recoverable tree
+
+R338 was reviewed fully and frozen before correction. The correction line now:
+
+- requires File 00 `1.2.44+` rather than `1.2.43+`;
+- aligns File 02 metadata and release evidence to WordPress `6.4+`;
+- preserves WordPress `confirm_admin_email` as a WordPress-owned administrative ceremony;
+- adds machine-readable source-lineage containment;
+- makes the package builder fail closed while the approved source lineage is unrecovered;
+- corrects release, SBOM, traceability and staging wording so current-source hardening cannot be mistaken for approved-scope completeness; and
+- adds permanent R338 regression coverage for the lineage/dependency/release boundary.
 
 ## Seven separate completion gates
 
 | Gate | Status | Evidence boundary |
 |---|---|---|
-| Specified | Complete | Governing File 02 + central/Continuous-Value + cross-file ownership traced |
-| Source coding | **Review candidate** | R337 comprehensive remediation implemented; exact-head CI pending |
-| Packaged | Pending exact-head Release Integrity | Deterministic package proof must come from this exact head |
-| Automated-QA | Pending exact-head R337 run | Local parser/static/package checks do not replace PHP 7.4/8.3 and real MariaDB CI |
-| Staging-Accepted | No | Real Hostinger/WebAuthn/provider/browser acceptance evidence absent |
-| Live-Deployed | No | No production authorization/evidence for this candidate |
-| Operational | No | Monitoring/support/restore evidence absent |
+| Specified | **Approved scope known; current source incomplete** | X24 and later 1.3.8 evidence define additional approved scope absent from this tree |
+| Source coding | **R338-corrected recoverable hardening source; lineage-blocked** | Useful current-source corrections exist, but approved X24/1.3.8 source is unrecovered |
+| Packaged | **BLOCKED** | `SOURCE-LINEAGE-LOCK.json` and `tools/build-package.sh` forbid installable packaging |
+| Automated-QA | **Review-source exact-head QA in progress** | Source regression success cannot authorize package/staging/deploy while lineage is blocked |
+| Staging-Accepted | No | Source-lineage gate blocks staging before ordinary environment acceptance begins |
+| Live-Deployed | No | No production deployment evidence for this R338 branch |
+| Operational | No | No current deployment/monitoring/support/restore evidence |
 
 ## Cross-file repository integration evidence
 
-The current File 02 `1.3.0` / File 00 `1.2.44` integration gate is **open** until the exact candidate head passes WordPress 7.0 / MariaDB 11.4. It must prove fresh activation, all nine canonical account types, the legacy passkey upgrade, logical-identity collision preservation, the repaired active-router legacy copy and final paired boundaries.
+The current recoverable File 02 `1.3.0` / File 00 `1.2.44` paired integration is not yet exact-head proven for the final R338 branch. Even if that integration becomes green, it would prove only those exact recoverable inputs; it would **not** recover or prove the missing approved X24/1.3.8 product-source lineage.
 
-Exact run `31850253635` remains valid historical evidence for File 02 `1.2.6 / DB 1.2.1 / passkey 1.0.1`; it cannot be promoted to current-head evidence.
+Exact run `31850253635` remains valid historical evidence for File 02 `1.2.6 / DB 1.2.1 / passkey 1.0.1` paired with File 00 `1.2.44`. It cannot be promoted to current-head evidence.
 
-This does not substitute for Hostinger staging or live deployment evidence.
+## Required path before any release
 
-## External owner and environment gates
+1. Recover the exact reviewed File 02 `1.3.8` source bundle, or prove a separately reviewed later superseding exact source.
+2. Verify the recovered source against the recorded approved artifact/source-manifest hashes.
+3. Reconcile R337/R338 hardening onto that exact later source without dropping F02-X24-001..024.
+4. Run two fresh complete review → frozen ledger → fix → retest cycles after the final coding change.
+5. Run exact-head source QA and exact File 00 integration.
+6. Only after lineage closure may a deterministic installable package be generated and package-QA performed.
+7. Hostinger staging, Founder acceptance, production deployment, live re-test and deployment parity remain later separate gates.
 
-- Hostinger fresh install and supported upgrade acceptance against the exact packaged candidate.
-- Real production-domain WebAuthn tests with platform authenticators, synced passkeys and cross-platform security keys; real Google and SMTP providers.
-- File 01/File 20/File 03/File 24/theme/LiteSpeed integrations beyond the exact File 00 gate proven above.
-- Real-role IDOR/CSRF/replay/race/privacy tests and privilege-loss/session-revocation tests.
-- Urdu RTL, English LTR, keyboard, screen reader, 200–400% zoom, mobile and cross-browser acceptance.
-- Performance/load/provider-outage tests, backup/restore and rollback rehearsal.
-- Founder staging acceptance and controlled production authorization.
+No source/package/staging/live/operational status may be inferred from another gate.
 
-No source/package/staging/live/operational status may be inferred from another gate. Exact deployed code, live database version, live migration state and live verification remain unverified unless separate live evidence is captured.
+**Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔**
