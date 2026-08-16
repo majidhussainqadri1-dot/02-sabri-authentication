@@ -51,6 +51,7 @@ jobs:
           grep -Fq "table_indexes_ready" includes/class-sa-activator.php
           grep -Fq "table_schema_ready" includes/class-sauth-passkeys.php
           grep -Fq "SHOW INDEX FROM" includes/class-sauth-passkeys.php
+          grep -Fq "SAUTH_Passkey_Index_Reconciler::repair()" sabri-authentication.php
       - name: Verify current documentation truth markers
         run: |
           set -euo pipefail
@@ -72,8 +73,10 @@ jobs:
                   if marker not in text:
                       print(f'ERROR: {path} missing {marker}',file=sys.stderr); raise SystemExit(1)
           lock=json.loads(pathlib.Path('RELEASE-LOCK.json').read_text())
-          required={'release_version':'1.3.0','database_version':'1.3.0','passkey_schema_version':'1.0.1','transport_repository':'02-sabri-authentication'}
+          required={'release_version':'1.3.1','database_version':'1.3.0','passkey_schema_version':'1.0.1','transport_repository':'02-sabri-authentication'}
           for k,v in required.items():
               if lock.get(k)!=v: raise SystemExit('release-lock mismatch: '+k)
+          readme=pathlib.Path('readme.txt').read_text(encoding='utf-8')
+          if 'Stable tag: 1.3.1' not in readme: raise SystemExit('readme stable tag mismatch')
           print('Canonical documentation truth PASS.')
           PY
