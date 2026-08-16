@@ -1,11 +1,13 @@
 # File 02 — Authentication and Accounts
 
-**Canonical repository name:** `02-sabri-authentication-and-accounts`
-**Current historical GitHub transport repository:** `02-sabri-authentication`
-**Package folder / WordPress slug:** `02-sabri-authentication` / `sabri-authentication`
-**Source candidate:** `1.2.6`
-**Database schema:** `1.2.1`
-**Governing corpus:** Definitive Master Plan v3.0, `SSH-F02-PLAN-2026-v1.0`, Consolidated All-Chats Directives v2.1, Continuous-Value/Top-20 Superset plan and the later File 00 Advanced Trust ownership boundary.
+**Canonical repository name:** `02-sabri-authentication-and-accounts`  
+**Current historical GitHub transport repository:** `02-sabri-authentication`  
+**Current review branch:** `review/file02-r337-fresh-audit-2026-08-16`  
+**Package folder / WordPress slug:** `02-sabri-authentication` / `sabri-authentication`  
+**Source candidate:** `1.2.6`  
+**Database schema:** `1.2.1`  
+**Passkey schema:** `1.0.1`  
+**Governing corpus:** Definitive Master Plan v3.0, `SSH-F02-PLAN-2026-v1.0`, and later approved File 02/File 00 ownership refinements.
 
 ## Canonical ownership
 
@@ -13,40 +15,39 @@ File 02 owns email/password, Google OAuth and WebAuthn/passkey authentication ce
 
 File 00 remains the sole owner of platform identity, membership eligibility, declared account class, age/guardian truth, roles/capabilities, verification, suspension, institutional authority and MFA policy. File 24 may contribute risk/assurance policy. Authentication never grants native object authorization.
 
-## Version 1.2.6 completion scope
+## Current R337 source scope
 
-Version 1.2.6 carries the 1.2.1 bootstrap correction plus the sequential R321–R330 security, migration, passkey, provider, session, privacy, route/UI, dependency-contract and release-truth hardening. DB identity advances to `1.2.1` and passkey schema identity to `1.0.1` so supported upgrades explicitly reconcile canonical columns and security-critical indexes before successful markers are published.
+R337 is a fresh review/fix cycle after the R331–R336 line. The complete R337 review was frozen before correction at exact HEAD `972f5fd2cc59fe69bf465b844ac36c740533f7dd`. The frozen ledger is `review-evidence/R337-REVIEW-FROZEN.md`.
 
-The candidate retains:
+R337 found seven verified defects: four High and three Medium. The corrective source now:
 
-- email/password and secure Google-first registration with every approved completion field and consent bridge;
-- signed one-time email verification, password authentication and recovery/reset;
-- Google OAuth state, nonce, PKCE, issuer/audience/azp/time/email validation and explicit same-email link/unlink;
-- WebAuthn/passkey registration, usernameless sign-in and revocation with required user verification, resident credentials, exact origin/RP binding and replay-safe challenges;
-- server-side `attestationObject` CBOR parsing and COSE ES256/RS256 public-key extraction; browser-supplied public keys are never trusted;
-- stable credential lookup across WordPress salt rotation, random opaque user handles, signature verification and counter-regression containment;
-- fresh five-minute passkey assurance projected to File 00 as a versioned `owner=file02` claim without moving identity/MFA policy into File 02;
-- conservative provenance: `attestation=none` never fabricates a hardware-backed assertion;
-- opaque session/device registry, canonical `/account/sessions/`, individual/other/all-session revocation and generalized device/network presentation;
-- suspicious-login risk policy with elevated password risk requiring a separate File 02 passkey sign-in;
-- privacy-minimized authentication/passkey events, privacy export/erasure, provider circuits, Safe Mode, System Check and guarded repair;
-- File 01/File 20 manifests, migration/rollback/backup/incident documentation and deterministic packaging;
-- canonical `SAUTH_` public naming with bounded legacy `SA_` compatibility.
+- requires File 00 runtime `1.2.44+`, the first reviewed current provider candidate that accepts the canonical account taxonomy;
+- aligns the WordPress minimum to `6.4+`, matching the mandatory File 00 dependency;
+- applies adult-only local prevalidation to canonical professional/institutional declarations: doctor, teacher, researcher, pharmacy, clinic and publisher;
+- proves passkey credential state persistence before any assurance/session success;
+- fails the synchronous authentication request closed when File 02 session-registry persistence cannot be proved;
+- preserves WordPress `confirm_admin_email` instead of redirecting that WordPress-owned administrative ceremony into File 02 login; and
+- aligns release/status evidence to the R337 review branch without advancing package, staging, live or operational claims.
+
+The exact multi-file corrective commit is `e04cfdf51a6d876f70c0296acfb9692fef5a54df`; later commits add regression/evidence alignment, so final QA must always be attributed to the final immutable branch HEAD rather than that intermediate commit.
+
+The candidate also retains the earlier hardening for email verification, password recovery, Google OIDC, WebAuthn/passkeys, risk gating, session controls, privacy export/erasure, provider circuits, Safe Mode, guarded repair, canonical routes, additive migrations and deterministic-release infrastructure.
 
 ## Required File 00 boundary
 
-File 00 must provide `smc.authentication-account 1.1.0` and the existing assurance provider. The later Advanced Trust consumer reads the File 02 passkey projection through `smc_file02_authentication_assurance_v1` contract `1.0.0` and independently validates owner/version/freshness/revalidation before any elevation.
+File 00 must be runtime `1.2.44+` and provide `smc.authentication-account 1.1.0+` plus the current membership-assurance provider. The Advanced Trust consumer may read the File 02 passkey projection through `smc_file02_authentication_assurance_v1` contract `1.0.0` and must independently validate owner/version/freshness/revalidation before elevation.
 
-The File 00 integration dependency is a separate repository truth. R319 re-verifies its current `main` at `c4ab298b3ba2b870d507d32b36b1b4afd2771621` (runtime 1.2.43 / DB 1.4.5); File 02 release evidence must prove compatibility with that exact dependency or a later explicitly approved replacement.
+The older paired repository integration run `31850253635` used File 02 `f740ca65fc33031b98d7d75e5f27b7ccbeeefbf9` with File 00 `1d7f215193d778b0977c8e50d738c42e1e5f66c2` / runtime `1.2.44`. It remains **historical pre-R337** evidence only. Because R337 changes File 02 source after that run, exact post-R337 paired revalidation is required before cross-file integration success can be attributed to the current candidate.
 
 ## Truthful status
 
 | Gate | Status |
 |---|---|
 | Specified | Complete |
-| Source coding | **Review candidate**; R321–R330 ten-round corrective review is complete at source level |
-| Packaged | Not claimed from this review branch; separate deterministic release gate |
-| Automated QA | Review exact-head lint/regression gate only; real WordPress/File 00 integration remains separate |
+| Source coding | **R337 corrective candidate**; frozen review ledger and corrections present |
+| Packaged | Pending final exact-head package proof |
+| Automated QA | Pending final exact-head green proof |
+| Post-R337 File 00 paired integration | Pending |
 | Hostinger staging | Pending |
 | Real WebAuthn/SMTP/Google/browser/RTL/WCAG/load | Pending |
 | Backup/restore and rollback rehearsal | Pending |
@@ -54,3 +55,5 @@ The File 00 integration dependency is a separate repository truth. R319 re-verif
 | Live/Operational | Not claimed |
 
 Real-environment acceptance gates are external to source coding and must never be silently represented as completed.
+
+**Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔**
