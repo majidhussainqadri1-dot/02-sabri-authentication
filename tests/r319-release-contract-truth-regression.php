@@ -3,12 +3,16 @@ $root=dirname(__DIR__); $adapter=file_get_contents($root.'/includes/class-sa-mem
 $checks=array(
  array($adapter,'SAUTH_Passkey_Runtime::current_assurance','membership compatibility helper bypasses hardened passkey assurance'),
  array($adapter,"add_query_arg( 'redirect_to', SA_Security::safe_redirect( \$redirect )",'membership login URL still pre-encodes redirect destination'),
- array($lock,'fix/file02-live-passkey-user-status-index-1.3.1','release lock does not name the current R338 hotfix branch'),
- array($lock,'"release_version": "1.3.1"','release lock does not identify the current 1.3.1 runtime'),
+ array($adapter,"MEMBERSHIP_APPLICATION_KEY  = 'application'",'File 02 does not consume the canonical File 00 application page key'),
+ array($adapter,"MEMBERSHIP_SECURITY_KEY     = 'security'",'File 02 does not consume the canonical File 00 security page key'),
+ array($adapter,"MEMBERSHIP_STATUS_KEY       = 'status'",'File 02 does not consume the canonical File 00 status page key'),
+ array($lock,'fix/file02-file00-canonical-routes-1.3.2-2026-08-16','release lock does not name the current R339 route-contract hotfix branch'),
+ array($lock,'"release_version": "1.3.2"','release lock does not identify the current 1.3.2 runtime'),
  array($lock,'"database_version": "1.3.0"','release lock changed the canonical DB identity unexpectedly'),
  array($lock,'cross_file_integration_evidence','release lock omits exact cross-file integration evidence'),
  array($lock,'31850253635','release lock omits proven historical cross-file integration run'),
  array($lock,'live_1_3_0_activation_incident','release lock omits the live 1.3.0 activation incident evidence'),
+ array($lock,'live_1_3_1_membership_route_contract_incident','release lock omits the live 1.3.1 membership-route incident evidence'),
  array($status,'R337 comprehensive remediation','status document no longer preserves the R337 base line'),
  array($readme,'1.3.0','README no longer preserves the R337 base identity/history'),
  array($manifest,'Historical run `31850253635`','release manifest does not separate prior integration evidence'),
@@ -20,5 +24,6 @@ $checks=array(
 foreach($checks as $c){if(false===strpos($c[0],$c[1]))$fail[]=$c[2];}
 if(false!==strpos($adapter,'rawurlencode( SA_Security::safe_redirect( $redirect )'))$fail[]='membership login redirect remains pre-encoded';
 if(false!==strpos($adapter,'SAUTH_Passkeys::file00_assurance'))$fail[]='membership compatibility helper still calls legacy assurance directly';
+foreach(array('sabri_profile','sabri_security_center','sabri_verification_status','/sabri-profile/','/sabri-security-center/','/sabri-verification-status/') as $forbidden){if(false!==strpos($adapter,$forbidden))$fail[]='invented File 00 membership route remains: '.$forbidden;}
 if(false!==strpos($migration,'password/Google authentication can remain available'))$fail[]='migration guide retains fail-open passkey-failure claim';
-if($fail){fwrite(STDERR,"R319 regressions:\n- ".implode("\n- ",$fail)."\n");exit(1);} echo 'R319 current release/contract truth invariants PASS ('.(count($checks)+3)." assertions).\n";
+if($fail){fwrite(STDERR,"R319 regressions:\n- ".implode("\n- ",$fail)."\n");exit(1);} echo 'R319 current release/contract truth invariants PASS ('.(count($checks)+9)." assertions).\n";
