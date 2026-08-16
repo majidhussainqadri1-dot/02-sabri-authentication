@@ -2,10 +2,10 @@
   "SPDXID": "SPDXRef-DOCUMENT",
   "spdxVersion": "SPDX-2.3",
   "dataLicense": "CC0-1.0",
-  "name": "Sabri Authentication and Accounts 1.3.0 SBOM",
-  "documentNamespace": "https://sabrihomeopathy.com/spdx/file02-authentication-and-accounts/1.3.0/2026-08-15",
+  "name": "Sabri Authentication and Accounts 1.3.1 SBOM",
+  "documentNamespace": "https://sabrihomeopathy.com/spdx/file02-authentication-and-accounts/1.3.1/2026-08-16",
   "creationInfo": {
-    "created": "2026-08-15T00:00:00Z",
+    "created": "2026-08-16T00:00:00Z",
     "creators": [
       "Organization: Sabri Social Homeopathy Platform",
       "Person: Dr. Allama Majid Hussain Sabri",
@@ -20,7 +20,7 @@
     {
       "SPDXID": "SPDXRef-Package-File02",
       "name": "Sabri Authentication and Accounts",
-      "versionInfo": "1.3.0",
+      "versionInfo": "1.3.1",
       "downloadLocation": "NOASSERTION",
       "filesAnalyzed": false,
       "licenseConcluded": "GPL-2.0-or-later",
@@ -31,10 +31,10 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:wordpress/sabri-authentication@1.3.0"
+          "referenceLocator": "pkg:wordpress/sabri-authentication@1.3.1"
         }
       ],
-      "comment": "R337 comprehensive-remediation candidate. Runtime 1.3.0 / DB 1.3.0 / passkey schema 1.0.1; exact-head File 00 integration is pending. Repository CI evidence is not a staging or live-deployment claim."
+      "comment": "R338 live-root-cause hotfix candidate. Runtime 1.3.1 / DB 1.3.0 / passkey schema 1.0.1. It adds bounded reconciliation for the exact live-proven stale user_status(user_id,status,updated_at) passkey index; staging/live resolution remains unclaimed until deployment and live re-verification."
     },
     {
       "SPDXID": "SPDXRef-Package-WordPress",
