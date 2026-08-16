@@ -1,7 +1,7 @@
 {
-  "schema": "sauth.source-lineage-lock.v2",
+  "schema": "sauth.source-lineage-lock.v3",
   "file_number": "02",
-  "recorded_at": "2026-08-16T15:13:00+05:00",
+  "recorded_at": "2026-08-16T15:27:00+05:00",
   "r338_review_branch": "review/file02-r338-fresh-review-fix-2026-08-16",
   "r338_pre_correction_head": "6e007be952817c400efe93fbecbd5101689dfeb7",
   "current_recoverable_runtime": "1.3.0",
@@ -25,6 +25,11 @@
   "known_historical_1_3_8_source_review_bundle_sha256": "f284fbe8296f7d3085c5a10f4710c0962b0aff8ba1997667779605ff9d0bff57",
   "known_historical_1_3_8_source_manifest_name": "NINTH-EIGHTY-ROUND-SOURCE-MANIFEST.json",
   "known_historical_1_3_8_source_manifest_sha256": "5a15260da739353d911568c4ebe2a75d0989a4aff515c3dbd9e17e4c20702108",
+  "installable_manifest_file_recovered_in_file_library": true,
+  "source_review_manifest_file_recovered_in_file_library": true,
+  "manifest_raw_byte_sha256_recomputed": false,
+  "exact_1_3_8_installable_zip_bytes_recovered": false,
+  "exact_1_3_8_source_review_bundle_bytes_recovered": false,
   "exact_1_3_8_source_bytes_recovered": false,
   "current_source_has_complete_x24_scope": false,
   "current_source_is_latest_approved_product_source": false,
@@ -32,8 +37,11 @@
   "staging_allowed": false,
   "deployment_allowed": false,
   "source_recovery_audit_2026_08_16": {
-    "status": "blocked_exact_bytes_not_found",
-    "searchable_file_library_exact_artifacts_found": false,
+    "status": "partial_recovery_manifests_found_source_bytes_still_blocked",
+    "searchable_file_library_installable_manifest_found": true,
+    "searchable_file_library_source_manifest_found": true,
+    "searchable_file_library_installable_zip_found": false,
+    "searchable_file_library_source_review_zip_found": false,
     "github_releases_found": false,
     "github_tags_found": false,
     "github_branch_ref_for_modern_auth": "c895ec17c631e6a28c86aa659bf947f9d326dc4d",
@@ -41,27 +49,28 @@
     "github_fifth_ten_round_branch_ref": "c895ec17c631e6a28c86aa659bf947f9d326dc4d",
     "currently_retained_github_actions_1_3_8_artifact_found": false,
     "historical_identity_evidence_reconfirmed": true,
+    "manifest_path_byte_hash_inventory_available": true,
     "reconstruction_from_plan_authorized": false,
     "reconciliation_authorized": false,
     "notes": [
-      "The searchable File Library reconfirmed the v2.9 Ninth Eighty-Round document and all four historical 1.3.8 artifact identities/hashes, but did not expose the exact ZIP/source-bundle bytes.",
-      "The GitHub repository currently has no Releases and no Tags.",
-      "The branch named codex/file02-modern-auth-24-enhancements-1.3.0 resolves to c895ec17..., and its retained Actions artifact identifies the actual source as File 02 1.2.0, so the branch name is not recovery evidence.",
-      "The branch named codex/file02-fifth-ten-round-corrective-1.3.4 also resolves to c895ec17..., so it is not exact 1.3.4/1.3.8 source evidence.",
-      "The current retained Actions-artifact inventory does not expose the historically recorded 1.3.8 ZIP or source-review bundle. This statement is limited to currently retained artifacts and does not assert that the historical local files never existed.",
-      "Without exact bytes, checksum parity cannot be performed and R337/R338 hardening cannot be safely reconciled onto the approved X24 lineage."
+      "A subsequent File Library search recovered the exact-named 1.3.8 installable manifest and ninth-eighty-round source manifest. This corrects the earlier audit statement that no exact manifest file was exposed.",
+      "The recovered manifest presentations enumerate expected 1.3.8 paths, byte counts and per-file SHA-256 values, including the X24 owner classes and release/test evidence.",
+      "The raw manifest-file SHA-256 values have not been recomputed from exact file bytes through the File Library presentation layer, so historical manifest hash identity remains recorded evidence rather than a fresh raw-byte hash computation.",
+      "The exact installable ZIP and full source-review ZIP bytes are still not recovered; therefore the full 1.3.8 source tree is not yet recovered and cannot be represented as such.",
+      "The GitHub repository currently has no Releases and no Tags, and named 1.3.0/1.3.4 branches resolve to c895ec17... rather than a proved 1.3.8 tree.",
+      "Manifest recovery narrows source archaeology but does not authorize packaging, staging, deployment or R337/R338 reconciliation onto guessed bytes."
     ]
   },
   "block_reasons": [
-    "Exact reviewed 1.3.8 source bytes are not recovered in the current repository/searchable File Library/currently retained GitHub Actions evidence.",
+    "Exact reviewed 1.3.8 installable/source-review ZIP bytes and complete source bytes are not recovered in the current repository/searchable File Library/currently retained GitHub Actions evidence.",
     "The current recoverable 1.3.0 tree does not contain the Founder-approved F02-X24-001..024 implementation architecture.",
     "Current passkey schema is 1.0.1 while the approved X24/1.3.x product lineage requires 1.1.0.",
-    "Current source lacks the X24 security timeline/recovery/shared-signals data plane, routes and v2 contracts.",
+    "Current source lacks the complete X24 security timeline/recovery/shared-signals data plane, routes and v2 contracts.",
     "Named GitHub branches suggesting modern-auth 1.3.0 or corrective 1.3.4 resolve to old c895ec17... / 1.2.0-era source and cannot establish later-source parity."
   ],
   "unblock_requirements": [
     "Recover the exact reviewed File 02 1.3.8 source-review bundle or installable source candidate, or prove a later superseding exact source.",
-    "Verify the recovered bytes against the recorded source-manifest and artifact SHA-256 identities.",
+    "Verify recovered bytes against the now-recovered path/byte/hash manifests and recorded artifact SHA-256 identities.",
     "Reconcile R337/R338 hardening onto that exact later source without dropping F02-X24-001..024.",
     "Run two fresh full review/fix cycles, exact-head source QA, package QA, real WordPress/MariaDB upgrade/rollback and exact File 00 integration.",
     "Only then consider Hostinger staging; live deployment and live re-test remain separate gates."
