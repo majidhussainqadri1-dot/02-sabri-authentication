@@ -1,105 +1,70 @@
-# File 02 — Release Manifest — 1.3.0
+# File 02 — R338 Source Review Manifest — Recoverable Runtime Marker 1.3.0
 
 ## R338 source-lineage release block
 
-**Packaging is not authorized for this tree.** The current recoverable runtime marker is `1.3.0 / DB 1.3.0 / passkey 1.0.1`, while the Founder-approved X24 1.3.x architecture requires passkey `1.1.0`, Modern Auth, Authentication Assurance v2, Shared Signals, the X24 data plane and routes. The later reviewed corpus records runtime `1.3.8`; exact source bytes are not recovered here. `SOURCE-LINEAGE-LOCK.json` is machine-authoritative and sets `packaging_allowed=false`, `staging_allowed=false`, and `deployment_allowed=false`. Historical package names below are descriptive of the prior candidate only and are not authorized R338 outputs.
+**Packaging is not authorized for this tree.** The current recoverable source reports runtime/DB `1.3.0 / 1.3.0` and passkey schema `1.0.1`, while the Founder-approved amendment `SSH-F02-AMD-2026-08-08-X24` requires passkey schema `1.1.0`, Modern Auth, Authentication Assurance v2, Shared Signals, the X24 data plane and routes. The later reviewed corpus records runtime `1.3.8 / DB 1.3.0 / passkey 1.1.0`; exact source bytes are not recovered in the current evidence.
 
+`SOURCE-LINEAGE-LOCK.json` is machine-authoritative and sets `packaging_allowed=false`, `staging_allowed=false`, and `deployment_allowed=false`. Therefore this document is a **source-review manifest**, not an installable release manifest.
 
-## Release identity
+## Source identity
 
 - Module: `02 — Authentication and Accounts`
-- Candidate version/schema: `1.3.0 / 1.3.0`
-- Passkey schema/assurance: `1.0.1 / 1.0.0`
-- Candidate branch: `review/file02-r338-fresh-review-fix-2026-08-16`
-- Current repository `main` re-verified during R319: `0f011b1876e217b7ee46f92903e5315538c1025e`
-- Historical incident baseline main: `8192c45b595b34e13e09934e3b2d554aa2d8553f`
-- Intended canonical repository name: `02-sabri-authentication-and-accounts` (owner-level rename is still external)
+- Current recoverable runtime/DB marker: `1.3.0 / 1.3.0`
+- Current recoverable passkey schema/assurance: `1.0.1 / 1.0.0`
+- Approved later reviewed lineage: `1.3.8 / DB 1.3.0 / passkey 1.1.0` — exact source bytes unrecovered
+- R338 branch: `review/file02-r338-fresh-review-fix-2026-08-16`
+- R338 frozen pre-correction HEAD: `6e007be952817c400efe93fbecbd5101689dfeb7`
+- Current repository `main`: `0f011b1876e217b7ee46f92903e5315538c1025e`
+- Intended canonical repository name: `02-sabri-authentication-and-accounts` (owner-level rename remains external)
 - Current transport repository: `02-sabri-authentication`
-- Package root: `02-sabri-authentication`
-- Package: **BLOCKED — no R338 installable candidate is authorized from this lineage**
-- Manifest: **BLOCKED with package until source-lineage reconciliation**
-- Checksums: `CHECKSUMS.sha256` plus exact-head CI checksum record
-- SBOM: `SBOM.spdx.json`
-- Required File 00 provider: `smc.authentication-account 1.1.0`
-- Exact paired File 00 repository candidate: `1d7f215193d778b0977c8e50d738c42e1e5f66c2`, runtime `1.2.44`, DB `1.4.5`
-- Advanced Trust projection: File 02 passkey assurance `1.0.0`, owner `file02`
-- Current cross-file blocker: exact File 00 `1.2.44` / File 02 `1.3.0` integration is pending; run `31850253635` is retained only as historical File 02 `1.2.6` evidence.
+- Package root if/when lineage is eventually cleared: `02-sabri-authentication`
+- Installable package: **BLOCKED — none authorized from this lineage**
+- Package manifest/checksums: **BLOCKED with package**
+- SBOM source evidence: `SBOM.spdx.json`
+- Required File 00 runtime: `1.2.44+`
+- Required File 00 provider: `smc.authentication-account 1.1.0+`
+- Minimum WordPress: `6.4+`
+- Exact paired File 00 repository candidate used by prior integration infrastructure: `1d7f215193d778b0977c8e50d738c42e1e5f66c2`, runtime `1.2.44`, DB `1.4.5`
+- Assurance producer present in current recoverable tree: File 02 passkey assurance `1.0.0`, owner `file02`
 
-## Current hardening release
+## Current recoverable hardening scope
 
-Version 1.3.0 preserves the R321–R336 line and adds R337 comprehensive remediation. The repaired legacy copy uses explicit compatibility-router suspension instead of trusting SQL text; DB identity advances to `1.3.0` so supported installations rerun that copy. Email verification uses compare-and-set state transitions. Google registration/login/link/unlink share ordered database locks and exact postconditions. Password, Google and passkey success require exact WordPress/File 02 session binding plus persisted risk evidence. Passkeys enforce immutable backup eligibility, strict counter regression, RSA-2048/65537 and exact receipt ownership. Privacy export/erasure is bounded, covers canonical and preserved legacy stores, and proves recursive event anonymization.
+The recoverable tree preserves substantial authentication hardening from the R321–R337 line: registration/recovery, email-verification CAS protections, Google mutation locking, exact session binding, passkey migration/index reconciliation, passkey counter/backup/RSA hardening, risk/session controls, privacy export/erasure, canonical account taxonomy and File 00 ownership boundaries.
 
-Passkey schema identity remains `1.0.1` because the intended passkey table schema did not change. This source identity remains separate from exact-head CI, staging and live completion.
+Those corrections remain useful source work, but they do **not** establish Founder-approved X24 completeness. The current tree lacks the complete six-class X24 ownership layer, required X24 tables, passkey schema `1.1.0`, approved account-security/collision-resolution routes and v2/Modern Auth/Shared Signals contracts.
 
-## Cross-file integration evidence boundary
+## Historical cross-file evidence boundary
 
-Current exact-head File 02 `1.3.0` integration with File 00 `1d7f215193d778b0977c8e50d738c42e1e5f66c2` is pending. The workflow must prove:
+Historical run `31850253635` passed paired repository integration for exact File 02 `f740ca65fc33031b98d7d75e5f27b7ccbeeefbf9` / runtime `1.2.6` with File 00 `1d7f215193d778b0977c8e50d738c42e1e5f66c2` / runtime `1.2.44` on WordPress 7.0 / MariaDB 11.4.
 
-1. immutable paired input verification;
-2. WordPress 7.0 / MariaDB 11.4 installation;
-3. File 00 activation in queued state plus supported deferred administrator bootstrap to DB 1.4.5;
-4. File 02 fresh activation at runtime 1.3.0 / DB 1.3.0 / passkey schema 1.0.1;
-5. two-sided canonical account taxonomy parity for `member`, `patient`, `student`, `doctor`, `teacher`, `researcher`, `pharmacy`, `clinic`, `publisher`;
-6. legacy passkey column/index upgrade on real MariaDB;
-7. legacy logical-identity collision migration;
-8. active-router one-way legacy-table migration; and
-9. final paired runtime/schema boundary verification.
+That run remains valid only for those exact historical inputs. It does not prove the current R338 branch and does not recover the approved X24/1.3.8 source lineage.
 
-Historical run `31850253635` passed the analogous boundary for File 02 `f740ca65fc33031b98d7d75e5f27b7ccbeeefbf9` / runtime `1.2.6`; it is not evidence for this candidate.
+A future exact-head paired integration of this recoverable R338 tree may be useful as source-hardening evidence, but **cannot** by itself close the larger source-lineage blocker.
 
-## Historical bootstrap correction
+## Source-review QA rule
 
-File 02 1.2.0 contained `includes/class-sauth-storage-router.php` and invoked `SAUTH_Storage_Router::init()` during `plugins_loaded`, but the main plugin file did not require that class. Real WordPress cross-repository testing therefore activated the plugin and then reproduced a fatal on the next WordPress request. Version 1.2.1 loaded the storage-router source before startup registration and added permanent source, package and real WordPress reload guards.
-
-## Installable runtime inventory
-
-The deterministic builder includes only the plugin runtime and release-facing documentation:
-
-```text
-sabri-authentication.php
-uninstall.php
-readme.txt
-admin/
-assets/
-includes/
-templates/
-ARCHITECTURE.md
-CONTRACTS.md
-DATA-DICTIONARY.md
-MIGRATION.md
-ROLLBACK.md
-BACKUP-RESTORE.md
-INCIDENT.md
-STAGING-ACCEPTANCE.md
-THREAT-MODEL.md
-PRIVACY-RETENTION.md
-CHANGELOG.md
-SBOM.spdx.json
-PACKAGE-MANIFEST.json (generated)
-```
-
-Tests, CI workflows, historical review evidence, development reports and committed archives are excluded from the installable ZIP.
-
-## Exact-head evidence rule
-
-The corrected current GitHub Actions head must:
+While `SOURCE-LINEAGE-LOCK.json` remains blocked, repository QA may only prove the recoverable source state. It must:
 
 1. prove checkout equals the immutable source HEAD;
 2. lint every PHP source file on PHP 7.4 and 8.3;
-3. execute all security, assurance, registration, completion, plan, WebAuthn and R29x–R337 permanent regressions;
-4. enforce the release-lock-driven architecture guard, including File 02/File 00 ownership and rejection of client-supplied WebAuthn public keys;
-5. prove the storage-router source is loaded before File 02 startup;
-6. validate JavaScript syntax and CSS structure;
-7. build the 1.3.0 package twice from a fixed source epoch and prove byte identity;
-8. reject archive traversal, unexpected roots, secrets and forbidden files;
-9. clean-extract and lint every packaged PHP file and prove bootstrap/migration invariants survive packaging;
-10. pass the separate exact WordPress/File 00 integration against the same File 02 head; and
-11. never infer staging/live completion from repository/package success.
+3. execute all applicable security, assurance, registration, completion, WebAuthn, migration, privacy, route and R29x–R338 regressions;
+4. verify File 00 `1.2.44+` and WordPress `6.4+` dependency truth;
+5. verify WordPress-owned `confirm_admin_email` is not intercepted;
+6. enforce `SOURCE-LINEAGE-LOCK.json` and the current approved-scope incompleteness disclosure;
+7. validate JavaScript syntax and CSS structure; and
+8. confirm temporary correction machinery is absent.
 
-The actual package digest may be claimed only from the successful immutable workflow head.
+It must **not** generate or retain an installable release artifact. `tools/build-package.sh` is deliberately expected to refuse packaging while `packaging_allowed=false`.
 
-## External completion boundary
+## Conditions required before packaging can ever be re-enabled
 
-Current repository/source integration with File 00 is pending as described above. Hostinger staging, real production-domain WebAuthn authenticators, real SMTP/Google, browser/RTL/WCAG, other cross-file/theme/LiteSpeed integrations, performance/load, backup/restore, rollback, Founder acceptance, live deployment and operations remain separate gates.
+- Recover exact reviewed File 02 `1.3.8` source bytes or prove a separately reviewed later superseding exact source.
+- Verify recovered source/artifact identity against the recorded approved hashes.
+- Reconcile R337/R338 hardening without dropping F02-X24-001..024.
+- Complete two fresh full review/fix/retest cycles after the last coding change.
+- Achieve exact-head QA and exact File 00 integration on the reconciled later source.
+- Only then update `SOURCE-LINEAGE-LOCK.json` through a separately reviewed evidence change and permit deterministic package generation.
 
-Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔
+Hostinger staging, real WebAuthn/Google/SMTP/browser/RTL/WCAG testing, backup/restore, rollback, Founder acceptance, live deployment and operations remain separate later gates.
+
+**Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔**
