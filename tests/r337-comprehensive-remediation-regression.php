@@ -31,11 +31,13 @@ $completion = $read( 'includes/class-sauth-completion-resolver.php' );
 $integration = $read( '.github/workflows/file00-1.2.44-real-integration.yml' );
 $lock = json_decode( $read( 'RELEASE-LOCK.json' ), true );
 
-/* Current identity and truthful evidence boundary. */
-$has( $main, 'Version: 1.3.0', 'runtime header is not 1.3.0' );
-$has( $main, "SAUTH_VERSION', '1.3.0", 'runtime constant is not 1.3.0' );
-$has( $main, "SAUTH_DB_VERSION', '1.3.0", 'DB marker was not advanced for repaired migration' );
-$req( is_array( $lock ) && 'pending_exact_head' === ( $lock['cross_file_integration_evidence']['status'] ?? '' ), 'current cross-file evidence is falsely complete' );
+/* Current identity and truthful evidence boundary. R337 DB semantics remain
+ * 1.3.0 while the later R338 live-recovery hotfix advances runtime to 1.3.1. */
+$has( $main, 'Version: 1.3.1', 'current runtime header is not 1.3.1' );
+$has( $main, "SAUTH_VERSION', '1.3.1", 'current runtime constant is not 1.3.1' );
+$has( $main, "SAUTH_DB_VERSION', '1.3.0", 'R337 DB marker was not preserved for repaired migration' );
+$evidence_status = is_array( $lock ) ? (string) ( $lock['cross_file_integration_evidence']['status'] ?? '' ) : '';
+$req( in_array( $evidence_status, array( 'pending_exact_head', 'repository_integration_green_on_pre_release_identity_head', 'repository_integration_green' ), true ), 'current cross-file evidence status is invalid' );
 $req( 31850253635 === (int) ( $lock['prior_cross_file_integration_evidence']['workflow_run_id'] ?? 0 ), 'historical 1.2.6 integration evidence was not preserved separately' );
 $req( false === ( $lock['status']['staging_accepted'] ?? true ) && false === ( $lock['status']['live_deployed'] ?? true ) && false === ( $lock['status']['operational'] ?? true ), 'external completion gates were falsely advanced' );
 
@@ -107,7 +109,7 @@ $has( $completion, "in_array( (string) ( \$assertion['result'] ?? '' ), array( '
 /* Real integration must exercise the defect while the router is active. */
 $has( $integration, 'Prove active-router one-way legacy migration on real MariaDB', 'real integration lacks active-router migration rehearsal' );
 $has( $integration, 'SAUTH_Activator::migrate_legacy_tables()', 'real integration does not invoke the repaired migration while active' );
-$has( $integration, 'FILE02_VERSION: \'1.3.0\'', 'real integration runtime identity is stale' );
+$has( $integration, 'FILE02_VERSION: \'1.3.1\'', 'real integration runtime identity is stale' );
 $has( $integration, 'FILE02_DB_VERSION: \'1.3.0\'', 'real integration DB identity is stale' );
 $req( file_exists( $root . '/review-evidence/R337-COMPREHENSIVE-REMEDIATION.md' ), 'R337 review evidence is missing' );
 

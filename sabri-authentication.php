@@ -3,7 +3,7 @@
  * Plugin Name: Sabri Authentication and Accounts
  * Plugin URI: https://www.sabrihomeopathy.com/
  * Description: Email/password, Google OAuth and WebAuthn/passkey authentication orchestration, registration, recovery, risk challenge, session controls and authentication assurance for the Sabri Social Homeopathy Platform. Requires Sabri Membership Core.
- * Version: 1.3.0
+ * Version: 1.3.1
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: Dr. Allama Majid Hussain Sabri
@@ -14,7 +14,7 @@
 defined( 'ABSPATH' ) || exit;
 
 /* Canonical File 02 constitution. */
-define( 'SAUTH_VERSION', '1.3.0' );
+define( 'SAUTH_VERSION', '1.3.1' );
 define( 'SAUTH_DB_VERSION', '1.3.0' );
 define( 'SAUTH_ACCOUNT_CONTRACT_VERSION', '1.1.0' );
 define( 'SAUTH_AUTH_EVENT_SCHEMA_VERSION', '1.0.0' );
@@ -60,6 +60,7 @@ require_once SAUTH_DIR . 'includes/class-sauth-operations.php';
 require_once SAUTH_DIR . 'includes/class-sauth-safe-mode-challenge-gate.php';
 require_once SAUTH_DIR . 'includes/class-sauth-provider-http-guard.php';
 require_once SAUTH_DIR . 'includes/class-sauth-canonical-routes.php';
+require_once SAUTH_DIR . 'includes/class-sauth-passkey-index-reconciler.php';
 require_once SAUTH_DIR . 'includes/class-sauth-passkeys.php';
 require_once SAUTH_DIR . 'includes/class-sauth-passkey-runtime.php';
 require_once SAUTH_DIR . 'includes/class-sa-plugin.php';
@@ -98,7 +99,25 @@ function sauth_validate_activation_dependencies() {
 		array( 'back_link' => true )
 	);
 }
+
+/**
+ * Reconcile only the exact stale passkey index shape proven on the deployed
+ * File 02 1.3.0 live database before the owning installer verifies its schema.
+ */
+function sauth_reconcile_activation_schema() {
+	if ( SAUTH_Passkey_Index_Reconciler::repair() ) {
+		return;
+	}
+	SAUTH_Operations::enter_safe_mode();
+	deactivate_plugins( plugin_basename( SAUTH_FILE ) );
+	wp_die(
+		esc_html__( 'File 02 activation stopped because the passkey index preflight found an unknown or unrepaired schema shape. Safe Mode remains enabled and no broader schema rewrite was attempted.', 'sabri-authentication' ),
+		esc_html__( 'Authentication schema reconciliation incomplete', 'sabri-authentication' ),
+		array( 'back_link' => true )
+	);
+}
 register_activation_hook( SAUTH_FILE, 'sauth_validate_activation_dependencies' );
+register_activation_hook( SAUTH_FILE, 'sauth_reconcile_activation_schema' );
 register_activation_hook( SAUTH_FILE, array( 'SAUTH_Activator', 'activate' ) );
 register_deactivation_hook( SAUTH_FILE, array( 'SAUTH_Passkeys', 'deactivate' ) );
 register_deactivation_hook( SAUTH_FILE, array( 'SAUTH_Activator', 'deactivate' ) );
@@ -124,6 +143,16 @@ function sauth_start_plugin() {
 		return;
 	}
 	$started = true;
+
+	/* File replacement can upgrade an already-active plugin without firing the
+	 * activation hook. Reconcile the exact known stale index before
+	 * SA_Activator::maybe_upgrade(), but only after File 00 is materially ready. */
+	if ( SAUTH_Membership_Adapter::available() && SAUTH_Account_Contract::provider_available() ) {
+		if ( ! SAUTH_Passkey_Index_Reconciler::repair() ) {
+			SAUTH_Operations::enter_safe_mode();
+		}
+	}
+
 	SAUTH_Storage_Router::init();
 	SAUTH_Provider_Health::init();
 	SAUTH_Provider_HTTP_Guard::init();

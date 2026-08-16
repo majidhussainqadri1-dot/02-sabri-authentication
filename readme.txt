@@ -4,14 +4,14 @@ Tags: authentication, passkeys, webauthn, google login, registration, accounts, 
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.3.0
+Stable tag: 1.3.1
 License: GPLv2 or later
 
 Complete authentication and account-entry orchestration for the Sabri Social Homeopathy Platform. File 00 — Sabri Membership Core remains the exclusive identity, membership, account-class, guardian, role, verification and MFA-policy authority; File 02 owns password, Google OAuth and WebAuthn/passkey authentication ceremonies.
 
 == Truthful release status ==
 
-Version 1.3.0 is the R337 comprehensive-remediation source candidate. Runtime and DB identity are 1.3.0; passkey schema identity remains 1.0.1. Exact-head CI and File 00 integration are pending, and source/CI completion does not by itself prove Hostinger staging, deployment or operations.
+Version 1.3.1 is the live-root-cause hotfix source candidate built on the reviewed 1.3.0 line. Runtime identity is 1.3.1; DB identity remains 1.3.0 and passkey schema identity remains 1.0.1 because the intended canonical schemas are unchanged. The hotfix exists to reconcile the exact deployed stale MariaDB `user_status(user_id,status,updated_at)` passkey index into canonical `user_status(user_id,status)` before the passkey owner verifies its schema. Repository/CI success does not by itself prove Hostinger staging, live deployment, Safe Mode exit or operational resolution.
 
 == Canonical constitution ==
 
@@ -42,7 +42,7 @@ If a required contract is missing, malformed or circuit-open, protected mutation
 * Password authentication using WordPress APIs, dummy hashing for unknown accounts, generic errors, rate controls and File 00 eligibility/completion rechecks.
 * Google OAuth state, nonce, PKCE, issuer/audience/authorized-party/time validation, explicit same-email linking and collision protection.
 * WebAuthn/passkey usernameless sign-in and passkey enrollment/revocation with required user verification, discoverable credentials, RP-ID/origin binding, one-time challenge replay claims, server-side CBOR/COSE parsing, ES256/RS256 verification, signature-counter checks and privacy-minimized metadata.
-* Passkey registration accepts only the COSE public key embedded in authenticatorData inside an `attestation=none` attestation object; a browser-supplied public key is never trusted.
+* Passkey registration accepts only the COSE public key embedded in authenticatorData inside an `attestation=none` attestation object; a browser-supplied public key can never establish registration.
 * Fresh passkey assurance is session-bound and projected to File 00 as owner=`file02`, contract `1.0.0`, level 3, `passkey_asserted=true`; hardware-backed status is not claimed when attestation provenance is intentionally unavailable.
 * Passkey enrollment/revocation requires fresh reauthentication: a fresh File 02 passkey assurance, otherwise the current password. Retired File 00 Authenticator/recovery codes are never solicited or accepted as File 02 authentication authority.
 * New-device/network/recent-failure risk scoring; elevated password risk requires a separate File 02 passkey sign-in.
@@ -53,6 +53,7 @@ If a required contract is missing, malformed or circuit-open, protected mutation
 * File 01 module manifest and File 20 route/layout manifest with the canonical nested session route.
 * Privacy export/erasure/anonymization, additive migration, non-destructive uninstall, deterministic package, manifest, checksums and SBOM.
 * Green primary identity, logical responsive CSS, keyboard focus, reduced motion and RTL-ready structure.
+* Bounded live-index reconciliation: only the exact known stale passkey `user_status(user_id,status,updated_at)` index is contracted to canonical `user_status(user_id,status)`; unknown shapes fail closed and no table/data purge is performed.
 
 == Passkey security and privacy boundaries ==
 
@@ -67,7 +68,8 @@ If a required contract is missing, malformed or circuit-open, protected mutation
 == External acceptance gates ==
 
 * Owner-level GitHub repository rename to the canonical repository name.
-* Hostinger staging fresh install and supported upgrades with real MySQL/dbDelta, SMTP, Google OAuth and real WebAuthn authenticators on the production RP ID/origin.
+* Hostinger staging/live exact-deployed recovery verification against the proven stale passkey-index incident.
+* Hostinger fresh install and supported upgrades with real MySQL/dbDelta, SMTP, Google OAuth and real WebAuthn authenticators on the production RP ID/origin.
 * File 00 Advanced Trust, File 01, File 20, File 03, File 24, theme and LiteSpeed integration.
 * Real Founder/member/minor/guardian/suspended/security-operator journeys.
 * IDOR/CSRF/replay/race/privacy, browser/mobile/RTL/WCAG, performance/load, backup/restore and rollback acceptance.
@@ -78,6 +80,14 @@ If a required contract is missing, malformed or circuit-open, protected mutation
 Passwords, reset keys, verification tokens, OAuth tokens, TOTP/recovery codes, passkey private keys, biometric templates, raw session tokens, full IP addresses and provider secrets are excluded from events and public diagnostics. Authentication success is never authorization.
 
 == Changelog ==
+
+= 1.3.1 =
+* Fixes the exact live-verified MariaDB migration blocker where `wp_sauth_passkeys.user_status` remained `(user_id,status,updated_at)` while canonical readiness requires `(user_id,status)`.
+* Adds a narrowly bounded, idempotent reconciler that mutates only that exact stale shape and fails closed on unknown layouts.
+* Runs the reconciliation before activation migration and on already-active file-replacement upgrades after File 00 readiness is proven.
+* Preserves DB schema identity 1.3.0 and passkey schema identity 1.0.1 because the intended canonical schemas do not change.
+* Adds permanent R338 regression coverage plus real WordPress 7.0 / MariaDB 11.4 rehearsal of the exact deployed stale-index state.
+* Does not claim live resolution until the 1.3.1 package is deployed and the live index/version/passkey markers and authentication flows are re-verified.
 
 = 1.3.0 =
 * Repairs active-router legacy-table migration with an explicit scoped suspension and advances DB identity to 1.3.0 so the corrected copy reruns.
@@ -91,12 +101,10 @@ Passwords, reset keys, verification tokens, OAuth tokens, TOTP/recovery codes, p
 * The migration now recognizes only that exact stale binding, preserves legacy uniqueness under a legacy key name, frees the canonical key name, and lets dbDelta create and verify the canonical unique credential_lookup_hash index.
 * Preserves DB schema 1.2.1, passkey schema 1.0.1 and passkey assurance contract 1.0.0; staging/live/operational status remains unclaimed.
 
-
 = 1.2.5 =
 * Corrects the real MariaDB/WebAuthn upgrade defect in the passkey table definition by emitting every dbDelta index definition on its own CREATE TABLE line.
 * Preserves DB schema identity 1.2.1, passkey schema identity 1.0.1 and passkey assurance contract 1.0.0 because the intended physical schema is unchanged.
 * Retains canonical File 00 account-taxonomy parity and the exact File 00 1.2.44 integration boundary. Repository success does not establish staging or live deployment.
-
 
 = 1.2.4 =
 * Aligns File 02 declared account choices with File 00 canonical account taxonomy: member, patient, student, doctor, teacher, researcher, pharmacy, clinic and publisher.
