@@ -1,8 +1,8 @@
 <?php
 /**
  * Source-level preservation guard: all prior three-plan requirements must remain
- * present in File 02 v1.3.0 while the fourth-plan passkey extension, the
- * storage-router bootstrap correction and later hardening remain intact.
+ * present in the current recoverable File 02 v1.3.0 hardening tree while the
+ * later approved X24/1.3.8 source lineage is separately disclosed and blocked.
  */
 
 $root = dirname( __DIR__ );
@@ -79,15 +79,18 @@ $routes = sauth_three_plan_read( $root, 'includes/class-sauth-canonical-routes.p
 sauth_three_plan_require( $routes, array("'^account/sessions/?$'","'/account/sessions/'","'canonical_repository'","'02-sabri-authentication-and-accounts'","'php_prefix'","'SAUTH_'"), 'canonical routes and naming' );
 
 $passkeys = sauth_three_plan_read( $root, 'includes/class-sauth-passkeys.php' );
-sauth_three_plan_require( $passkeys, array("const SCHEMA_VERSION        = '1.0.1';",'smc_file02_authentication_assurance_v1','webauthn.create','webauthn.get','parse_attestation_object','cose_public_key_to_pem','challenge_claim_key'), 'fourth-plan passkey extension' );
+sauth_three_plan_require( $passkeys, array("const SCHEMA_VERSION        = '1.0.1';",'smc_file02_authentication_assurance_v1','webauthn.create','webauthn.get','parse_attestation_object','cose_public_key_to_pem','challenge_claim_key'), 'recoverable passkey extension' );
 
 $readme = sauth_three_plan_read( $root, 'readme.txt' );
 sauth_three_plan_require( $readme, array( 'Stable tag: 1.3.0', '/account/sessions/', 'Google-first registration', 'Passkey', 'city', 'ethical' ), 'readme' );
 
 $status = sauth_three_plan_read( $root, 'STATUS.md' );
-sauth_three_plan_require( $status, array( 'Version 1.3.0', 'Source coding', 'Automated-QA', 'Staging-Accepted', 'Operational', 'Passkey' ), 'status truth' );
+sauth_three_plan_require( $status, array( 'Recoverable Runtime Marker 1.3.0', 'Source coding', 'Automated-QA', 'Staging-Accepted', 'Operational', 'passkey', 'SOURCE-LINEAGE-LOCK.json' ), 'status truth' );
+
+$lineage = sauth_three_plan_read( $root, 'SOURCE-LINEAGE-LOCK.json' );
+sauth_three_plan_require( $lineage, array( '"latest_approved_reviewed_runtime_evidence": "1.3.8"', '"packaging_allowed": false', '"current_source_has_complete_x24_scope": false' ), 'source-lineage truth' );
 
 $workflow = sauth_three_plan_read( $root, '.github/workflows/baseline-integrity.yml' );
-sauth_three_plan_require( $workflow, array( 'three-plan-completion-unit.php', 'passkey-webauthn-unit.php', 'tests/r32*-regression.php', 'tests/r33*-regression.php', 'deterministic-package', 'upload-artifact', '1.3.0' ), 'release workflow' );
+sauth_three_plan_require( $workflow, array( 'three-plan-completion-unit.php', 'passkey-webauthn-unit.php', 'tests/r32*-regression.php', 'tests/r33*-regression.php', 'deterministic-package', 'upload-artifact', '1.3.0' ), 'historical release workflow constitution' );
 
-echo "File 02 prior three-plan requirements preserved inside the 1.3.0 R337 candidate.\n";
+echo "File 02 prior three-plan requirements preserved in the current recoverable 1.3.0 hardening tree; R338 lineage lock remains authoritative.\n";
