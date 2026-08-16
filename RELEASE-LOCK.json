@@ -1,14 +1,14 @@
 {
-  "schema": 4,
+  "schema": 5,
   "file_number": "02",
   "module": "Sabri Authentication and Accounts",
   "plan_id": "SSH-F02-PLAN-2026-v1.0",
-  "release_version": "1.3.0",
+  "release_version": "1.3.1",
   "database_version": "1.3.0",
   "passkey_schema_version": "1.0.1",
-  "candidate_branch": "agent/file02-comprehensive-remediation-1.3.0",
-  "candidate_base": "972f5fd2cc59fe69bf465b844ac36c740533f7dd",
-  "current_repository_main": "0f011b1876e217b7ee46f92903e5315538c1025e",
+  "candidate_branch": "fix/file02-live-passkey-user-status-index-1.3.1",
+  "candidate_base": "5f635b8f16adf5a98d15c5b4df2085090c689c54",
+  "current_repository_main": "5f635b8f16adf5a98d15c5b4df2085090c689c54",
   "intended_canonical_repository": "02-sabri-authentication-and-accounts",
   "transport_repository": "02-sabri-authentication",
   "package_folder": "02-sabri-authentication",
@@ -21,18 +21,30 @@
   "minimum_account_contract_version": "1.1.0",
   "passkey_assurance_contract_version": "1.0.0",
   "passkey_assurance_owner": "file02",
-  "package_name": "02-sabri-authentication-1.3.0-SOURCE-CANDIDATE.zip",
-  "manifest_name": "02-sabri-authentication-1.3.0-MANIFEST.json",
+  "package_name": "02-sabri-authentication-1.3.1-SOURCE-CANDIDATE.zip",
+  "manifest_name": "02-sabri-authentication-1.3.1-MANIFEST.json",
   "checksums_name": "CHECKSUMS.sha256",
   "sbom_name": "SBOM.spdx.json",
   "historical_incident_baseline_main": "8192c45b595b34e13e09934e3b2d554aa2d8553f",
-  "incident_root_cause": "File 02 1.2.0 called SAUTH_Storage_Router::init() after successful activation without requiring includes/class-sauth-storage-router.php, producing a fatal on the next WordPress request.",
+  "prior_bootstrap_incident_root_cause": "File 02 1.2.0 called SAUTH_Storage_Router::init() after successful activation without requiring includes/class-sauth-storage-router.php, producing a fatal on the next WordPress request.",
+  "live_1_3_0_activation_incident": {
+    "status": "root_cause_proven_fix_candidate_not_live_verified",
+    "deployed_runtime": "1.3.0",
+    "stored_runtime_marker_before_fix": "1.2.0",
+    "stored_database_marker_before_fix": "1.2.0",
+    "legacy_table_migration_marker": "1.3.0",
+    "passkey_schema_marker_before_fix": "absent",
+    "safe_mode": "1",
+    "root_cause": "The deployed wp_sauth_passkeys user_status index was user_status(user_id,status,updated_at), while the canonical File 02 1.3.0 passkey verifier requires user_status(user_id,status). dbDelta did not contract the stale existing index, so passkey schema readiness failed and activation stopped safely.",
+    "permanent_fix": "Runtime 1.3.1 adds a bounded idempotent reconciler that rewrites only the exact proven stale user_status index shape and fails closed on unknown layouts.",
+    "live_resolution_claimed": false
+  },
   "artifact_policy": "Exact-head CI may lint, regression-test and deterministically package this source candidate, but staging/live/operational claims remain separate gates and must not be inferred from repository success.",
   "status": {
     "specified": "complete",
-    "coded": "review_candidate_r337_comprehensive_remediation",
+    "coded": "live_root_cause_hotfix_candidate_r338",
     "packaged": "pending_exact_head_release_integrity",
-    "automated_qa": "exact_head_pending",
+    "automated_qa": "pending_final_1.3.1_exact_head",
     "staging_accepted": false,
     "live_deployed": false,
     "operational": false
@@ -40,18 +52,19 @@
   "external_gates": [
     "Owner-level repository rename",
     "Hostinger fresh install and supported upgrades",
+    "Exact live 1.3.0 stale-index recovery deployment and activation retest",
     "Real production-domain WebAuthn authenticators and browser/device acceptance",
     "Real Google/SMTP integration",
     "Security/privacy/IDOR/replay/race/accessibility/performance acceptance",
     "Backup/restore and rollback rehearsal",
     "Founder staging and production authorization"
   ],
-  "review_line": "R337-comprehensive-remediation",
-  "cross_file_blockers": [
-    "Exact File 00 1.2.44 / File 02 1.3.0 integration pending"
-  ],
+  "review_line": "R338-live-passkey-user-status-index-reconciliation",
+  "cross_file_blockers": [],
   "cross_file_integration_evidence": {
-    "status": "pending_exact_head",
+    "status": "repository_integration_green_on_pre_release_identity_head",
+    "workflow_run_id": 31953012754,
+    "file02_sha": "662b8f27c11da547dbb83c5c2adfff25b5a82bc8",
     "file02_runtime": "1.3.0",
     "file02_database": "1.3.0",
     "file02_passkey_schema": "1.0.1",
@@ -59,10 +72,12 @@
     "file00_runtime": "1.2.44",
     "wordpress": "7.0",
     "mariadb": "11.4",
+    "scope": "Proves the bounded stale user_status index recovery behavior before the immutable 1.3.1 release-identity bump. A fresh exact 1.3.1 head run is still required.",
     "required_proofs": [
       "fresh activation and exact runtime/schema markers",
       "canonical account taxonomy parity",
       "legacy passkey column/index upgrade",
+      "exact deployed stale user_status index recovery",
       "legacy logical-identity collision migration",
       "active-router legacy-table migration",
       "final paired runtime/schema boundaries"
@@ -79,7 +94,7 @@
     "file00_runtime": "1.2.44",
     "wordpress": "7.0",
     "mariadb": "11.4",
-    "scope": "Historical evidence only; it does not prove the current File 02 1.3.0 head."
+    "scope": "Historical evidence only; it does not prove the current File 02 1.3.1 head."
   },
   "r320_review_baseline": "fe66788cb6c12e966bb198b361347cb74ec490b0"
 }
