@@ -28,17 +28,20 @@ $risk = $read( 'includes/class-sauth-login-risk.php' );
 $privacy = $read( 'includes/class-sa-privacy.php' );
 $professional = $read( 'includes/class-sa-professional-reauthentication.php' );
 $completion = $read( 'includes/class-sauth-completion-resolver.php' );
+$adapter = $read( 'includes/class-sa-membership-adapter.php' );
 $integration = $read( '.github/workflows/file00-1.2.44-real-integration.yml' );
 $lock = json_decode( $read( 'RELEASE-LOCK.json' ), true );
 
-/* Current identity and truthful evidence boundary. R337 DB semantics remain
- * 1.3.0 while the later R338 live-recovery hotfix advances runtime to 1.3.1. */
-$has( $main, 'Version: 1.3.1', 'current runtime header is not 1.3.1' );
-$has( $main, "SAUTH_VERSION', '1.3.1", 'current runtime constant is not 1.3.1' );
+/* R337 DB semantics remain 1.3.0. The later R338 live passkey-index hotfix is
+ * preserved by 1.3.1, while R339 advances only runtime identity to 1.3.2 for
+ * the File 00 canonical managed-page route correction. */
+$has( $main, 'Version: 1.3.2', 'current runtime header is not 1.3.2' );
+$has( $main, "SAUTH_VERSION', '1.3.2", 'current runtime constant is not 1.3.2' );
 $has( $main, "SAUTH_DB_VERSION', '1.3.0", 'R337 DB marker was not preserved for repaired migration' );
 $evidence_status = is_array( $lock ) ? (string) ( $lock['cross_file_integration_evidence']['status'] ?? '' ) : '';
 $req( in_array( $evidence_status, array( 'pending_exact_head', 'repository_integration_green_on_pre_release_identity_head', 'repository_integration_green' ), true ), 'current cross-file evidence status is invalid' );
 $req( 31850253635 === (int) ( $lock['prior_cross_file_integration_evidence']['workflow_run_id'] ?? 0 ), 'historical 1.2.6 integration evidence was not preserved separately' );
+$req( 31953732443 === (int) ( $lock['pre_route_fix_cross_file_integration_evidence']['workflow_run_id'] ?? 0 ), 'historical 1.3.1 pre-route-fix integration evidence was not preserved separately' );
 $req( false === ( $lock['status']['staging_accepted'] ?? true ) && false === ( $lock['status']['live_deployed'] ?? true ) && false === ( $lock['status']['operational'] ?? true ), 'external completion gates were falsely advanced' );
 
 /* Storage migration must never trust attacker-influenced SQL text. */
@@ -106,12 +109,23 @@ foreach ( array( 'provider_contract', 'provider_version', 'provider_scope_hash',
 $has( $completion, 'file00_mfa_required', 'completion resolver does not require explicit File 00 MFA-retirement evidence' );
 $has( $completion, "in_array( (string) ( \$assertion['result'] ?? '' ), array( 'allow', 'deny' ), true )", 'an unresolved File 00 assertion can retire a completion requirement' );
 
-/* Real integration must exercise the defect while the router is active. */
+/* R339 preserves ownership by consuming only File 00's real page-map keys. */
+$has( $adapter, "MEMBERSHIP_APPLICATION_KEY  = 'application'", 'File00 application route key is not canonical' );
+$has( $adapter, "MEMBERSHIP_SECURITY_KEY     = 'security'", 'File00 security route key is not canonical' );
+$has( $adapter, "MEMBERSHIP_STATUS_KEY       = 'status'", 'File00 status route key is not canonical' );
+foreach ( array( 'sabri_profile', 'sabri_security_center', 'sabri_verification_status' ) as $forbidden ) {
+	$not( $adapter, $forbidden, 'invented File00 membership route remains: ' . $forbidden );
+}
+
+/* Real integration must exercise the defect while the router is active and
+ * also prove the canonical File 00 managed-page route contract. */
 $has( $integration, 'Prove active-router one-way legacy migration on real MariaDB', 'real integration lacks active-router migration rehearsal' );
 $has( $integration, 'SAUTH_Activator::migrate_legacy_tables()', 'real integration does not invoke the repaired migration while active' );
-$has( $integration, 'FILE02_VERSION: \'1.3.1\'', 'real integration runtime identity is stale' );
+$has( $integration, 'Prove File 02 resolves exact File 00 canonical membership routes', 'real integration lacks File00 canonical route proof' );
+$has( $integration, 'FILE02_VERSION: \'1.3.2\'', 'real integration runtime identity is stale' );
 $has( $integration, 'FILE02_DB_VERSION: \'1.3.0\'', 'real integration DB identity is stale' );
 $req( file_exists( $root . '/review-evidence/R337-COMPREHENSIVE-REMEDIATION.md' ), 'R337 review evidence is missing' );
+$req( file_exists( $root . '/tests/r339-file00-canonical-route-contract-regression.php' ), 'R339 route-contract regression is missing' );
 
 if ( $fail ) {
 	fwrite( STDERR, "R337 comprehensive remediation regressions:\n- " . implode( "\n- ", $fail ) . "\n" );
