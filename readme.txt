@@ -1,7 +1,7 @@
 === Sabri Authentication and Accounts ===
 Contributors: sabrihomeopathy
 Tags: authentication, passkeys, webauthn, google login, registration, accounts, recovery, sessions, security
-Requires at least: 6.0
+Requires at least: 6.4
 Tested up to: 7.0
 Requires PHP: 7.4
 Stable tag: 1.2.6
@@ -24,7 +24,7 @@ Version 1.2.6 is the current post-R331 repository/source candidate. It retains t
 
 == Required dependency ==
 
-File 00 — Sabri Membership Core with:
+File 00 — Sabri Membership Core 1.2.44+ with:
 
 * `smc.cf01.membership-assurance` 1.0.0 or later;
 * `smc.authentication-account` 1.1.0 or later; and
