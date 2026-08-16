@@ -22,7 +22,7 @@ $canonical_professional = "array( 'doctor', 'teacher', 'researcher', 'pharmacy',
 $req( false !== strpos( $registration, $canonical_professional ), 'registration professional taxonomy is not canonical' );
 $req( false === strpos( $registration, "array( 'doctor', 'teacher', 'clinic_staff', 'institution_representative' )" ), 'stale provider-only professional taxonomy remains in registration age gate' );
 
-foreach ( array( '$state_changed = $wpdb->update(', '$persisted_state = $wpdb->get_row(', "'credential_state_persist_failed'", "'user_id' => $user_id, 'status' => 'active'" ) as $marker ) {
+foreach ( array( '$state_changed = $wpdb->update(', '$persisted_state = $wpdb->get_row(', "'credential_state_persist_failed'", "'user_id' => " . '$user_id' . ", 'status' => 'active'" ) as $marker ) {
     $req( false !== strpos( $passkeys, $marker ), 'passkey state postcondition missing: ' . $marker );
 }
 $persist_check = strpos( $passkeys, "'credential_state_persist_failed'" );
@@ -32,7 +32,8 @@ $req( false !== $persist_check && false !== $assurance_store && $persist_check <
 foreach ( array( "'session_projection_store_failed'", 'wp_clear_auth_cookie();', 'wp_set_current_user( 0 );', 'wp_send_json_error(', 'wp_die(' ) as $marker ) {
     $req( false !== strpos( $sessions, $marker ), 'session fail-closed postcondition missing: ' . $marker );
 }
-$req( false !== strpos( $sessions, "false === $result || '' !== (string) $wpdb->last_error" ), 'session projection database error is not fail-closed' );
+$session_db_guard = 'false === ' . '$result' . " || '' !== (string) " . '$wpdb->last_error';
+$req( false !== strpos( $sessions, $session_db_guard ), 'session projection database error is not fail-closed' );
 
 $req( false !== strpos( $access, "'confirm_admin_email'" ), 'WordPress confirm_admin_email action is still intercepted' );
 
@@ -48,4 +49,4 @@ $req( file_exists( $root . '/review-evidence/R337-REVIEW-FROZEN.md' ), 'R337 fro
 $req( ! file_exists( $root . '/.github/workflows/r337-exact-corrective-edit.yml' ), 'temporary write-capable R337 correction workflow remains in source' );
 
 if ( $fail ) { fwrite( STDERR, "R337 regressions:\n- " . implode( "\n- ", $fail ) . "\n" ); exit( 1 ); }
-echo 'R337 fresh audit regression PASS (27 assertions).' . PHP_EOL;
+echo 'R337 fresh audit regression PASS.' . PHP_EOL;
