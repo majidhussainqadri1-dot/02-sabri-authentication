@@ -1,0 +1,305 @@
+name: R338 Apply Frozen Ledger
+
+on:
+  push:
+    branches:
+      - review/file02-r338-fresh-review-fix-2026-08-16
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: ${{ !contains(github.event.head_commit.message, '[r338-apply]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact R338 branch
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+          ref: review/file02-r338-fresh-review-fix-2026-08-16
+      - name: Apply frozen-ledger corrections
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+
+          root = Path('.')
+
+          def replace_once(path, old, new):
+              p = root / path
+              text = p.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected one exact preimage, found {count}: {old!r}')
+              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          def prepend_after(path, marker, block):
+              p = root / path
+              text = p.read_text(encoding='utf-8')
+              if block.strip() in text:
+                  return
+              if marker not in text:
+                  raise SystemExit(f'{path}: marker missing')
+              p.write_text(text.replace(marker, marker + block, 1), encoding='utf-8')
+
+          # R338-D06/D07 — exact dependency truth.
+          replace_once('includes/class-sa-membership-adapter.php', "const MIN_VERSION     = '1.2.43';", "const MIN_VERSION     = '1.2.44';")
+          replace_once('sabri-authentication.php', ' * Requires at least: 6.0', ' * Requires at least: 6.4')
+          replace_once('sabri-authentication.php', 'Membership Core 1.2.43+', 'Membership Core 1.2.44+')
+          replace_once('includes/class-sa-activator.php', 'Membership Core 1.2.43 or later', 'Membership Core 1.2.44 or later')
+          replace_once('readme.txt', 'Requires at least: 6.0', 'Requires at least: 6.4')
+
+          # R338-D08 — preserve WordPress-owned administrative email ceremony.
+          replace_once(
+              'includes/class-sa-access-control.php',
+              "array( 'logout', 'postpass', 'confirmaction' )",
+              "array( 'logout', 'postpass', 'confirmaction', 'confirm_admin_email' )",
+          )
+
+          # Machine-readable source-lineage containment. Do not claim recovery of missing 1.3.8 bytes.
+          lineage = {
+              'schema': 'sauth.source-lineage-lock.v2',
+              'file_number': '02',
+              'recorded_at': '2026-08-16T11:35:00+05:00',
+              'r338_review_branch': 'review/file02-r338-fresh-review-fix-2026-08-16',
+              'r338_pre_correction_head': '6e007be952817c400efe93fbecbd5101689dfeb7',
+              'current_recoverable_runtime': '1.3.0',
+              'current_recoverable_database': '1.3.0',
+              'current_recoverable_passkey_schema': '1.0.1',
+              'founder_approved_amendment': 'SSH-F02-AMD-2026-08-08-X24',
+              'founder_approved_runtime_candidate': '1.3.0',
+              'founder_approved_database': '1.3.0',
+              'founder_approved_passkey_schema': '1.1.0',
+              'founder_approved_authentication_assurance_v2': '2.0.0',
+              'founder_approved_modern_auth_contract': '1.0.0',
+              'founder_approved_shared_signals_contract': '1.0.0',
+              'latest_approved_reviewed_runtime_evidence': '1.3.8',
+              'latest_approved_reviewed_database_evidence': '1.3.0',
+              'latest_approved_reviewed_passkey_schema_evidence': '1.1.0',
+              'known_historical_1_3_8_installable_zip_sha256': '9e93cc0282ec407a7efc5bb37559a6d6e87f9e20c9e9453e33b338e49f494e2f',
+              'known_historical_1_3_8_manifest_sha256': '5300a3483116fedb7cd7248253ecf98f3d0a0b7ab6621b8a2d70c7b682c72bb8',
+              'known_historical_1_3_8_source_review_bundle_sha256': 'f284fbe8296f7d3085c5a10f4710c0962b0aff8ba1997667779605ff9d0bff57',
+              'known_historical_1_3_8_source_manifest_sha256': '5a15260da739353d911568c4ebe2a75d0989a4aff515c3dbd9e17e4c20702108',
+              'exact_1_3_8_source_bytes_recovered': False,
+              'current_source_has_complete_x24_scope': False,
+              'current_source_is_latest_approved_product_source': False,
+              'packaging_allowed': False,
+              'staging_allowed': False,
+              'deployment_allowed': False,
+              'block_reasons': [
+                  'Exact reviewed 1.3.8 source bytes are not recovered in the current repository/file-library evidence.',
+                  'The current recoverable 1.3.0 tree does not contain the Founder-approved F02-X24-001..024 implementation architecture.',
+                  'Current passkey schema is 1.0.1 while the approved X24/1.3.x product lineage requires 1.1.0.',
+                  'Current source lacks the X24 security timeline/recovery/shared-signals data plane, routes and v2 contracts.'
+              ],
+              'unblock_requirements': [
+                  'Recover the exact reviewed File 02 1.3.8 source bundle or prove a later superseding exact source.',
+                  'Verify source manifest and artifact hashes against the recorded approved evidence.',
+                  'Reconcile R337/R338 hardening onto that exact later source without dropping F02-X24-001..024.',
+                  'Run two fresh full review/fix cycles, exact-head source QA, package QA, real WordPress/MariaDB upgrade/rollback and exact File 00 integration.',
+                  'Only then consider Hostinger staging; live deployment and live re-test remain separate gates.'
+              ]
+          }
+          (root / 'SOURCE-LINEAGE-LOCK.json').write_text(json.dumps(lineage, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+
+          # RELEASE-LOCK: preserve current recoverable runtime identity but make incompleteness impossible to miss.
+          lock_path = root / 'RELEASE-LOCK.json'
+          lock = json.loads(lock_path.read_text(encoding='utf-8'))
+          lock['candidate_branch'] = 'review/file02-r338-fresh-review-fix-2026-08-16'
+          lock['minimum_file00_runtime'] = '1.2.44'
+          lock['minimum_wordpress'] = '6.4'
+          lock['source_lineage_lock'] = 'SOURCE-LINEAGE-LOCK.json'
+          lock['source_lineage_status'] = 'blocked_unrecovered_approved_1.3.8_x24'
+          lock['approved_scope_source_complete'] = False
+          lock['x24_source_present'] = False
+          lock['packaging_authorized'] = False
+          lock['staging_authorized'] = False
+          lock['deployment_authorized'] = False
+          lock['review_line'] = 'R338-lineage-contained'
+          status = lock.setdefault('status', {})
+          status['coded'] = 'r338_review_corrected_lineage_blocked'
+          status['packaged'] = 'blocked_by_source_lineage'
+          status['automated_qa'] = 'review_source_only_pending_exact_head'
+          status['staging_accepted'] = False
+          status['live_deployed'] = False
+          status['operational'] = False
+          lock['cross_file_blockers'] = list(dict.fromkeys((lock.get('cross_file_blockers') or []) + [
+              'Exact approved File 02 1.3.8 / X24 source lineage is unrecovered; current 1.3.0 source is not production-complete.'
+          ]))
+          lock_path.write_text(json.dumps(lock, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+
+          # R338-D09 — truthful release-facing documentation.
+          replace_once(
+              'readme.txt',
+              'Version 1.3.0 is the R337 comprehensive-remediation source candidate. Runtime and DB identity are 1.3.0; passkey schema identity remains 1.0.1. Exact-head CI and File 00 integration are pending, and source/CI completion does not by itself prove Hostinger staging, deployment or operations.',
+              'Version 1.3.0 is the current recoverable R338 hardening source, not the latest approved File 02 product-source lineage. The Founder-approved X24 architecture requires passkey schema 1.1.0 plus Modern Auth 1.0.0, Authentication Assurance v2 2.0.0 and Shared Signals 1.0.0; the later reviewed corpus records runtime 1.3.8 / DB 1.3.0 / passkey schema 1.1.0. Exact 1.3.8 source bytes are not recovered here. SOURCE-LINEAGE-LOCK.json therefore blocks packaging, staging and deployment of this tree as a production-complete replacement. Repository review/CI never proves live deployment.'
+          )
+          replace_once('readme.txt', 'File 00 — Sabri Membership Core with:', 'File 00 — Sabri Membership Core 1.2.44+ with:')
+          replace_once(
+              'readme.txt',
+              '* Privacy export/erasure/anonymization, additive migration, non-destructive uninstall, deterministic package, manifest, checksums and SBOM.',
+              '* Privacy export/erasure/anonymization, additive migration and non-destructive uninstall. Deterministic packaging is deliberately blocked by SOURCE-LINEAGE-LOCK.json until the approved X24/1.3.8 lineage is recovered and reconciled.'
+          )
+
+          replace_once('README.md', '**Candidate branch:** `agent/file02-comprehensive-remediation-1.3.0`', '**Candidate branch:** `review/file02-r338-fresh-review-fix-2026-08-16`')
+          replace_once(
+              'README.md',
+              '**Governing corpus:** Definitive Master Plan v3.0, `SSH-F02-PLAN-2026-v1.0`, Consolidated All-Chats Directives v2.1, Continuous-Value/Top-20 Superset plan and the later File 00 Advanced Trust ownership boundary.',
+              '**Governing corpus:** Definitive Master Plan v3.0, `SSH-F02-PLAN-2026-v1.0`, Founder-approved amendment `SSH-F02-AMD-2026-08-08-X24`, the later reviewed File 02 v2.9/1.3.8 evidence lineage, Consolidated All-Chats Directives v2.1 and the File 00 Advanced Trust ownership boundary.'
+          )
+          replace_once('README.md', '## Version 1.3.0 completion scope', '## Current recoverable 1.3.0 hardening scope — not approved X24 completeness')
+          replace_once(
+              'README.md',
+              'Version 1.3.0 preserves the complete 1.2.6 line and adds the R337 comprehensive concurrency, persistence and privacy correction. DB identity advances to `1.3.0` so installations rerun the repaired one-way legacy-table migration with compatibility routing explicitly suspended; passkey schema identity remains `1.0.1` because its physical schema is unchanged.',
+              'The current recoverable tree preserves the 1.2.6/R337 hardening line and uses runtime/DB marker `1.3.0`, but it is not the Founder-approved X24-complete 1.3.x product source. The approved amendment requires passkey schema `1.1.0`, six modern-auth owner classes, three additional security/recovery/signal tables, new routes and v2 contracts; the later reviewed corpus records runtime `1.3.8`. Those exact source bytes are not recovered here, so `SOURCE-LINEAGE-LOCK.json` blocks packaging/staging/deployment until exact later-source recovery and reconciliation.'
+          )
+          replace_once('README.md', '| Source coding | **Review candidate**; R337 comprehensive remediation implemented |', '| Source coding | **R338 review-only hardening candidate**; approved X24/1.3.8 source lineage remains unrecovered |')
+          replace_once('README.md', '| Packaged | Pending exact-head deterministic release gate |', '| Packaged | **BLOCKED** by `SOURCE-LINEAGE-LOCK.json`; do not generate a production-complete candidate |')
+          replace_once('README.md', '| Automated QA | Pending exact-head PHP and real WordPress/File 00 integration |', '| Automated QA | Review-source QA may run; release/package QA cannot authorize the missing approved lineage |')
+
+          status_block = """\n## R338 authoritative source-lineage status\n\nThe current recoverable repository tree is **not** the latest approved File 02 product-source lineage. The Founder-approved X24 amendment requires passkey schema `1.1.0`, the six X24 owner classes, the security-timeline/recovery/shared-signals data plane, the X24 routes and Authentication Assurance v2/Modern Auth/Shared Signals contracts. The later reviewed corpus records runtime `1.3.8 / DB 1.3.0 / passkey 1.1.0`; exact source bytes are not recovered here. `SOURCE-LINEAGE-LOCK.json` therefore blocks packaging, staging and deployment. R338 source hardening may be reviewed, but it is not a production-complete replacement.\n\n"""
+          prepend_after('STATUS.md', '# File 02 Status — Version 1.3.0\n', status_block)
+          replace_once('STATUS.md', '- Branch: `agent/file02-comprehensive-remediation-1.3.0`', '- Branch: `review/file02-r338-fresh-review-fix-2026-08-16`')
+
+          plan_block = """\n## R338 governing amendment reconciliation\n\nFounder-approved amendment `SSH-F02-AMD-2026-08-08-X24` permanently adds F02-X24-001..024. Its source architecture requires `SAUTH_Modern_Auth`, `SAUTH_Security_Orchestrator`, `SAUTH_Shared_Signals`, `SAUTH_Password_Safety`, `SAUTH_DPoP`, `SAUTH_FIDO_Trust`; DB `1.3.0` with `sauth_security_timeline`, `sauth_recovery_changes`, `sauth_shared_signals`; passkey schema `1.1.0`; `/account-security/` and `/resolve-account/`; Authentication Assurance v2 `2.0.0`, Modern Auth `1.0.0`, Shared Signals `1.0.0`. The current recoverable source lacks this complete layer and is therefore release-blocked. The later reviewed corpus records a `1.3.8 / DB 1.3.0 / passkey 1.1.0` source lineage whose exact bytes are not recovered here. No missing X24 implementation is inferred from branch names or recreated and called recovered evidence.\n\n"""
+          prepend_after('PLAN-TRACEABILITY.md', '# File 02 — Four-Plan Plan-to-Code Traceability\n', plan_block)
+
+          manifest_block = """\n## R338 source-lineage release block\n\n**Packaging is not authorized for this tree.** The current recoverable runtime marker is `1.3.0 / DB 1.3.0 / passkey 1.0.1`, while the Founder-approved X24 1.3.x architecture requires passkey `1.1.0`, Modern Auth, Authentication Assurance v2, Shared Signals, the X24 data plane and routes. The later reviewed corpus records runtime `1.3.8`; exact source bytes are not recovered here. `SOURCE-LINEAGE-LOCK.json` is machine-authoritative and sets `packaging_allowed=false`, `staging_allowed=false`, and `deployment_allowed=false`. Historical package names below are descriptive of the prior candidate only and are not authorized R338 outputs.\n\n"""
+          prepend_after('RELEASE-MANIFEST.md', '# File 02 — Release Manifest — 1.3.0\n', manifest_block)
+          replace_once('RELEASE-MANIFEST.md', '- Candidate branch: `agent/file02-comprehensive-remediation-1.3.0`', '- Candidate branch: `review/file02-r338-fresh-review-fix-2026-08-16`')
+          replace_once('RELEASE-MANIFEST.md', '- Package: `02-sabri-authentication-1.3.0-SOURCE-CANDIDATE.zip`', '- Package: **BLOCKED — no R338 installable candidate is authorized from this lineage**')
+          replace_once('RELEASE-MANIFEST.md', '- Manifest: `02-sabri-authentication-1.3.0-MANIFEST.json`', '- Manifest: **BLOCKED with package until source-lineage reconciliation**')
+
+          # SBOM dependency/release truth.
+          sbom_path = root / 'SBOM.spdx.json'
+          sbom = json.loads(sbom_path.read_text(encoding='utf-8'))
+          for package in sbom.get('packages', []):
+              if package.get('SPDXID') == 'SPDXRef-Package-WordPress':
+                  package['versionInfo'] = '6.4-or-later; tested through 7.0'
+              if package.get('SPDXID') == 'SPDXRef-Package-File00':
+                  package['versionInfo'] = '1.2.44+ with smc.authentication-account 1.1.0 and the required File 02 assurance consumer boundary'
+              if package.get('SPDXID') == 'SPDXRef-Package-File02':
+                  package['comment'] = 'R338 review-only recoverable hardening source. Runtime/DB marker 1.3.0 / 1.3.0, passkey schema 1.0.1. It is not the latest approved X24 product-source lineage; exact reviewed 1.3.8 / passkey 1.1.0 source bytes are unrecovered. SOURCE-LINEAGE-LOCK.json blocks packaging, staging and deployment.'
+          sbom_path.write_text(json.dumps(sbom, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+
+          # Packaging must fail closed at the builder itself.
+          build_path = root / 'tools/build-package.sh'
+          build = build_path.read_text(encoding='utf-8')
+          gate = '''\nLINEAGE_LOCK="$ROOT/SOURCE-LINEAGE-LOCK.json"\nif [[ ! -f "$LINEAGE_LOCK" ]]; then\n  echo "SOURCE-LINEAGE-LOCK.json is required before packaging." >&2\n  exit 86\nfi\npython3 - "$LINEAGE_LOCK" <<'PYLOCK'\nimport json, pathlib, sys\nlock=json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))\nif lock.get('packaging_allowed') is not True:\n    print('Packaging blocked by SOURCE-LINEAGE-LOCK.json: approved File 02 source lineage is not reconciled.', file=sys.stderr)\n    raise SystemExit(86)\nPYLOCK\n'''
+          marker = 'ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"\n'
+          if gate.strip() not in build:
+              if marker not in build: raise SystemExit('build-package.sh ROOT marker missing')
+              build = build.replace(marker, marker + gate, 1)
+          build_path.write_text(build, encoding='utf-8')
+
+          # Release workflow must require the lock/test; build-package.sh enforces the hard package stop.
+          release_path = root / '.github/workflows/baseline-integrity.yml'
+          release = release_path.read_text(encoding='utf-8')
+          old_required = "'tests/r337-comprehensive-remediation-regression.php']"
+          new_required = "'tests/r337-comprehensive-remediation-regression.php','tests/r338-source-lineage-release-regression.php','SOURCE-LINEAGE-LOCK.json']"
+          if release.count(old_required) != 1:
+              raise SystemExit('baseline-integrity required-list preimage mismatch')
+          release_path.write_text(release.replace(old_required, new_required, 1), encoding='utf-8')
+
+          # Permanent R338 regression: current incomplete X24 tree may be reviewed but never packaged/deployed as complete.
+          test = r'''<?php
+          $root = dirname( __DIR__ );
+          $lineage = json_decode( file_get_contents( $root . '/SOURCE-LINEAGE-LOCK.json' ), true );
+          $release = json_decode( file_get_contents( $root . '/RELEASE-LOCK.json' ), true );
+          $main = file_get_contents( $root . '/sabri-authentication.php' );
+          $adapter = file_get_contents( $root . '/includes/class-sa-membership-adapter.php' );
+          $activator = file_get_contents( $root . '/includes/class-sa-activator.php' );
+          $access = file_get_contents( $root . '/includes/class-sa-access-control.php' );
+          $readme = file_get_contents( $root . '/readme.txt' );
+          $sbom = json_decode( file_get_contents( $root . '/SBOM.spdx.json' ), true );
+          $builder = file_get_contents( $root . '/tools/build-package.sh' );
+          $routes = file_get_contents( $root . '/includes/class-sauth-canonical-routes.php' );
+          $passkeys = file_get_contents( $root . '/includes/class-sauth-passkeys.php' );
+          $fail = array();
+          $req = static function ( $ok, $message ) use ( &$fail ) { if ( ! $ok ) { $fail[] = $message; } };
+
+          $req( is_array( $lineage ), 'source-lineage lock is invalid JSON' );
+          $req( false === ( $lineage['exact_1_3_8_source_bytes_recovered'] ?? true ), 'unrecovered exact 1.3.8 source is falsely marked recovered' );
+          $req( false === ( $lineage['current_source_has_complete_x24_scope'] ?? true ), 'current source is falsely marked X24 complete' );
+          $req( false === ( $lineage['packaging_allowed'] ?? true ) && false === ( $lineage['staging_allowed'] ?? true ) && false === ( $lineage['deployment_allowed'] ?? true ), 'lineage block does not fail closed across package/staging/deploy' );
+          $req( '1.3.8' === (string) ( $lineage['latest_approved_reviewed_runtime_evidence'] ?? '' ), 'approved reviewed runtime lineage evidence is stale' );
+          $req( '1.1.0' === (string) ( $lineage['latest_approved_reviewed_passkey_schema_evidence'] ?? '' ), 'approved reviewed passkey schema evidence is stale' );
+          $req( '9e93cc0282ec407a7efc5bb37559a6d6e87f9e20c9e9453e33b338e49f494e2f' === (string) ( $lineage['known_historical_1_3_8_installable_zip_sha256'] ?? '' ), 'approved historical 1.3.8 ZIP hash evidence is stale' );
+          $req( "const MIN_VERSION     = '1.2.44';" !== '' && false !== strpos( $adapter, "const MIN_VERSION     = '1.2.44';" ), 'File 00 minimum is not 1.2.44' );
+          $req( false !== strpos( $main, 'Requires at least: 6.4' ) && false !== strpos( $readme, 'Requires at least: 6.4' ), 'WordPress minimum is not 6.4' );
+          $req( false !== strpos( $main, 'Membership Core 1.2.44+' ) && false !== strpos( $activator, 'Membership Core 1.2.44 or later' ), 'File 00 activation diagnostics are stale' );
+          $req( false !== strpos( $access, "'confirm_admin_email'" ), 'WordPress confirm_admin_email is still intercepted' );
+          $req( false !== strpos( $builder, 'Packaging blocked by SOURCE-LINEAGE-LOCK.json' ), 'builder does not enforce source-lineage package block' );
+          $req( 'review/file02-r338-fresh-review-fix-2026-08-16' === (string) ( $release['candidate_branch'] ?? '' ), 'release lock branch is stale' );
+          $req( false === ( $release['packaging_authorized'] ?? true ) && false === ( $release['approved_scope_source_complete'] ?? true ), 'release lock overclaims packaging/source completeness' );
+
+          $required_x24_files = array(
+              'includes/class-sauth-modern-auth.php',
+              'includes/class-sauth-security-orchestrator.php',
+              'includes/class-sauth-shared-signals.php',
+              'includes/class-sauth-password-safety.php',
+              'includes/class-sauth-dpop.php',
+              'includes/class-sauth-fido-trust.php',
+          );
+          $missing = array_filter( $required_x24_files, static function ( $path ) use ( $root ) { return ! file_exists( $root . '/' . $path ); } );
+          $approved_routes_missing = false === strpos( $routes, '/account-security/' ) || false === strpos( $routes, '/resolve-account/' );
+          $approved_passkey_schema_missing = false === strpos( $passkeys, "SCHEMA_VERSION        = '1.1.0'" );
+          $x24_incomplete = ! empty( $missing ) || $approved_routes_missing || $approved_passkey_schema_missing;
+          $req( $x24_incomplete, 'R338 lineage lock is stale: source now appears X24-complete and requires a new full reconciliation review before unblocking' );
+          $req( false === ( $lineage['packaging_allowed'] ?? true ), 'known-incomplete X24 source is package-authorized' );
+
+          $wp_ok = false;
+          foreach ( (array) ( $sbom['packages'] ?? array() ) as $pkg ) {
+              if ( 'SPDXRef-Package-WordPress' === (string) ( $pkg['SPDXID'] ?? '' ) && 0 === strpos( (string) ( $pkg['versionInfo'] ?? '' ), '6.4-or-later' ) ) { $wp_ok = true; }
+          }
+          $req( $wp_ok, 'SBOM WordPress dependency is stale' );
+
+          if ( $fail ) { fwrite( STDERR, "R338 regressions:\n- " . implode( "\n- ", $fail ) . "\n" ); exit( 1 ); }
+          echo 'R338 source-lineage/dependency/release containment PASS.' . PHP_EOL;
+          '''
+          (root / 'tests/r338-source-lineage-release-regression.php').write_text(test.replace('\n          ', '\n').lstrip(), encoding='utf-8')
+
+          # Review-facing changelog truth.
+          changelog = root / 'CHANGELOG.md'
+          ch = changelog.read_text(encoding='utf-8')
+          entry = """## R338 — Fresh adversarial source-lineage review and containment\n\n- Full R338 review was frozen before correction and found 11 verified findings: 5 blockers, 4 High and 2 Medium.\n- Corrected File 00 minimum to 1.2.44, WordPress minimum to 6.4 and preserved WordPress `confirm_admin_email`.\n- Reinstated machine-readable `SOURCE-LINEAGE-LOCK.json`; current recoverable 1.3.0/passkey-1.0.1 source is explicitly not the latest approved X24/1.3.8 product source.\n- Packaging, staging and deployment are fail-closed until exact approved 1.3.8 (or later superseding exact source) is recovered and reconciled.\n- Added permanent R338 regression and package-builder enforcement so green source QA cannot be misread as approved-scope release readiness.\n\n"""
+          if not ch.startswith('## R338'):
+              changelog.write_text(entry + ch, encoding='utf-8')
+
+          # Architecture notice without pretending missing X24 code exists.
+          arch = root / 'ARCHITECTURE.md'
+          a = arch.read_text(encoding='utf-8')
+          notice = """\n> **R338 source-lineage boundary:** this recoverable tree is not the latest approved X24-complete File 02 source. The Founder-approved X24 architecture and later reviewed 1.3.8/passkey-1.1.0 lineage remain unrecovered in exact source bytes. `SOURCE-LINEAGE-LOCK.json` therefore blocks packaging/staging/deployment.\n\n"""
+          if notice.strip() not in a:
+              lines = a.splitlines(True)
+              lines.insert(1, notice)
+              arch.write_text(''.join(lines), encoding='utf-8')
+
+          # Staging runbook must not invite deployment of a known lineage-blocked tree.
+          staging = root / 'STAGING-ACCEPTANCE.md'
+          s = staging.read_text(encoding='utf-8')
+          s_notice = """\n> **R338 gate:** Do not begin staging with this current recoverable tree while `SOURCE-LINEAGE-LOCK.json` has `staging_allowed=false`. Recover and reconcile the approved X24/1.3.8 source (or a separately reviewed superseding exact source) first.\n\n"""
+          if s_notice.strip() not in s:
+              parts = s.splitlines(True)
+              parts.insert(1, s_notice)
+              staging.write_text(''.join(parts), encoding='utf-8')
+          PY
+          git diff --check
+          php -l tests/r338-source-lineage-release-regression.php
+          python3 -m json.tool SOURCE-LINEAGE-LOCK.json >/dev/null
+          python3 -m json.tool RELEASE-LOCK.json >/dev/null
+          python3 -m json.tool SBOM.spdx.json >/dev/null
+      - name: Commit corrected state and remove temporary workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Sabri File 02 Review Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git rm .github/workflows/r338-apply-frozen-ledger.yml
+          git add -A
+          git commit -m '[r338-apply] correct frozen ledger and enforce source-lineage containment'
+          git push origin HEAD:review/file02-r338-fresh-review-fix-2026-08-16
