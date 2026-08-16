@@ -8,10 +8,11 @@
 4. Continuous-Value / Top-20 Superset plan, especially CV-005 Passkey/MFA, CV-006 Device/Session Center and CV-010 Account Recovery.
 5. Later cross-file ownership refinement: File 02 owns password/Google/passkey authentication ceremony and authentication assurance; File 00 owns membership, identity, guardian, roles/capabilities and eligibility and consumes the versioned File 02 assurance claim.
 
-**Candidate branch:** `fix/file02-passkey-index-reconciliation-1.2.6`
-**Repository main re-verified during R329:** `0f011b1876e217b7ee46f92903e5315538c1025e`
-**Candidate version/schema:** `1.2.6 / 1.2.1`; passkey schema `1.0.1`
-**Paired File 00 account contract:** `smc.authentication-account 1.1.0`
+**Candidate branch:** `review/file02-r337-fresh-audit-2026-08-16`  
+**Repository main:** `0f011b1876e217b7ee46f92903e5315538c1025e`  
+**Candidate version/schema:** `1.2.6 / 1.2.1`; passkey schema `1.0.1`  
+**Required File 00 runtime:** `1.2.44+`  
+**Paired File 00 account contract:** `smc.authentication-account 1.1.0+`  
 **Authentication-assurance producer:** `smc_file02_authentication_assurance_v1` / `1.0.0`
 
 ## Ownership and constitution
@@ -78,16 +79,26 @@
 | CV-006 | Device/session center | `/account/sessions/`, active sessions, generalized device/network, revoke one/others/all | Implemented |
 | CV-010 | Account recovery | non-enumerating password recovery/reset, throttling, all-session revocation and support-safe copy | Implemented |
 
-## Passkey migration hardening
+## Migration and provider hardening retained from R331–R336
 
 R334 corrected dbDelta-incompatible combined key definitions by placing every passkey index definition on its own CREATE TABLE line. R335 then used direct MariaDB schema evidence to prove and correct the stale-index-name condition where unique key `credential_lookup_hash` remains bound to renamed legacy column `credential_hash`. The migration recognizes only that exact state, preserves legacy uniqueness, frees the canonical key name, fails closed on unexpected conflicts, and leaves DB identity `1.2.1` / passkey schema `1.0.1` unchanged because the intended final schema is unchanged.
 
-## Cross-file release boundary
-
 R331 aligned File 02 public account choices to the File 00 canonical taxonomy: `member`, `patient`, `student`, `doctor`, `teacher`, `researcher`, `pharmacy`, `clinic`, and `publisher`, with no aliases or lossy remap. File 00 runtime `1.2.44` corrected its `smc.authentication-account 1.1.0` provider to derive from the same canonical taxonomy.
 
-The former taxonomy/provider cross-file release blocker is now **closed at repository/integration level** by exact WordPress 7.0 / MariaDB 11.4 run `31850253635`, pairing File 02 `f740ca65fc33031b98d7d75e5f27b7ccbeeefbf9` with File 00 `1d7f215193d778b0977c8e50d738c42e1e5f66c2`. That run also proved File 00 deferred bootstrap, File 02 fresh activation, legacy passkey column/index upgrade, legacy logical-identity collision migration and final paired runtime/schema boundaries.
+## R337 fresh review/fix trace
+
+The R337 review was completed and frozen before any R337 correction at exact pre-correction HEAD `972f5fd2cc59fe69bf465b844ac36c740533f7dd`. The frozen ledger records seven verified defects: four High and three Medium.
+
+The correction line now requires File 00 `1.2.44+` and WordPress `6.4+`, aligns professional-account adult prevalidation to the canonical taxonomy, verifies passkey credential-state persistence before success, terminates authentication synchronously if session-registry persistence fails, preserves WordPress `confirm_admin_email`, and aligns release evidence to the current review branch. The exact multi-file source correction commit is `e04cfdf51a6d876f70c0296acfb9692fef5a54df`; final QA must use the final immutable branch HEAD after regression/evidence commits.
+
+## Cross-file release boundary
+
+The former taxonomy/provider cross-file blocker was closed for the exact earlier paired inputs by WordPress 7.0 / MariaDB 11.4 run `31850253635`, pairing File 02 `f740ca65fc33031b98d7d75e5f27b7ccbeeefbf9` with File 00 `1d7f215193d778b0977c8e50d738c42e1e5f66c2` / runtime `1.2.44`.
+
+That run is **historical pre-R337** integration evidence only because R337 later changed File 02 source. Exact post-R337 paired revalidation remains required before the current branch may claim cross-file integration green. Neither the earlier run nor a future repository integration run is Hostinger staging/live proof.
 
 ## Completion truth
 
-This traceability file describes repository/source and exact repository-integration evidence only. It does not establish the final package, Hostinger staging, live deployment or operational state. Those gates require their own exact evidence and may not be inferred from source/integration success.
+This traceability file describes plan-to-source status and bounded repository evidence only. Packaged, Automated-QA, Staging-Accepted, Live-Deployed and Operational are separate gates and require their own exact evidence.
+
+**Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔**
