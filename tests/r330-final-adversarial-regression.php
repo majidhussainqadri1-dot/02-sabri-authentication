@@ -16,7 +16,7 @@ $req( ! file_exists( $root . '/tools/apply-round-ledger.py' ), 'temporary round-
 $req( false !== strpos( $review, 'round-ledger-apply.yml' ) && false !== strpos( $review, 'tools/apply-round-ledger.py' ), 'review integrity gate does not reject temporary round-ledger machinery' );
 $req( false !== strpos( $baseline, 'round-ledger-apply.yml' ) && false !== strpos( $baseline, 'tools/apply-round-ledger.py' ), 'release integrity gate does not reject temporary round-ledger machinery' );
 $req( false !== strpos( $baseline, 'tests/r330-final-adversarial-regression.php' ), 'release constitution does not require R330 final regression' );
-$req( false !== strpos( $main, 'Version: 1.3.0' ) && false !== strpos( $main, "SAUTH_VERSION', '1.3.0" ), 'current runtime release identity is not synchronized' );
+$req( false !== strpos( $main, 'Version: 1.3.1' ) && false !== strpos( $main, "SAUTH_VERSION', '1.3.1" ), 'current runtime release identity is not synchronized' );
 $req( false !== strpos( $main, "SAUTH_DB_VERSION', '1.3.0" ), 'DB identity is not synchronized after later corrective work' );
 
 /* R330 is a permanent historical regression. Later corrective rounds may
@@ -30,7 +30,8 @@ $req( $coded_round >= 335, 'release lock coded status regressed below the R335 c
 $req( $review_round >= 335, 'release lock review line regressed below the R335 corrective baseline' );
 
 $req( false === ( $lock['status']['staging_accepted'] ?? true ) && false === ( $lock['status']['live_deployed'] ?? true ) && false === ( $lock['status']['operational'] ?? true ), 'later corrective work falsely advances external completion gates' );
-foreach ( array( $readme, $status, $manifest, $changelog, $report ) as $evidence ) { $req( false !== strpos( $evidence, '1.3.0' ), 'release-facing evidence is not synchronized to the current runtime identity' ); }
+foreach ( array( $readme, $status, $manifest, $changelog, $report ) as $evidence ) { $req( false !== strpos( $evidence, '1.3.0' ), 'release-facing evidence lost the R337 1.3.0 base history' ); }
+$req( false !== strpos( file_get_contents( $root . '/readme.txt' ), 'Stable tag: 1.3.1' ), 'current WordPress release identity is not 1.3.1' );
 $req( false !== strpos( $status, 'Live-Deployed | No' ), 'status must continue to deny live-deployed completion' );
 if ( $fail ) { fwrite( STDERR, "R330 invariant regressions:\n- " . implode( "\n- ", $fail ) . "\n" ); exit( 1 ); }
-echo 'R330 final adversarial invariants PASS (16 assertions).' . PHP_EOL;
+echo 'R330 final adversarial invariants PASS (17 assertions).' . PHP_EOL;
