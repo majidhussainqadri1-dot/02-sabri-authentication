@@ -34,7 +34,7 @@
           "referenceLocator": "pkg:wordpress/sabri-authentication@1.3.0"
         }
       ],
-      "comment": "R338 review-only recoverable hardening source. Runtime/DB marker 1.3.0 / 1.3.0, passkey schema 1.0.1. It is not the latest approved X24 product-source lineage; exact reviewed 1.3.8 / passkey 1.1.0 source bytes are unrecovered. SOURCE-LINEAGE-LOCK.json blocks packaging, staging and deployment."
+      "comment": "R338 review-only recoverable hardening source. Runtime/DB marker 1.3.0 / 1.3.0, passkey schema 1.0.1. It is not the latest approved X24 product-source lineage; exact reviewed 1.3.8 / passkey 1.1.0 source bytes are unrecovered. SOURCE-LINEAGE-LOCK.json blocks packaging, staging and deployment. Repository/source QA is never a live-deployment claim and does not prove deployed-code parity, live DB/schema state, migration state or live verification."
     },
     {
       "SPDXID": "SPDXRef-Package-WordPress",
