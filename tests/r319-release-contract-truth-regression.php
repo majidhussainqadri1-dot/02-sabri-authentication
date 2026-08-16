@@ -1,16 +1,19 @@
 <?php
-$root=dirname(__DIR__); $adapter=file_get_contents($root.'/includes/class-sa-membership-adapter.php'); $lock=file_get_contents($root.'/RELEASE-LOCK.json'); $status=file_get_contents($root.'/STATUS.md'); $readme=file_get_contents($root.'/README.md'); $manifest=file_get_contents($root.'/RELEASE-MANIFEST.md'); $migration=file_get_contents($root.'/MIGRATION.md'); $dict=file_get_contents($root.'/DATA-DICTIONARY.md'); $contracts=file_get_contents($root.'/CONTRACTS.md'); $fail=array();
+$root=dirname(__DIR__); $adapter=file_get_contents($root.'/includes/class-sa-membership-adapter.php'); $lock=file_get_contents($root.'/RELEASE-LOCK.json'); $status=file_get_contents($root.'/STATUS.md'); $readme=file_get_contents($root.'/README.md'); $manifest=file_get_contents($root.'/RELEASE-MANIFEST.md'); $migration=file_get_contents($root.'/MIGRATION.md'); $dict=file_get_contents($root.'/DATA-DICTIONARY.md'); $contracts=file_get_contents($root.'/CONTRACTS.md'); $lineage=file_get_contents($root.'/SOURCE-LINEAGE-LOCK.json'); $fail=array();
 $checks=array(
  array($adapter,'SAUTH_Passkey_Runtime::current_assurance','membership compatibility helper bypasses hardened passkey assurance'),
  array($adapter,"add_query_arg( 'redirect_to', SA_Security::safe_redirect( \$redirect )",'membership login URL still pre-encodes redirect destination'),
- array($lock,'agent/file02-comprehensive-remediation-1.3.0','release lock names stale current branch'),
- array($lock,'cross_file_integration_evidence','release lock omits exact cross-file integration evidence'),
- array($lock,'31850253635','release lock omits proven cross-file integration run'),
- array($status,'R337 comprehensive remediation','status document names stale corrective line'),
- array($status,'current File 02 `1.3.0` / File 00 `1.2.44` integration gate is **open**','status does not preserve the current exact-head blocker'),
- array($readme,'1.3.0','README current runtime identity stale'),
- array($manifest,'agent/file02-comprehensive-remediation-1.3.0','release manifest names stale current branch'),
- array($manifest,'Historical run `31850253635`','release manifest does not separate prior integration evidence'),
+ array($lock,'review/file02-r338-fresh-review-fix-2026-08-16','release lock names stale current branch'),
+ array($lock,'blocked_unrecovered_approved_1.3.8_x24','release lock omits current source-lineage blocker'),
+ array($lock,'31850253635','release lock omits proven historical cross-file integration run'),
+ array($status,'R338 authoritative source-lineage status','status document names stale corrective line'),
+ array($status,'current recoverable File 02 `1.3.0` / File 00 `1.2.44` paired integration is not yet exact-head proven','status does not preserve the current exact-head paired-integration boundary'),
+ array($status,'Packaged | **BLOCKED**','status does not block packaging for unrecovered source lineage'),
+ array($readme,'1.3.0','README current recoverable runtime identity stale'),
+ array($manifest,'review/file02-r338-fresh-review-fix-2026-08-16','source-review manifest names stale current branch'),
+ array($manifest,'Historical run `31850253635`','source-review manifest does not separate prior integration evidence'),
+ array($manifest,'Installable package: **BLOCKED','source-review manifest does not block installable packaging'),
+ array($lineage,'"packaging_allowed": false','source-lineage lock does not block packaging'),
  array($migration,'mandatory activation/guarded-repair postconditions','migration guide still claims auth can remain available after required passkey migration failure'),
  array($migration,'credential_lookup_hash','migration guide omits canonical passkey-column reconciliation'),
  array($dict,'credential_id_ciphertext','data dictionary omits canonical passkey-column reconciliation'),
