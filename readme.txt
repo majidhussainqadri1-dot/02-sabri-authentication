@@ -11,7 +11,7 @@ Complete authentication and account-entry orchestration for the Sabri Social Hom
 
 == Truthful release status ==
 
-Version 1.2.6 is the current post-R331 repository/source candidate. It retains the R321–R330 hardening and adds canonical File 00 account-taxonomy parity without aliases or lossy remapping. DB identity remains 1.2.1 and passkey schema identity remains 1.0.1. Source/CI completion does not by itself prove Hostinger staging, deployment or operations.
+Version 1.2.6 is the current R337 corrective repository/source candidate. R337 was fully reviewed and frozen before correction, found seven verified defects (four High and three Medium), and hardens the File 00 1.2.44+/WordPress 6.4+ dependency boundary, canonical professional-account age prevalidation, passkey credential-state persistence, synchronous session-projection failure containment, WordPress administrative-email compatibility and release-evidence truth. DB identity remains 1.2.1 and passkey schema identity remains 1.0.1. Exact-head QA, post-R337 File 00 paired integration, Hostinger staging, deployment and operations remain separate gates.
 
 == Canonical constitution ==
 
@@ -80,6 +80,10 @@ Passwords, reset keys, verification tokens, OAuth tokens, TOTP/recovery codes, p
 == Changelog ==
 
 = 1.2.6 =
+* R337 fresh review/fix cycle: seven verified defects corrected after the full review ledger was frozen; no live/staging claim is made.
+* Requires File 00 1.2.44+ and WordPress 6.4+; aligns professional-account age validation to canonical account types.
+* Passkey authentication now proves credential security-state persistence before success, and session-registry persistence failure terminates authentication synchronously.
+* Preserves WordPress confirm_admin_email as a WordPress-owned administrative ceremony and aligns release evidence to the R337 review line.
 * Corrects the proven MariaDB legacy passkey index-name collision: a unique key named credential_lookup_hash can remain bound to renamed legacy column credential_hash.
 * The migration now recognizes only that exact stale binding, preserves legacy uniqueness under a legacy key name, frees the canonical key name, and lets dbDelta create and verify the canonical unique credential_lookup_hash index.
 * Preserves DB schema 1.2.1, passkey schema 1.0.1 and passkey assurance contract 1.0.0; staging/live/operational status remains unclaimed.
