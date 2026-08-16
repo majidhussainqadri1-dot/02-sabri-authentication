@@ -4,14 +4,14 @@ Tags: authentication, passkeys, webauthn, google login, registration, accounts, 
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.3.1
+Stable tag: 1.3.2
 License: GPLv2 or later
 
 Complete authentication and account-entry orchestration for the Sabri Social Homeopathy Platform. File 00 — Sabri Membership Core remains the exclusive identity, membership, account-class, guardian, role, verification and MFA-policy authority; File 02 owns password, Google OAuth and WebAuthn/passkey authentication ceremonies.
 
 == Truthful release status ==
 
-Version 1.3.1 is the live-root-cause hotfix source candidate built on the reviewed 1.3.0 line. Runtime identity is 1.3.1; DB identity remains 1.3.0 and passkey schema identity remains 1.0.1 because the intended canonical schemas are unchanged. The hotfix exists to reconcile the exact deployed stale MariaDB `user_status(user_id,status,updated_at)` passkey index into canonical `user_status(user_id,status)` before the passkey owner verifies its schema. Repository/CI success does not by itself prove Hostinger staging, live deployment, Safe Mode exit or operational resolution.
+Version 1.3.2 is the File 00 canonical membership-route contract hotfix built on the reviewed 1.3.1 line. Runtime identity is 1.3.2; DB identity remains 1.3.0 and passkey schema identity remains 1.0.1 because no database schema changes. The correction removes invented File 02 membership-route keys and binds membership/profile completion to File 00 `application` (`/membership-application/`), membership security to `security` (`/membership-security/`) and verification/status to `status` (`/membership-status/`). The 1.3.1 bounded passkey-index reconciliation remains intact. Repository/CI success does not by itself prove Hostinger staging, live deployment, Safe Mode exit or operational resolution.
 
 == Canonical constitution ==
 
@@ -21,6 +21,7 @@ Version 1.3.1 is the live-root-cause hotfix source candidate built on the review
 * Canonical PHP prefix: `SAUTH_`; pre-1.1 `SA_` classes/constants remain compatibility aliases only.
 * Canonical session route: `/account/sessions/`; the old `/account-sessions/` page redirects permanently.
 * Passkey management route is a private, noindex/no-store File 02 managed page.
+* File 00 membership-page keys consumed by File 02 are exactly `application`, `security` and `status`; File 02 must not invent parallel `sabri-*` membership routes.
 
 == Required dependency ==
 
@@ -47,6 +48,7 @@ If a required contract is missing, malformed or circuit-open, protected mutation
 * Passkey enrollment/revocation requires fresh reauthentication: a fresh File 02 passkey assurance, otherwise the current password. Retired File 00 Authenticator/recovery codes are never solicited or accepted as File 02 authentication authority.
 * New-device/network/recent-failure risk scoring; elevated password risk requires a separate File 02 passkey sign-in.
 * Loop-safe account-completion resolution including profile photograph, city, account type, ethical consent, phone, identity, guardian and MFA steps.
+* Canonical File 00 membership routing: profile/completion → Membership Application, membership security → Membership Security, verification/status → Membership Status.
 * Opaque per-session registry, current marker, generalized device/network presentation, individual revoke, revoke others and sign out everywhere.
 * Password recovery/reset and all-session revocation.
 * Versioned privacy-minimized event outbox including passkey registered/authenticated/revoked facts, provider circuit breakers, bounded HTTP controls, Safe Mode, System Check and guarded repair.
@@ -69,6 +71,7 @@ If a required contract is missing, malformed or circuit-open, protected mutation
 
 * Owner-level GitHub repository rename to the canonical repository name.
 * Hostinger staging/live exact-deployed recovery verification against the proven stale passkey-index incident.
+* Deploy File 02 1.3.2 and live-retest Membership Profile, Membership Security and Verification Status against the exact deployed File 00 page map.
 * Hostinger fresh install and supported upgrades with real MySQL/dbDelta, SMTP, Google OAuth and real WebAuthn authenticators on the production RP ID/origin.
 * File 00 Advanced Trust, File 01, File 20, File 03, File 24, theme and LiteSpeed integration.
 * Real Founder/member/minor/guardian/suspended/security-operator journeys.
@@ -80,6 +83,13 @@ If a required contract is missing, malformed or circuit-open, protected mutation
 Passwords, reset keys, verification tokens, OAuth tokens, TOTP/recovery codes, passkey private keys, biometric templates, raw session tokens, full IP addresses and provider secrets are excluded from events and public diagnostics. Authentication success is never authorization.
 
 == Changelog ==
+
+= 1.3.2 =
+* Corrects the File 02 → File 00 membership-route contract mismatch: File 02 no longer requests non-existent `sabri_profile`, `sabri_security_center` or `sabri_verification_status` page-map keys.
+* Maps profile/completion to File 00 `application` / `/membership-application/`, membership security to `security` / `/membership-security/`, and verification/status to `status` / `/membership-status/`.
+* Preserves File 24 ownership of the platform-wide `/sabri-security-center/` namespace and avoids creating parallel membership pages.
+* Adds permanent R339 no-network route-contract coverage and extends the real File 00/File 02 integration gate to prove canonical page-key parity.
+* Keeps DB schema 1.3.0 and passkey schema 1.0.1 unchanged; live resolution remains unclaimed until deployment and exact live route re-verification.
 
 = 1.3.1 =
 * Fixes the exact live-verified MariaDB migration blocker where `wp_sauth_passkeys.user_status` remained `(user_id,status,updated_at)` while canonical readiness requires `(user_id,status)`.
@@ -159,3 +169,4 @@ Passwords, reset keys, verification tokens, OAuth tokens, TOTP/recovery codes, p
 
 = 0.2.0 =
 * Made File 00 mandatory and removed parallel role/profile ownership.
+* Hardened Google linking, rate limiting and private-page headers.

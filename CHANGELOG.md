@@ -2,6 +2,25 @@
 
 All notable changes to Sabri Authentication and Accounts are recorded here.
 
+## 1.3.2 — File 00 Canonical Membership Route Contract Correction
+
+### Corrected
+
+- Removed the File 02 adapter's invented `sabri_profile`, `sabri_security_center` and `sabri_verification_status` membership page-map keys and their parallel `/sabri-*` fallback paths.
+- Bound File 02 membership/profile completion to File 00 `application` → `/membership-application/`, membership security to `security` → `/membership-security/`, and membership verification/status to `status` → `/membership-status/`.
+- Preserved File 24 ownership of the platform-wide `/sabri-security-center/` namespace and avoided manufacturing duplicate membership/profile pages outside File 00.
+- Added permanent R339 no-network regression coverage that rejects the invented keys/slugs and proves runtime resolution through the exact File 00 keys.
+- Extended the exact WordPress 7.0 / MariaDB 11.4 File 00 integration workflow to prove the material File 00 page map and the File 02 canonical route resolution.
+- Preserved all R338 passkey-index reconciliation logic unchanged.
+
+### Identity
+
+- Runtime: `1.3.2`.
+- File 02 DB schema: `1.3.0` unchanged.
+- Passkey schema: `1.0.1` unchanged.
+- Passkey assurance contract: `1.0.0` unchanged.
+- Repository QA, staging, deployment and live route verification remain separate gates; this source correction is not a live-resolution claim.
+
 ## 1.3.0 — Comprehensive Concurrency, Evidence and Privacy Remediation
 
 ### Corrected
