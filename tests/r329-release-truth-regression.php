@@ -16,7 +16,7 @@ $checks = array(
     array( $main, "SAUTH_VERSION', '1.2.6", 'runtime release identity stale' ),
     array( $main, "SAUTH_DB_VERSION', '1.2.1", 'DB identity unexpectedly changed' ),
     array( $lock, '"release_version": "1.2.6"', 'release lock runtime stale' ),
-    array( $lock, 'fix/file02-passkey-index-reconciliation-1.2.6', 'release lock branch stale' ),
+    array( $lock, 'review/file02-r337-fresh-audit-2026-08-16', 'release lock branch stale' ),
     array( $readme, 'Stable tag: 1.2.6', 'WordPress stable tag stale' ),
     array( $status, 'Version 1.2.6', 'status runtime stale' ),
     array( $manifest, '1.2.6 / 1.2.1', 'release manifest identity stale' ),
