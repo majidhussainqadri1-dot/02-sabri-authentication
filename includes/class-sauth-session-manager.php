@@ -105,9 +105,15 @@ final class SAUTH_Session_Manager {
 			$result = $wpdb->insert( self::table(), $data, array( '%d','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s' ) );
 		}
 		$post = $wpdb->get_row( $wpdb->prepare( 'SELECT user_id,token_hash,status FROM ' . self::table() . ' WHERE public_id=%s', $public_id ), ARRAY_A );
-		if ( false === $result || ! is_array( $post ) || absint( $post['user_id'] ?? 0 ) !== $user_id || 'active' !== (string) ( $post['status'] ?? '' ) || ! hash_equals( $token_hash, (string) ( $post['token_hash'] ?? '' ) ) ) {
+		if ( false === $result || '' !== (string) $wpdb->last_error || ! is_array( $post ) || absint( $post['user_id'] ?? 0 ) !== $user_id || 'active' !== (string) ( $post['status'] ?? '' ) || ! hash_equals( $token_hash, (string) ( $post['token_hash'] ?? '' ) ) ) {
 			if ( class_exists( 'WP_Session_Tokens' ) ) { WP_Session_Tokens::get_instance( $user_id )->destroy( $token ); }
 			SA_Membership_Adapter::audit( 'session_projection_store_failed', $user_id );
+			wp_clear_auth_cookie();
+			wp_set_current_user( 0 );
+			if ( function_exists( 'wp_doing_ajax' ) && wp_doing_ajax() ) {
+				wp_send_json_error( array( 'code' => 'session_projection_store_failed', 'message' => 'The authenticated session could not be established safely.' ), 503 );
+			}
+			wp_die( esc_html__( 'The authenticated session could not be established safely. Please try again.', 'sabri-authentication' ), esc_html__( 'Authentication session unavailable', 'sabri-authentication' ), array( 'response' => 503, 'back_link' => true ) );
 		}
 	}
 

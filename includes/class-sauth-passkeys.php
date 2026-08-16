@@ -538,18 +538,34 @@ final class SAUTH_Passkeys {
 		}
 
 		global $wpdb;
-		$wpdb->update(
+		$expected_count = max( $stored_count, $new_count );
+		$expected_backup_state = ! empty( $parsed['backup_state'] ) ? 1 : 0;
+		$used_at = current_time( 'mysql', true );
+		$state_changed = $wpdb->update(
 			self::table(),
 			array(
-				'sign_count' => max( $stored_count, $new_count ),
-				'backup_state' => ! empty( $parsed['backup_state'] ) ? 1 : 0,
-				'last_used_at' => current_time( 'mysql', true ),
-				'updated_at' => current_time( 'mysql', true ),
+				'sign_count' => $expected_count,
+				'backup_state' => $expected_backup_state,
+				'last_used_at' => $used_at,
+				'updated_at' => $used_at,
 			),
-			array( 'id' => absint( $credential['id'] ), 'status' => 'active' ),
+			array( 'id' => absint( $credential['id'] ), 'user_id' => $user_id, 'status' => 'active' ),
 			array( '%d','%d','%s','%s' ),
-			array( '%d','%s' )
+			array( '%d','%d','%s' )
 		);
+		$persisted_state = $wpdb->get_row(
+			$wpdb->prepare( 'SELECT sign_count,backup_state,status,last_used_at FROM ' . self::table() . ' WHERE id=%d AND user_id=%d', absint( $credential['id'] ), $user_id ),
+			ARRAY_A
+		);
+		if ( false === $state_changed
+			|| '' !== (string) $wpdb->last_error
+			|| ! is_array( $persisted_state )
+			|| 'active' !== (string) ( $persisted_state['status'] ?? '' )
+			|| $expected_count !== absint( $persisted_state['sign_count'] ?? -1 )
+			|| $expected_backup_state !== absint( $persisted_state['backup_state'] ?? -1 )
+			|| ! hash_equals( $used_at, (string) ( $persisted_state['last_used_at'] ?? '' ) ) ) {
+			self::authentication_failure( $user_id, 'credential_state_persist_failed' );
+		}
 		self::store_pending_assurance( $user_id, ! empty( $credential['hardware_backed'] ) );
 		wp_set_current_user( $user_id );
 		wp_set_auth_cookie( $user_id, ! empty( $_POST['remember'] ), is_ssl() );
