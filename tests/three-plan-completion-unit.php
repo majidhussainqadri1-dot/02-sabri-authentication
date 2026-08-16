@@ -29,8 +29,8 @@ $main = sauth_three_plan_read( $root, 'sabri-authentication.php' );
 sauth_three_plan_require(
 	$main,
 	array(
-		'Version: 1.3.1',
-		"define( 'SAUTH_VERSION', '1.3.1' );",
+		'Version: 1.3.2',
+		"define( 'SAUTH_VERSION', '1.3.2' );",
 		"define( 'SAUTH_DB_VERSION', '1.3.0' );",
 		"define( 'SAUTH_ACCOUNT_CONTRACT_VERSION', '1.1.0' );",
 		'class-sauth-storage-router.php',
@@ -79,16 +79,25 @@ sauth_three_plan_require( $google, array('code_challenge_method',"'S256'","'nonc
 $routes = sauth_three_plan_read( $root, 'includes/class-sauth-canonical-routes.php' );
 sauth_three_plan_require( $routes, array("'^account/sessions/?$'","'/account/sessions/'","'canonical_repository'","'02-sabri-authentication-and-accounts'","'php_prefix'","'SAUTH_'"), 'canonical routes and naming' );
 
+$adapter = sauth_three_plan_read( $root, 'includes/class-sa-membership-adapter.php' );
+sauth_three_plan_require( $adapter, array("MEMBERSHIP_APPLICATION_KEY  = 'application'","MEMBERSHIP_SECURITY_KEY     = 'security'","MEMBERSHIP_STATUS_KEY       = 'status'","MEMBERSHIP_APPLICATION_PATH = '/membership-application/'","MEMBERSHIP_SECURITY_PATH    = '/membership-security/'","MEMBERSHIP_STATUS_PATH      = '/membership-status/'"), 'File 00 canonical membership routes' );
+foreach ( array( 'sabri_profile', 'sabri_security_center', 'sabri_verification_status' ) as $forbidden ) {
+	if ( false !== strpos( $adapter, $forbidden ) ) {
+		fwrite( STDERR, "FAIL: File 00 canonical membership routes retain invented key {$forbidden}\n" );
+		exit( 1 );
+	}
+}
+
 $passkeys = sauth_three_plan_read( $root, 'includes/class-sauth-passkeys.php' );
 sauth_three_plan_require( $passkeys, array("const SCHEMA_VERSION        = '1.0.1';",'smc_file02_authentication_assurance_v1','webauthn.create','webauthn.get','parse_attestation_object','cose_public_key_to_pem','challenge_claim_key'), 'fourth-plan passkey extension' );
 
 $readme = sauth_three_plan_read( $root, 'readme.txt' );
-sauth_three_plan_require( $readme, array( 'Stable tag: 1.3.1', '/account/sessions/', 'Google-first registration', 'Passkey', 'city', 'ethical' ), 'readme' );
+sauth_three_plan_require( $readme, array( 'Stable tag: 1.3.2', '= 1.3.2 =', '/account/sessions/', 'Google-first registration', 'Passkey', 'city', 'ethical', '/membership-application/', '/membership-security/', '/membership-status/' ), 'readme' );
 
 $status = sauth_three_plan_read( $root, 'STATUS.md' );
 sauth_three_plan_require( $status, array( 'Version 1.3.0', 'Source coding', 'Automated-QA', 'Staging-Accepted', 'Operational', 'Passkey' ), 'status truth' );
 
 $workflow = sauth_three_plan_read( $root, '.github/workflows/baseline-integrity.yml' );
-sauth_three_plan_require( $workflow, array( 'three-plan-completion-unit.php', 'passkey-webauthn-unit.php', 'tests/r32*-regression.php', 'tests/r33*-regression.php', 'deterministic-package', 'upload-artifact', "RELEASE_VERSION: '1.3.1'" ), 'release workflow' );
+sauth_three_plan_require( $workflow, array( 'three-plan-completion-unit.php', 'passkey-webauthn-unit.php', 'tests/r32*-regression.php', 'tests/r33*-regression.php', 'tests/r339-file00-canonical-route-contract-regression.php', 'deterministic-package', 'upload-artifact', "RELEASE_VERSION: '1.3.2'" ), 'release workflow' );
 
-echo "File 02 prior three-plan requirements preserved inside the 1.3.1 R338 hotfix candidate.\n";
+echo "File 02 prior three-plan requirements preserved inside the 1.3.2 R339 route-contract hotfix candidate.\n";
