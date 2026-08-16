@@ -14,6 +14,16 @@ final class SA_Membership_Adapter {
 	const MIN_VERSION     = '1.2.43';
 	const CF01_VERSION    = '1.1.0';
 
+	/* Canonical File 00 managed-page contract. These keys are the exact keys
+	 * stored in smc_page_map by Sabri Membership Core; File 02 must not invent
+	 * parallel sabri-* membership routes. */
+	const MEMBERSHIP_APPLICATION_KEY  = 'application';
+	const MEMBERSHIP_APPLICATION_PATH = '/membership-application/';
+	const MEMBERSHIP_SECURITY_KEY     = 'security';
+	const MEMBERSHIP_SECURITY_PATH    = '/membership-security/';
+	const MEMBERSHIP_STATUS_KEY       = 'status';
+	const MEMBERSHIP_STATUS_PATH      = '/membership-status/';
+
 	public static function plugin_active() {
 		return self::available();
 	}
@@ -51,16 +61,19 @@ final class SA_Membership_Adapter {
 		return SA_Security::page_url( 'signup', wp_registration_url() );
 	}
 
+	/** File 00 owns membership/profile completion through its application page. */
 	public static function profile_url() {
-		return self::safe_page_url( 'sabri_profile', '/sabri-profile/', admin_url( 'profile.php' ) );
+		return self::safe_page_url( self::MEMBERSHIP_APPLICATION_KEY, self::MEMBERSHIP_APPLICATION_PATH, admin_url( 'profile.php' ) );
 	}
 
+	/** File 00 membership-security route; File 24 remains the platform security-center owner. */
 	public static function security_url() {
-		return self::safe_page_url( 'sabri_security_center', '/sabri-security-center/', admin_url( 'profile.php' ) );
+		return self::safe_page_url( self::MEMBERSHIP_SECURITY_KEY, self::MEMBERSHIP_SECURITY_PATH, admin_url( 'profile.php' ) );
 	}
 
+	/** File 00 membership/verification-status route. */
 	public static function verification_url() {
-		return self::safe_page_url( 'sabri_verification_status', '/sabri-verification-status/', self::profile_url() );
+		return self::safe_page_url( self::MEMBERSHIP_STATUS_KEY, self::MEMBERSHIP_STATUS_PATH, self::profile_url() );
 	}
 
 	private static function safe_page_url( $key, $path, $fallback ) {
