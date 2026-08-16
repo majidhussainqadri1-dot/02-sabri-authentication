@@ -34,12 +34,12 @@
           "referenceLocator": "pkg:wordpress/sabri-authentication@1.3.0"
         }
       ],
-      "comment": "R337 comprehensive-remediation candidate. Runtime 1.3.0 / DB 1.3.0 / passkey schema 1.0.1; exact-head File 00 integration is pending. Repository CI evidence is not a staging or live-deployment claim."
+      "comment": "R338 review-only recoverable hardening source. Runtime/DB marker 1.3.0 / 1.3.0, passkey schema 1.0.1. It is not the latest approved X24 product-source lineage; exact reviewed 1.3.8 / passkey 1.1.0 source bytes are unrecovered. SOURCE-LINEAGE-LOCK.json blocks packaging, staging and deployment."
     },
     {
       "SPDXID": "SPDXRef-Package-WordPress",
       "name": "WordPress",
-      "versionInfo": "6.0-or-later; tested through 7.0",
+      "versionInfo": "6.4-or-later; tested through 7.0",
       "downloadLocation": "https://wordpress.org/download/",
       "filesAnalyzed": false,
       "licenseConcluded": "GPL-2.0-or-later",
@@ -50,7 +50,7 @@
     {
       "SPDXID": "SPDXRef-Package-File00",
       "name": "Sabri Membership Core",
-      "versionInfo": "Advanced Trust-capable runtime with smc.authentication-account 1.1.0 and File 02 assurance consumer 1.0.0",
+      "versionInfo": "1.2.44+ with smc.authentication-account 1.1.0 and the required File 02 assurance consumer boundary",
       "downloadLocation": "NOASSERTION",
       "filesAnalyzed": false,
       "licenseConcluded": "GPL-2.0-or-later",

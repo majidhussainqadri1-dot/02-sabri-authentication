@@ -1,5 +1,8 @@
 # File 02 Architecture — Authentication and Accounts 1.3.0
 
+> **R338 source-lineage boundary:** this recoverable tree is not the latest approved X24-complete File 02 source. The Founder-approved X24 architecture and later reviewed 1.3.8/passkey-1.1.0 lineage remain unrecovered in exact source bytes. `SOURCE-LINEAGE-LOCK.json` therefore blocks packaging/staging/deployment.
+
+
 ## Governing boundary
 
 File 02 owns authentication surfaces and ceremonies: password and Google-first registration presentation, password authentication, email verification, Google OAuth/linking, WebAuthn/passkey enrollment and authentication, password recovery, login-risk challenge, session/device presentation/revocation and account-completion routing.

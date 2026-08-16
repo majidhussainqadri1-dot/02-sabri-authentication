@@ -27,7 +27,7 @@ final class SA_Activator {
 		if ( ! SA_Membership_Adapter::plugin_active() ) {
 			deactivate_plugins( plugin_basename( SAUTH_FILE ) );
 			wp_die(
-				esc_html__( 'Sabri Authentication requires File 00 — Sabri Membership Core 1.2.43 or later with its current database migration complete, Safe Mode clear, smc.authentication-account 1.1.0 and the current membership-assurance contract. No account, role, guardian or verification authority will be created independently.', 'sabri-authentication' ),
+				esc_html__( 'Sabri Authentication requires File 00 — Sabri Membership Core 1.2.44 or later with its current database migration complete, Safe Mode clear, smc.authentication-account 1.1.0 and the current membership-assurance contract. No account, role, guardian or verification authority will be created independently.', 'sabri-authentication' ),
 				esc_html__( 'Required dependency missing', 'sabri-authentication' ),
 				array( 'back_link' => true )
 			);

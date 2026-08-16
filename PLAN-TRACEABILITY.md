@@ -1,5 +1,10 @@
 # File 02 — Four-Plan Plan-to-Code Traceability
 
+## R338 governing amendment reconciliation
+
+Founder-approved amendment `SSH-F02-AMD-2026-08-08-X24` permanently adds F02-X24-001..024. Its source architecture requires `SAUTH_Modern_Auth`, `SAUTH_Security_Orchestrator`, `SAUTH_Shared_Signals`, `SAUTH_Password_Safety`, `SAUTH_DPoP`, `SAUTH_FIDO_Trust`; DB `1.3.0` with `sauth_security_timeline`, `sauth_recovery_changes`, `sauth_shared_signals`; passkey schema `1.1.0`; `/account-security/` and `/resolve-account/`; Authentication Assurance v2 `2.0.0`, Modern Auth `1.0.0`, Shared Signals `1.0.0`. The current recoverable source lacks this complete layer and is therefore release-blocked. The later reviewed corpus records a `1.3.8 / DB 1.3.0 / passkey 1.1.0` source lineage whose exact bytes are not recovered here. No missing X24 implementation is inferred from branch names or recreated and called recovered evidence.
+
+
 **Governing sources used for this candidate**
 
 1. Definitive Master Plan v3.0.

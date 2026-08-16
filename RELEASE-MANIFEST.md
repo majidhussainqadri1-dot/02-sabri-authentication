@@ -1,18 +1,23 @@
 # File 02 — Release Manifest — 1.3.0
 
+## R338 source-lineage release block
+
+**Packaging is not authorized for this tree.** The current recoverable runtime marker is `1.3.0 / DB 1.3.0 / passkey 1.0.1`, while the Founder-approved X24 1.3.x architecture requires passkey `1.1.0`, Modern Auth, Authentication Assurance v2, Shared Signals, the X24 data plane and routes. The later reviewed corpus records runtime `1.3.8`; exact source bytes are not recovered here. `SOURCE-LINEAGE-LOCK.json` is machine-authoritative and sets `packaging_allowed=false`, `staging_allowed=false`, and `deployment_allowed=false`. Historical package names below are descriptive of the prior candidate only and are not authorized R338 outputs.
+
+
 ## Release identity
 
 - Module: `02 — Authentication and Accounts`
 - Candidate version/schema: `1.3.0 / 1.3.0`
 - Passkey schema/assurance: `1.0.1 / 1.0.0`
-- Candidate branch: `agent/file02-comprehensive-remediation-1.3.0`
+- Candidate branch: `review/file02-r338-fresh-review-fix-2026-08-16`
 - Current repository `main` re-verified during R319: `0f011b1876e217b7ee46f92903e5315538c1025e`
 - Historical incident baseline main: `8192c45b595b34e13e09934e3b2d554aa2d8553f`
 - Intended canonical repository name: `02-sabri-authentication-and-accounts` (owner-level rename is still external)
 - Current transport repository: `02-sabri-authentication`
 - Package root: `02-sabri-authentication`
-- Package: `02-sabri-authentication-1.3.0-SOURCE-CANDIDATE.zip`
-- Manifest: `02-sabri-authentication-1.3.0-MANIFEST.json`
+- Package: **BLOCKED — no R338 installable candidate is authorized from this lineage**
+- Manifest: **BLOCKED with package until source-lineage reconciliation**
 - Checksums: `CHECKSUMS.sha256` plus exact-head CI checksum record
 - SBOM: `SBOM.spdx.json`
 - Required File 00 provider: `smc.authentication-account 1.1.0`

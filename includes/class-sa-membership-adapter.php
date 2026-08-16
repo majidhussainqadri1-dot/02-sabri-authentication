@@ -11,7 +11,7 @@ defined( 'ABSPATH' ) || exit;
  */
 final class SA_Membership_Adapter {
 	const PLUGIN_BASENAME = 'sabri-membership-core/sabri-membership-core.php';
-	const MIN_VERSION     = '1.2.43';
+	const MIN_VERSION     = '1.2.44';
 	const CF01_VERSION    = '1.1.0';
 
 	public static function plugin_active() {

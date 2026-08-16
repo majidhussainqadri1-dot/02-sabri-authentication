@@ -1,7 +1,7 @@
 === Sabri Authentication and Accounts ===
 Contributors: sabrihomeopathy
 Tags: authentication, passkeys, webauthn, google login, registration, accounts, recovery, sessions, security
-Requires at least: 6.0
+Requires at least: 6.4
 Tested up to: 7.0
 Requires PHP: 7.4
 Stable tag: 1.3.0
@@ -11,7 +11,7 @@ Complete authentication and account-entry orchestration for the Sabri Social Hom
 
 == Truthful release status ==
 
-Version 1.3.0 is the R337 comprehensive-remediation source candidate. Runtime and DB identity are 1.3.0; passkey schema identity remains 1.0.1. Exact-head CI and File 00 integration are pending, and source/CI completion does not by itself prove Hostinger staging, deployment or operations.
+Version 1.3.0 is the current recoverable R338 hardening source, not the latest approved File 02 product-source lineage. The Founder-approved X24 architecture requires passkey schema 1.1.0 plus Modern Auth 1.0.0, Authentication Assurance v2 2.0.0 and Shared Signals 1.0.0; the later reviewed corpus records runtime 1.3.8 / DB 1.3.0 / passkey schema 1.1.0. Exact 1.3.8 source bytes are not recovered here. SOURCE-LINEAGE-LOCK.json therefore blocks packaging, staging and deployment of this tree as a production-complete replacement. Repository review/CI never proves live deployment.
 
 == Canonical constitution ==
 
@@ -24,7 +24,7 @@ Version 1.3.0 is the R337 comprehensive-remediation source candidate. Runtime an
 
 == Required dependency ==
 
-File 00 — Sabri Membership Core with:
+File 00 — Sabri Membership Core 1.2.44+ with:
 
 * `smc.cf01.membership-assurance` 1.0.0 or later;
 * `smc.authentication-account` 1.1.0 or later; and
@@ -51,7 +51,7 @@ If a required contract is missing, malformed or circuit-open, protected mutation
 * Password recovery/reset and all-session revocation.
 * Versioned privacy-minimized event outbox including passkey registered/authenticated/revoked facts, provider circuit breakers, bounded HTTP controls, Safe Mode, System Check and guarded repair.
 * File 01 module manifest and File 20 route/layout manifest with the canonical nested session route.
-* Privacy export/erasure/anonymization, additive migration, non-destructive uninstall, deterministic package, manifest, checksums and SBOM.
+* Privacy export/erasure/anonymization, additive migration and non-destructive uninstall. Deterministic packaging is deliberately blocked by SOURCE-LINEAGE-LOCK.json until the approved X24/1.3.8 lineage is recovered and reconciled.
 * Green primary identity, logical responsive CSS, keyboard focus, reduced motion and RTL-ready structure.
 
 == Passkey security and privacy boundaries ==

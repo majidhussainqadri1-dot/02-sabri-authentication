@@ -2,6 +2,19 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+LINEAGE_LOCK="$ROOT/SOURCE-LINEAGE-LOCK.json"
+if [[ ! -f "$LINEAGE_LOCK" ]]; then
+  echo "SOURCE-LINEAGE-LOCK.json is required before packaging." >&2
+  exit 86
+fi
+python3 - "$LINEAGE_LOCK" <<'PYLOCK'
+import json, pathlib, sys
+lock=json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+if lock.get('packaging_allowed') is not True:
+    print('Packaging blocked by SOURCE-LINEAGE-LOCK.json: approved File 02 source lineage is not reconciled.', file=sys.stderr)
+    raise SystemExit(86)
+PYLOCK
 VERSION="$(sed -n "s/^ \* Version: \([0-9.]*\)$/\1/p" "$ROOT/sabri-authentication.php" | head -n1)"
 if [[ -z "$VERSION" ]]; then
   echo "Unable to determine plugin version." >&2

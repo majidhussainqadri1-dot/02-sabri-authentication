@@ -52,7 +52,7 @@ final class SA_Access_Control {
 	/** Route wp-login account surfaces into File 02 without affecting postpass/logout. */
 	public function redirect_core_login_surface() {
 		$action = isset( $_REQUEST['action'] ) ? sanitize_key( wp_unslash( $_REQUEST['action'] ) ) : 'login'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		if ( in_array( $action, array( 'logout', 'postpass', 'confirmaction' ), true ) ) { return; }
+		if ( in_array( $action, array( 'logout', 'postpass', 'confirmaction', 'confirm_admin_email' ), true ) ) { return; }
 		if ( in_array( $action, array( 'lostpassword', 'retrievepassword' ), true ) ) {
 			wp_safe_redirect( SA_Security::page_url( 'forgot', home_url( '/' ) ) ); exit;
 		}

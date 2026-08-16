@@ -1,8 +1,13 @@
 # File 02 Status — Version 1.3.0
 
+## R338 authoritative source-lineage status
+
+The current recoverable repository tree is **not** the latest approved File 02 product-source lineage. The Founder-approved X24 amendment requires passkey schema `1.1.0`, the six X24 owner classes, the security-timeline/recovery/shared-signals data plane, the X24 routes and Authentication Assurance v2/Modern Auth/Shared Signals contracts. The later reviewed corpus records runtime `1.3.8 / DB 1.3.0 / passkey 1.1.0`; exact source bytes are not recovered here. `SOURCE-LINEAGE-LOCK.json` therefore blocks packaging, staging and deployment. R338 source hardening may be reviewed, but it is not a production-complete replacement.
+
+
 ## Current candidate
 
-- Branch: `agent/file02-comprehensive-remediation-1.3.0`
+- Branch: `review/file02-r338-fresh-review-fix-2026-08-16`
 - Version/schema: `1.3.0 / 1.3.0`; passkey table schema `1.0.1`
 - Repository `main` re-verified during R319: `0f011b1876e217b7ee46f92903e5315538c1025e`
 - Governing corpus: Definitive Master Plan v3.0; `SSH-F02-PLAN-2026-v1.0`; Consolidated All-Chats Directives v2.1; Continuous-Value/Top-20 Superset plan; later cross-file ownership refinement for File 02 passkey/WebAuthn ceremony

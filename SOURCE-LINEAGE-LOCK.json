@@ -1,0 +1,43 @@
+{
+  "schema": "sauth.source-lineage-lock.v2",
+  "file_number": "02",
+  "recorded_at": "2026-08-16T11:35:00+05:00",
+  "r338_review_branch": "review/file02-r338-fresh-review-fix-2026-08-16",
+  "r338_pre_correction_head": "6e007be952817c400efe93fbecbd5101689dfeb7",
+  "current_recoverable_runtime": "1.3.0",
+  "current_recoverable_database": "1.3.0",
+  "current_recoverable_passkey_schema": "1.0.1",
+  "founder_approved_amendment": "SSH-F02-AMD-2026-08-08-X24",
+  "founder_approved_runtime_candidate": "1.3.0",
+  "founder_approved_database": "1.3.0",
+  "founder_approved_passkey_schema": "1.1.0",
+  "founder_approved_authentication_assurance_v2": "2.0.0",
+  "founder_approved_modern_auth_contract": "1.0.0",
+  "founder_approved_shared_signals_contract": "1.0.0",
+  "latest_approved_reviewed_runtime_evidence": "1.3.8",
+  "latest_approved_reviewed_database_evidence": "1.3.0",
+  "latest_approved_reviewed_passkey_schema_evidence": "1.1.0",
+  "known_historical_1_3_8_installable_zip_sha256": "9e93cc0282ec407a7efc5bb37559a6d6e87f9e20c9e9453e33b338e49f494e2f",
+  "known_historical_1_3_8_manifest_sha256": "5300a3483116fedb7cd7248253ecf98f3d0a0b7ab6621b8a2d70c7b682c72bb8",
+  "known_historical_1_3_8_source_review_bundle_sha256": "f284fbe8296f7d3085c5a10f4710c0962b0aff8ba1997667779605ff9d0bff57",
+  "known_historical_1_3_8_source_manifest_sha256": "5a15260da739353d911568c4ebe2a75d0989a4aff515c3dbd9e17e4c20702108",
+  "exact_1_3_8_source_bytes_recovered": false,
+  "current_source_has_complete_x24_scope": false,
+  "current_source_is_latest_approved_product_source": false,
+  "packaging_allowed": false,
+  "staging_allowed": false,
+  "deployment_allowed": false,
+  "block_reasons": [
+    "Exact reviewed 1.3.8 source bytes are not recovered in the current repository/file-library evidence.",
+    "The current recoverable 1.3.0 tree does not contain the Founder-approved F02-X24-001..024 implementation architecture.",
+    "Current passkey schema is 1.0.1 while the approved X24/1.3.x product lineage requires 1.1.0.",
+    "Current source lacks the X24 security timeline/recovery/shared-signals data plane, routes and v2 contracts."
+  ],
+  "unblock_requirements": [
+    "Recover the exact reviewed File 02 1.3.8 source bundle or prove a later superseding exact source.",
+    "Verify source manifest and artifact hashes against the recorded approved evidence.",
+    "Reconcile R337/R338 hardening onto that exact later source without dropping F02-X24-001..024.",
+    "Run two fresh full review/fix cycles, exact-head source QA, package QA, real WordPress/MariaDB upgrade/rollback and exact File 00 integration.",
+    "Only then consider Hostinger staging; live deployment and live re-test remain separate gates."
+  ]
+}

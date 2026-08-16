@@ -1,5 +1,8 @@
 # File 02 Staging Acceptance — Version 1.3.0
 
+> **R338 gate:** Do not begin staging with this current recoverable tree while `SOURCE-LINEAGE-LOCK.json` has `staging_allowed=false`. Recover and reconcile the approved X24/1.3.8 source (or a separately reviewed superseding exact source) first.
+
+
 This checklist proves real-environment acceptance; repository CI alone cannot complete it.
 
 ## Immutable inputs

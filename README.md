@@ -3,10 +3,10 @@
 **Canonical repository name:** `02-sabri-authentication-and-accounts`
 **Current historical GitHub transport repository:** `02-sabri-authentication`
 **Package folder / WordPress slug:** `02-sabri-authentication` / `sabri-authentication`
-**Candidate branch:** `agent/file02-comprehensive-remediation-1.3.0`
+**Candidate branch:** `review/file02-r338-fresh-review-fix-2026-08-16`
 **Source candidate:** `1.3.0`
 **Database schema:** `1.3.0`
-**Governing corpus:** Definitive Master Plan v3.0, `SSH-F02-PLAN-2026-v1.0`, Consolidated All-Chats Directives v2.1, Continuous-Value/Top-20 Superset plan and the later File 00 Advanced Trust ownership boundary.
+**Governing corpus:** Definitive Master Plan v3.0, `SSH-F02-PLAN-2026-v1.0`, Founder-approved amendment `SSH-F02-AMD-2026-08-08-X24`, the later reviewed File 02 v2.9/1.3.8 evidence lineage, Consolidated All-Chats Directives v2.1 and the File 00 Advanced Trust ownership boundary.
 
 ## Canonical ownership
 
@@ -14,9 +14,9 @@ File 02 owns email/password, Google OAuth and WebAuthn/passkey authentication ce
 
 File 00 remains the sole owner of platform identity, membership eligibility, declared account class, age/guardian truth, roles/capabilities, verification, suspension, institutional authority and MFA policy. File 24 may contribute risk/assurance policy. Authentication never grants native object authorization.
 
-## Version 1.3.0 completion scope
+## Current recoverable 1.3.0 hardening scope — not approved X24 completeness
 
-Version 1.3.0 preserves the complete 1.2.6 line and adds the R337 comprehensive concurrency, persistence and privacy correction. DB identity advances to `1.3.0` so installations rerun the repaired one-way legacy-table migration with compatibility routing explicitly suspended; passkey schema identity remains `1.0.1` because its physical schema is unchanged.
+The current recoverable tree preserves the 1.2.6/R337 hardening line and uses runtime/DB marker `1.3.0`, but it is not the Founder-approved X24-complete 1.3.x product source. The approved amendment requires passkey schema `1.1.0`, six modern-auth owner classes, three additional security/recovery/signal tables, new routes and v2 contracts; the later reviewed corpus records runtime `1.3.8`. Those exact source bytes are not recovered here, so `SOURCE-LINEAGE-LOCK.json` blocks packaging/staging/deployment until exact later-source recovery and reconciliation.
 
 The candidate retains:
 
@@ -49,9 +49,9 @@ The File 00 integration dependency is a separate repository truth. The current e
 | Gate | Status |
 |---|---|
 | Specified | Complete |
-| Source coding | **Review candidate**; R337 comprehensive remediation implemented |
-| Packaged | Pending exact-head deterministic release gate |
-| Automated QA | Pending exact-head PHP and real WordPress/File 00 integration |
+| Source coding | **R338 review-only hardening candidate**; approved X24/1.3.8 source lineage remains unrecovered |
+| Packaged | **BLOCKED** by `SOURCE-LINEAGE-LOCK.json`; do not generate a production-complete candidate |
+| Automated QA | Review-source QA may run; release/package QA cannot authorize the missing approved lineage |
 | Hostinger staging | Pending |
 | Real WebAuthn/SMTP/Google/browser/RTL/WCAG/load | Pending |
 | Backup/restore and rollback rehearsal | Pending |

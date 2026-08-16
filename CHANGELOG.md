@@ -1,3 +1,11 @@
+## R338 — Fresh adversarial source-lineage review and containment
+
+- Full R338 review was frozen before correction and found 11 verified findings: 5 blockers, 4 High and 2 Medium.
+- Corrected File 00 minimum to 1.2.44, WordPress minimum to 6.4 and preserved WordPress `confirm_admin_email`.
+- Reinstated machine-readable `SOURCE-LINEAGE-LOCK.json`; current recoverable 1.3.0/passkey-1.0.1 source is explicitly not the latest approved X24/1.3.8 product source.
+- Packaging, staging and deployment are fail-closed until exact approved 1.3.8 (or later superseding exact source) is recovered and reconciled.
+- Added permanent R338 regression and package-builder enforcement so green source QA cannot be misread as approved-scope release readiness.
+
 # Changelog
 
 All notable changes to Sabri Authentication and Accounts are recorded here.
