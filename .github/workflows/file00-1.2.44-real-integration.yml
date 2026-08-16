@@ -133,7 +133,7 @@ jobs:
       - name: Prove File 02 resolves exact File 00 canonical membership routes
         run: |
           set -euo pipefail
-          /tmp/wp eval '$expected=array("profile_url"=>"/membership-application/","security_url"=>"/membership-security/","verification_url"=>"/membership-status/"); foreach($expected as $method=>$path){$url=SAUTH_Membership_Adapter::$method(); $actual=(string)wp_parse_url($url,PHP_URL_PATH); if($actual!==$path){fwrite(STDERR,"{$method} expected {$path}, got {$actual}\n");exit(1);}} echo "PASS File02 canonical File00 route resolution\n";' --path=/tmp/wordpress
+          /tmp/wp eval '$map=(array)get_option("smc_page_map",array()); $expected=array("profile_url"=>array("application","/membership-application/"),"security_url"=>array("security","/membership-security/"),"verification_url"=>array("status","/membership-status/")); foreach($expected as $method=>$spec){$key=$spec[0];$fallback=$spec[1];$id=absint($map[$key]??0);if(!$id||"publish"!==get_post_status($id)){fwrite(STDERR,"File00 {$key} managed page unavailable\n");exit(1);} $target=smc_page_url($key,$fallback);$actual=SAUTH_Membership_Adapter::$method();if(!is_string($target)||""===$target||!is_string($actual)||!hash_equals($target,$actual)){fwrite(STDERR,"{$method} did not resolve to File00 {$key} managed page. expected={$target} actual={$actual}\n");exit(1);}} echo "PASS File02 canonical File00 managed-page resolution\n";' --path=/tmp/wordpress
       - name: Prove canonical account taxonomy parity on both runtimes
         run: |
           set -euo pipefail
