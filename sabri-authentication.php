@@ -4,7 +4,7 @@
  * Plugin URI: https://www.sabrihomeopathy.com/
  * Description: Email/password, Google OAuth and WebAuthn/passkey authentication orchestration, registration, recovery, risk challenge, session controls and authentication assurance for the Sabri Social Homeopathy Platform. Requires Sabri Membership Core.
  * Version: 1.2.6
- * Requires at least: 6.0
+ * Requires at least: 6.4
  * Requires PHP: 7.4
  * Author: Dr. Allama Majid Hussain Sabri
  * License: GPL-2.0-or-later
@@ -93,7 +93,7 @@ function sauth_validate_activation_dependencies() {
 	}
 	deactivate_plugins( plugin_basename( SAUTH_FILE ) );
 	wp_die(
-		esc_html__( 'Sabri Authentication requires File 00 — Sabri Membership Core 1.2.43+ with its current database migration complete, Safe Mode clear, smc.authentication-account 1.1.0 and the current membership-assurance contract. Activation stopped before File 02 changed tables, pages or options.', 'sabri-authentication' ),
+		esc_html__( 'Sabri Authentication requires File 00 — Sabri Membership Core 1.2.44+ with its current database migration complete, Safe Mode clear, smc.authentication-account 1.1.0 and the current membership-assurance contract. Activation stopped before File 02 changed tables, pages or options.', 'sabri-authentication' ),
 		esc_html__( 'Required File 00 contract unavailable', 'sabri-authentication' ),
 		array( 'back_link' => true )
 	);
