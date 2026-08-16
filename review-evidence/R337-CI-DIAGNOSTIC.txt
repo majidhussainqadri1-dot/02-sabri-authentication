@@ -1,0 +1,145 @@
+R337 CI diagnostic at 2026-08-16T05:39:07Z
+HEAD=8d61e6fd901e17d33f1aebb98d299e00a27b11d2
+
+Potential stale expectation references:
+tests/r302-migration-postcondition-regression.php:14:    'minimum File 00 version copy is current' => "Membership Core 1.2.43 or later",
+tests/r331-account-taxonomy-parity-regression.php:10:foreach ( array( 'clinic_staff', 'institution_representative' ) as $legacy ) { if ( false !== strpos( $block, "'" . $legacy . "'" ) ) { $fail[] = 'legacy provider-only alias remains in account choices: ' . $legacy; } }
+tests/r337-fresh-audit-regression.php:17:$req( false === strpos( $plugin, 'Membership Core 1.2.43+' ), 'activation message still advertises File 00 1.2.43+' );
+tests/r337-fresh-audit-regression.php:23:$req( false === strpos( $registration, "array( 'doctor', 'teacher', 'clinic_staff', 'institution_representative' )" ), 'stale provider-only professional taxonomy remains in registration age gate' );
+.github/workflows/file00-1.2.44-real-integration.yml:104:          /tmp/wp eval '$expected=array("member","patient","student","doctor","teacher","researcher","pharmacy","clinic","publisher"); $actual=array_keys(smc_account_types()); if($actual!==$expected){fwrite(STDERR,"File00 canonical taxonomy mismatch\n");exit(1);} $r=new ReflectionMethod("SMC_Authentication_Contract_V11","validate_extra_fields"); $r->setAccessible(true); foreach($expected as $type){$checked=$r->invoke(null,array("city"=>"Gujrat","account_type"=>$type,"authentication_method"=>"password","ethical_conduct_version"=>"2026-integration","profile_photo_required"=>true)); if(!is_array($checked)||($checked["account_type"]??"")!==$type){fwrite(STDERR,"File00 provider rejected canonical type {$type}\n");exit(1);}} foreach(array("clinic_staff","institution_representative") as $legacy){$checked=$r->invoke(null,array("city"=>"Gujrat","account_type"=>$legacy,"authentication_method"=>"password","ethical_conduct_version"=>"2026-integration","profile_photo_required"=>true)); if(is_array($checked)){fwrite(STDERR,"File00 provider accepted legacy alias {$legacy}\n");exit(1);}} $file02=array_keys(SA_Registration::account_types()); if($file02!==$expected){fwrite(STDERR,"File02 public account choices mismatch\n");exit(1);} echo "PASS canonical taxonomy parity\n";' --path=/tmp/wordpress
+.github/workflows/r337-ci-diagnostic.yml:32:            grep -R -n -E "1\.2\.43|Requires at least: 6\.0|clinic_staff|institution_representative" tests .github 2>/dev/null || true
+
+
+=== tests/security-unit.php ===
+File 02 security unit checks passed.
+exit=0
+
+=== tests/cf01-assurance-unit.php ===
+File 02 CF-01/passkey assurance checks: 13 PASS, 0 FAIL
+exit=0
+
+=== tests/professional-reauthentication-unit.php ===
+PASS: different subject cannot bind current session
+PASS: wrong current password fails closed
+PASS: invalid downstream contract fails closed
+PASS: password plus File 02 AAL2 passkey evidence succeeds
+PASS: fresh password verification is explicit
+PASS: professional review purpose is explicit
+PASS: delegated authentication purpose remains explicit
+PASS: AAL2 level is preserved
+PASS: professional receipt must retain File 02 passkey method
+PASS: existing session-bound professional receipt can be re-read
+PASS: existing receipt retains verified-password evidence
+PASS: password-hash change revokes professional receipt even before session rotation
+PASS: client fingerprint change revokes professional receipt
+PASS: session-token rotation revokes professional receipt
+PASS: oversized current password is rejected before verification
+PASS: oversized professional scope is rejected before hashing/provider use
+All 16 professional reauthentication checks passed.
+exit=0
+
+=== tests/plan-harmonization-unit.php ===
+File 02 plan harmonization account/event checks passed.
+exit=0
+
+=== tests/registration-authentication-unit.php ===
+File 02 registration, email verification, Google-first and password policy checks passed.
+exit=0
+
+=== tests/complete-plan-unit.php ===
+File 02 completion, risk, session and provider policy checks passed.
+exit=0
+
+=== tests/passkey-webauthn-unit.php ===
+File 02 WebAuthn unit suite passed: 28 assertions.
+exit=0
+
+=== tests/three-plan-completion-unit.php ===
+File 02 prior three-plan requirements preserved inside 1.2.6 R321-R329 hardened candidate.
+exit=0
+
+=== tests/storage-migration-unit.php ===
+File 02 canonical storage migration checks passed.
+exit=0
+
+=== tests/r291-r300-review-regression.php ===
+R291-R300 cumulative static regression PASS (26 assertions).
+exit=0
+
+=== tests/r299-cross-flow-regression.php ===
+R299 cross-flow regression PASS (36 assertions).
+exit=0
+
+=== tests/r302-migration-postcondition-regression.php ===
+R302 migration postcondition regression PASS (9 assertions).
+exit=0
+
+=== tests/r303-registration-recovery-regression.php ===
+R303 registration/recovery regression PASS (9 assertions).
+exit=0
+
+=== tests/r304-google-auth-regression.php ===
+R304 Google authentication regression PASS (8 assertions).
+exit=0
+
+=== tests/r305-passkey-lifecycle-regression.php ===
+R305 passkey lifecycle regression PASS (10 assertions).
+exit=0
+
+=== tests/r306-session-assurance-regression.php ===
+R306 session/assurance regression PASS (9 assertions).
+exit=0
+
+=== tests/r307-privacy-operations-regression.php ===
+R307 privacy/operations regression PASS (10 assertions).
+exit=0
+
+=== tests/r308-route-ui-regression.php ===
+R308 route/UI regression PASS (13 assertions).
+exit=0
+
+=== tests/r309-release-truth-regression.php ===
+R309 current release-truth invariants PASS (14 assertions).
+exit=0
+
+=== tests/r310-final-adversarial-regression.php ===
+R310 final adversarial regression PASS (13 assertions).
+exit=0
+
+=== tests/r311-security-boundary-regression.php ===
+R311 security boundary regression PASS (6 assertions).
+exit=0
+
+=== tests/r312-schema-postcondition-regression.php ===
+R312 schema postcondition regression PASS (6 assertions).
+exit=0
+
+=== tests/r313-registration-recovery-regression.php ===
+R313 registration/recovery regression PASS (4 assertions).
+exit=0
+
+=== tests/r314-google-provider-health-regression.php ===
+R314 Google provider-health regression PASS (8 assertions).
+exit=0
+
+=== tests/r315-passkey-canonical-schema-regression.php ===
+R315 passkey canonical-schema regression PASS (12 assertions).
+exit=0
+
+=== tests/r316-session-assurance-hardening-regression.php ===
+R316 session/assurance hardening regression PASS (8 assertions).
+exit=0
+
+=== tests/r317-privacy-integrity-regression.php ===
+R317 privacy integrity regression PASS (10 assertions).
+exit=0
+
+=== tests/r318-route-ui-hardening-regression.php ===
+R318 route/UI hardening regression PASS (7 assertions).
+exit=0
+
+=== tests/r319-release-contract-truth-regression.php ===
+R319 regressions:
+- release lock names stale current branch
+exit=1
+FIRST_FAILURE=tests/r319-release-contract-truth-regression.php
