@@ -5,47 +5,33 @@
 - Module: `02 — Authentication and Accounts`
 - Candidate version/schema: `1.2.6 / 1.2.1`
 - Passkey schema/assurance: `1.0.1 / 1.0.0`
-- Candidate branch: `fix/file02-passkey-index-reconciliation-1.2.6`
-- Current repository `main` re-verified during R319: `0f011b1876e217b7ee46f92903e5315538c1025e`
+- Candidate branch: `review/file02-r337-fresh-audit-2026-08-16`
+- Current repository `main`: `0f011b1876e217b7ee46f92903e5315538c1025e`
 - Historical incident baseline main: `8192c45b595b34e13e09934e3b2d554aa2d8553f`
-- Intended canonical repository name: `02-sabri-authentication-and-accounts` (owner-level rename is still external)
+- Intended canonical repository name: `02-sabri-authentication-and-accounts` (owner-level rename remains external)
 - Current transport repository: `02-sabri-authentication`
 - Package root: `02-sabri-authentication`
-- Package: `02-sabri-authentication-1.2.6-SOURCE-CANDIDATE.zip`
-- Manifest: `02-sabri-authentication-1.2.6-MANIFEST.json`
-- Checksums: `CHECKSUMS.sha256` plus exact-head CI checksum record
-- SBOM: `SBOM.spdx.json`
-- Required File 00 provider: `smc.authentication-account 1.1.0`
-- Exact paired File 00 repository candidate: `1d7f215193d778b0977c8e50d738c42e1e5f66c2`, runtime `1.2.44`, DB `1.4.5`
+- Runtime dependency: File 00 `1.2.44+`, `smc.authentication-account 1.1.0+`
+- Minimum WordPress: `6.4+`
 - Advanced Trust projection: File 02 passkey assurance `1.0.0`, owner `file02`
-- Former taxonomy/provider cross-file blocker: **closed at repository/integration level** by exact run `31850253635`; this is not a staging/live claim.
 
-## Current hardening release
+## R337 review identity
 
-Version 1.2.6 carries the R321–R336 source/release hardening line. R334 corrected dbDelta-incompatible passkey index formatting discovered by real MariaDB upgrade rehearsal. R335 then corrected the proven MariaDB state in which the unique key name `credential_lookup_hash` survives a legacy column rename while becoming bound to `credential_hash`; File 02 now reconciles only that exact stale binding before dbDelta, preserves uniqueness, and fails closed on unexpected conflicts. DB identity remains 1.2.1 and passkey schema identity remains 1.0.1 because the intended physical schema did not change.
+R337 is a fresh source/release review performed after the R331–R336 line. The complete R337 review was frozen before correction at exact pre-correction HEAD `972f5fd2cc59fe69bf465b844ac36c740533f7dd` in `review-evidence/R337-REVIEW-FROZEN.md`.
 
-R336 records the successful exact paired File 00/File 02 integration and replaces the stale hard-coded architecture release identity with `RELEASE-LOCK.json`-driven identity. This source identity remains separate from staging/live completion.
+The frozen ledger contains seven verified defects: four High and three Medium. The source correction set includes File 00/WordPress dependency alignment, canonical professional-account age validation, passkey credential-state persistence postconditions, synchronous session-registry failure containment, preservation of WordPress administrative-email confirmation, and release-evidence identity correction.
 
-## Exact cross-file integration evidence
+The exact multi-file corrective commit is `e04cfdf51a6d876f70c0296acfb9692fef5a54df`. Later commits on this same branch add regression and evidence alignment; therefore the releasable source identity is the eventual final exact branch HEAD, not the intermediate correction commit.
 
-GitHub Actions run `31850253635` passed against File 02 `f740ca65fc33031b98d7d75e5f27b7ccbeeefbf9` and File 00 `1d7f215193d778b0977c8e50d738c42e1e5f66c2`:
+## Historical paired integration evidence
 
-1. immutable paired input verification;
-2. WordPress 7.0 / MariaDB 11.4 installation;
-3. File 00 activation in queued state plus supported deferred administrator bootstrap to DB 1.4.5;
-4. File 02 fresh activation at runtime 1.2.6 / DB 1.2.1 / passkey schema 1.0.1;
-5. two-sided canonical account taxonomy parity for `member`, `patient`, `student`, `doctor`, `teacher`, `researcher`, `pharmacy`, `clinic`, `publisher`;
-6. legacy passkey column/index upgrade on real MariaDB;
-7. legacy logical-identity collision migration; and
-8. final paired runtime/schema boundary verification.
+GitHub Actions run `31850253635` is retained as **historical pre-R337** repository integration evidence. It passed against File 02 `f740ca65fc33031b98d7d75e5f27b7ccbeeefbf9` and File 00 `1d7f215193d778b0977c8e50d738c42e1e5f66c2` / runtime `1.2.44`, including WordPress 7.0 / MariaDB 11.4 installation, File 00 deferred bootstrap, File 02 fresh activation, canonical nine-type taxonomy parity, passkey migration, logical-identity migration and final paired boundaries.
 
-## Historical bootstrap correction
-
-File 02 1.2.0 contained `includes/class-sauth-storage-router.php` and invoked `SAUTH_Storage_Router::init()` during `plugins_loaded`, but the main plugin file did not require that class. Real WordPress cross-repository testing therefore activated the plugin and then reproduced a fatal on the next WordPress request. Version 1.2.1 loaded the storage-router source before startup registration and added permanent source, package and real WordPress reload guards.
+That run predates R337 source changes. Exact **post-R337** paired File 00 1.2.44 revalidation is therefore still required for the current candidate. The historical run is not Hostinger staging or live evidence.
 
 ## Installable runtime inventory
 
-The deterministic builder includes only the plugin runtime and release-facing documentation:
+The deterministic builder is intended to include only the plugin runtime and release-facing documentation:
 
 ```text
 sabri-authentication.php
@@ -70,28 +56,34 @@ SBOM.spdx.json
 PACKAGE-MANIFEST.json (generated)
 ```
 
-Tests, CI workflows, historical review evidence, development reports and committed archives are excluded from the installable ZIP.
+Tests, CI workflows, review evidence, temporary correction machinery, development reports and committed archives must remain excluded from an installable ZIP.
 
 ## Exact-head evidence rule
 
-The corrected current GitHub Actions head must:
+The final corrected GitHub Actions head must:
 
 1. prove checkout equals the immutable source HEAD;
 2. lint every PHP source file on PHP 7.4 and 8.3;
-3. execute all security, assurance, registration, completion, plan, WebAuthn and R29x–R336 permanent regressions;
-4. enforce the release-lock-driven architecture guard, including File 02/File 00 ownership and rejection of client-supplied WebAuthn public keys;
-5. prove the storage-router source is loaded before File 02 startup;
-6. validate JavaScript syntax and CSS structure;
-7. build the 1.2.6 package twice from a fixed source epoch and prove byte identity;
+3. execute all security, assurance, registration, completion, plan, WebAuthn and permanent R29x–R337 regressions;
+4. validate the current R337 dependency/taxonomy/passkey/session/core-login postconditions;
+5. validate JavaScript syntax and CSS structure;
+6. enforce the review-only artifact/correction-machinery boundary;
+7. build/package only if the release workflow is deliberately run from that exact head;
 8. reject archive traversal, unexpected roots, secrets and forbidden files;
-9. clean-extract and lint every packaged PHP file and prove bootstrap/migration invariants survive packaging;
-10. retain the separate exact WordPress/File 00 integration evidence; and
+9. retain historical paired File 00 evidence only with its exact source identities;
+10. require a new post-R337 File 00 1.2.44 paired integration before attributing cross-file integration success to the current head; and
 11. never infer staging/live completion from repository/package success.
 
-The actual package digest may be claimed only from the successful immutable workflow head.
+## Current completion boundary
 
-## External completion boundary
+- Specified: complete.
+- Coded/source: R337 corrective candidate.
+- Packaged: pending final exact-head package proof.
+- Automated QA: pending final exact-head green proof.
+- Staging-Accepted: no.
+- Live-Deployed: no.
+- Operational: no.
 
-Repository/source integration with File 00 is proven as described above. Hostinger staging, real production-domain WebAuthn authenticators, real SMTP/Google, browser/RTL/WCAG, other cross-file/theme/LiteSpeed integrations, performance/load, backup/restore, rollback, Founder acceptance, live deployment and operations remain separate gates.
+Hostinger staging, real production-domain WebAuthn, SMTP/Google, browser/RTL/WCAG, other cross-file/theme/LiteSpeed integrations, performance/load, backup/restore, rollback, Founder acceptance, production deployment and operations remain separate gates.
 
-Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔
+**Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔**
