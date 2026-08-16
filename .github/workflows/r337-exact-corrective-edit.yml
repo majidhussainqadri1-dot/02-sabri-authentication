@@ -1,0 +1,65 @@
+name: R337 Exact Corrective Edit
+
+on:
+  push:
+    branches:
+      - review/file02-r337-fresh-audit-2026-08-16
+
+permissions:
+  contents: write
+
+jobs:
+  apply-frozen-ledger-corrections:
+    if: ${{ !contains(github.event.head_commit.message, '[r337-bot]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact triggering head
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+          ref: review/file02-r337-fresh-audit-2026-08-16
+      - name: Apply exact R337 replacements
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected one exact preimage, found {count}")
+              p.write_text(text.replace(old, new, 1))
+
+          replace_once(
+              'includes/class-sa-registration.php',
+              "if ( in_array( $payload['account_type'], array( 'doctor', 'teacher', 'clinic_staff', 'institution_representative' ), true ) && $age < 18 )",
+              "if ( in_array( $payload['account_type'], array( 'doctor', 'teacher', 'researcher', 'pharmacy', 'clinic', 'publisher' ), true ) && $age < 18 )",
+          )
+
+          replace_once(
+              'includes/class-sauth-session-manager.php',
+              """\t\tif ( false === $result || ! is_array( $post ) || absint( $post['user_id'] ?? 0 ) !== $user_id || 'active' !== (string) ( $post['status'] ?? '' ) || ! hash_equals( $token_hash, (string) ( $post['token_hash'] ?? '' ) ) ) {\n\t\t\tif ( class_exists( 'WP_Session_Tokens' ) ) { WP_Session_Tokens::get_instance( $user_id )->destroy( $token ); }\n\t\t\tSA_Membership_Adapter::audit( 'session_projection_store_failed', $user_id );\n\t\t}\n""",
+              """\t\tif ( false === $result || '' !== (string) $wpdb->last_error || ! is_array( $post ) || absint( $post['user_id'] ?? 0 ) !== $user_id || 'active' !== (string) ( $post['status'] ?? '' ) || ! hash_equals( $token_hash, (string) ( $post['token_hash'] ?? '' ) ) ) {\n\t\t\tif ( class_exists( 'WP_Session_Tokens' ) ) { WP_Session_Tokens::get_instance( $user_id )->destroy( $token ); }\n\t\t\tSA_Membership_Adapter::audit( 'session_projection_store_failed', $user_id );\n\t\t\twp_clear_auth_cookie();\n\t\t\twp_set_current_user( 0 );\n\t\t\tif ( function_exists( 'wp_doing_ajax' ) && wp_doing_ajax() ) {\n\t\t\t\twp_send_json_error( array( 'code' => 'session_projection_store_failed', 'message' => 'The authenticated session could not be established safely.' ), 503 );\n\t\t\t}\n\t\t\twp_die( esc_html__( 'The authenticated session could not be established safely. Please try again.', 'sabri-authentication' ), esc_html__( 'Authentication session unavailable', 'sabri-authentication' ), array( 'response' => 503, 'back_link' => true ) );\n\t\t}\n""",
+          )
+
+          replace_once(
+              'includes/class-sauth-passkeys.php',
+              """\t\tglobal $wpdb;\n\t\t$wpdb->update(\n\t\t\tself::table(),\n\t\t\tarray(\n\t\t\t\t'sign_count' => max( $stored_count, $new_count ),\n\t\t\t\t'backup_state' => ! empty( $parsed['backup_state'] ) ? 1 : 0,\n\t\t\t\t'last_used_at' => current_time( 'mysql', true ),\n\t\t\t\t'updated_at' => current_time( 'mysql', true ),\n\t\t\t),\n\t\t\tarray( 'id' => absint( $credential['id'] ), 'status' => 'active' ),\n\t\t\tarray( '%d','%d','%s','%s' ),\n\t\t\tarray( '%d','%s' )\n\t\t);\n""",
+              """\t\tglobal $wpdb;\n\t\t$expected_count = max( $stored_count, $new_count );\n\t\t$expected_backup_state = ! empty( $parsed['backup_state'] ) ? 1 : 0;\n\t\t$used_at = current_time( 'mysql', true );\n\t\t$state_changed = $wpdb->update(\n\t\t\tself::table(),\n\t\t\tarray(\n\t\t\t\t'sign_count' => $expected_count,\n\t\t\t\t'backup_state' => $expected_backup_state,\n\t\t\t\t'last_used_at' => $used_at,\n\t\t\t\t'updated_at' => $used_at,\n\t\t\t),\n\t\t\tarray( 'id' => absint( $credential['id'] ), 'user_id' => $user_id, 'status' => 'active' ),\n\t\t\tarray( '%d','%d','%s','%s' ),\n\t\t\tarray( '%d','%d','%s' )\n\t\t);\n\t\t$persisted_state = $wpdb->get_row(\n\t\t\t$wpdb->prepare( 'SELECT sign_count,backup_state,status,last_used_at FROM ' . self::table() . ' WHERE id=%d AND user_id=%d', absint( $credential['id'] ), $user_id ),\n\t\t\tARRAY_A\n\t\t);\n\t\tif ( false === $state_changed\n\t\t\t|| '' !== (string) $wpdb->last_error\n\t\t\t|| ! is_array( $persisted_state )\n\t\t\t|| 'active' !== (string) ( $persisted_state['status'] ?? '' )\n\t\t\t|| $expected_count !== absint( $persisted_state['sign_count'] ?? -1 )\n\t\t\t|| $expected_backup_state !== absint( $persisted_state['backup_state'] ?? -1 )\n\t\t\t|| ! hash_equals( $used_at, (string) ( $persisted_state['last_used_at'] ?? '' ) ) ) {\n\t\t\tself::authentication_failure( $user_id, 'credential_state_persist_failed' );\n\t\t}\n""",
+          )
+          PY
+          git diff --check
+      - name: Commit corrective replacements and remove temporary workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Sabri File 02 Review Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git rm .github/workflows/r337-exact-corrective-edit.yml
+          git add includes/class-sa-registration.php includes/class-sauth-session-manager.php includes/class-sauth-passkeys.php
+          git commit -m '[r337-bot] apply exact frozen-ledger source corrections'
+          git push origin HEAD:review/file02-r337-fresh-audit-2026-08-16
