@@ -10,7 +10,7 @@ $staging = file_get_contents( $root . '/STAGING-ACCEPTANCE.md' );
 $sbom = file_get_contents( $root . '/SBOM.spdx.json' );
 $fail = array();
 $checks = array(
-  array($baseline, "lock.get('release_version')=='1.3.0'", 'release CI does not enforce current release-lock runtime identity'),
+  array($baseline, "lock.get('release_version')=='1.3.1'", 'release CI does not enforce current release-lock runtime identity'),
   array($baseline, 'tests/r33*-regression.php', 'release CI omits final corrective regressions'),
   array($docs, 'table_indexes_ready', 'storage/docs gate does not assert material index readiness'),
   array($docs, 'tests/r33*-regression.php', 'storage/docs gate omits final corrective regressions'),
@@ -18,6 +18,7 @@ $checks = array(
   array($integration, "FILE00_VERSION: '1.2.44'", 'integration gate does not assert File00 1.2.44 runtime'),
   array($integration, 'Prove canonical account taxonomy parity on both runtimes', 'integration gate lacks two-sided canonical taxonomy proof'),
   array($integration, 'Rehearse legacy 1.2.1 passkey-column upgrade on real MariaDB', 'integration gate lacks supported passkey upgrade rehearsal'),
+  array($integration, 'Rehearse exact deployed stale passkey user_status index on real MariaDB', 'integration gate lacks the exact live stale-index recovery rehearsal'),
   array($incident, 'live symptom → live evidence → exact deployed version → DB/schema state → deployment parity → root cause → repository code', 'incident runbook lacks Live-First order'),
   array($incident, 'Repository HEAD / Deployed Version / DB Version / Migration State / Live Verification Status', 'incident report lacks mandatory truth fields'),
   array($architecture, 'dedicated-`SA_MASTER_KEY`', 'architecture omits dedicated provider-secret key authority'),
