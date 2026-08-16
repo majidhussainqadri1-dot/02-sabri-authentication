@@ -20,11 +20,15 @@ $req( false !== strpos( $main, 'Version: 1.2.6' ) && false !== strpos( $main, "S
 $req( false !== strpos( $main, "SAUTH_DB_VERSION', '1.2.1" ), 'DB identity changed after R330' );
 
 /* R330 is a permanent historical regression. Later corrective rounds may
- * legitimately advance the release-line label, so this guard proves the
- * line has not moved backwards instead of pinning an obsolete R335 string. */
+ * legitimately advance both the release-line label and its wording. Extract
+ * the round from either historical `rNNN_corrected` or current
+ * `post_rNNN_corrective_source` forms instead of pinning obsolete copy. */
 $coded = is_array( $lock ) ? (string) ( $lock['status']['coded'] ?? '' ) : '';
 $review_line = is_array( $lock ) ? (string) ( $lock['review_line'] ?? '' ) : '';
-$coded_round = preg_match( '/_r(\d+)_corrected$/i', $coded, $coded_match ) ? (int) $coded_match[1] : 0;
+$coded_round = 0;
+if ( preg_match( '/(?:^|_)r(\d+)(?:_corrected|_corrective_source)$/i', $coded, $coded_match ) ) {
+    $coded_round = (int) $coded_match[1];
+}
 $review_round = preg_match( '/R331-R(\d+)-corrective$/', $review_line, $review_match ) ? (int) $review_match[1] : 0;
 $req( $coded_round >= 335, 'release lock coded status regressed below the R335 corrective baseline' );
 $req( $review_round >= 335, 'release lock review line regressed below the R335 corrective baseline' );
