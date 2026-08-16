@@ -1,4 +1,4 @@
-# File 02 Staging Acceptance — Version 1.0.0
+# File 02 Staging Acceptance — Version 1.3.0
 
 This checklist proves real-environment acceptance; repository CI alone cannot complete it.
 
@@ -16,12 +16,13 @@ This checklist proves real-environment acceptance; repository CI alone cannot co
 - [ ] Every supported upgrade path succeeds and is idempotent.
 - [ ] Deactivate/reactivate preserves data and routes.
 - [ ] Non-destructive uninstall behavior verified.
-- [ ] All seven File 02 tables/indexes and all managed pages are correct.
+- [ ] All eight File 02 tables/indexes (seven authentication tables plus `sauth_passkeys`) and all managed pages are correct; canonical version/schema markers are published only after storage postconditions.
+- [ ] With the storage router active, a preserved `sa_*` row copies into its `sauth_*` destination and the DB `1.3.0` migration marker is published only after the logical-identity readback succeeds.
 - [ ] Cron/outbox/cleanup hooks run, retry and dead-letter correctly.
 
 ## Dependencies and providers
 
-- [ ] File 00 registration, email-completion, membership and step-up contracts pass positive/negative tests.
+- [ ] File 00 registration, email-completion and membership/eligibility contracts pass positive/negative tests; retired File 00 factor codes are not treated as File 02 authentication.
 - [ ] File 01 manifest and File 20 route/layout placement accepted without duplicate navigation.
 - [ ] HTTPS, permalinks, active theme and LiteSpeed do not break auth routes/headers.
 - [ ] Real SMTP/email delivery tested for success, delay, failure and retry.
@@ -33,18 +34,21 @@ This checklist proves real-environment acceptance; repository CI alone cannot co
 - [ ] Founder, administrator, adult member, eligible minor, guardian, suspended account and security operator.
 - [ ] Registration with National ID and Passport.
 - [ ] Email verification: valid, expired, replayed, resent and concurrent.
+- [ ] Email issuance delivery failure, stale `issuing`, concurrent resend and verification claim/readback failures remain recoverable and never falsely succeed.
 - [ ] Password login: valid, invalid, brute force, unknown account and completion-only account.
-- [ ] New-device/network risk challenge and invalid/exhausted step-up.
+- [ ] New-device/network risk allow/challenge/deny behavior, including File 02 passkey step-up and unavailable-passkey fail-closed behavior.
 - [ ] Password recovery/reset and all-session revocation.
 - [ ] Session list, current marker, individual revoke, revoke others and sign out everywhere.
-- [ ] Google link/unlink and exact-email collision behavior.
+- [ ] Google login/link/unlink and exact-email collision behavior, risk evaluation, rollback postconditions and linkage-failure containment.
+- [ ] Concurrent Google registration/link/login/unlink requests serialize on the same subject/user lock namespace without duplicate owners or orphaned accounts.
 - [ ] Provider/dependency failure preserves public reading and never falsely succeeds.
 
 ## Security and privacy
 
 - [ ] CSRF, IDOR, enumeration, open redirect, replay, race, cache leakage, XSS/SQLi and malformed input tests.
 - [ ] No raw secret/token/password/full IP in logs, events, exports or diagnostics.
-- [ ] Privacy export/erasure/anonymization and retention cleanup pass.
+- [ ] Privacy export pagination, passkey export/erasure/assurance-epoch cleanup, anonymization and retention cleanup pass.
+- [ ] More than 50 canonical and legacy rows erase over repeated batches; device/risk export and recursive outbox identity removal are verified.
 - [ ] Backup restore and rollback preserve newly created File 00 accounts correctly.
 
 ## UX/accessibility/performance

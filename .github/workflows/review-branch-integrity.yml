@@ -1,0 +1,109 @@
+name: File 02 Review Branch Integrity
+
+on:
+  pull_request:
+  push:
+    branches:
+      - review/**
+
+permissions:
+  contents: read
+
+jobs:
+  review-source-integrity:
+    name: Review-only exact-head lint and cumulative regression
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['7.4','8.3']
+    steps:
+      - name: Checkout exact immutable head
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Prove exact immutable head
+        run: |
+          set -euo pipefail
+          expected='${{ github.event.pull_request.head.sha || github.sha }}'
+          test "$(git rev-parse HEAD)" = "$expected"
+          git diff --check
+      - name: Set up PHP
+        uses: shivammathur/setup-php@2.37.2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: none
+          extensions: openssl
+      - name: Lint every PHP file
+        run: |
+          set -euo pipefail
+          mapfile -t php_files < <(find . -type f -name '*.php' -not -path './.git/*' -print | sort)
+          test "${#php_files[@]}" -ge 40
+          for file in "${php_files[@]}"; do php -l "$file" >/dev/null; done
+      - name: Run cumulative no-network source suites
+        run: |
+          set -euo pipefail
+          tests=(
+            tests/security-unit.php
+            tests/cf01-assurance-unit.php
+            tests/professional-reauthentication-unit.php
+            tests/plan-harmonization-unit.php
+            tests/registration-authentication-unit.php
+            tests/complete-plan-unit.php
+            tests/passkey-webauthn-unit.php
+            tests/three-plan-completion-unit.php
+            tests/storage-migration-unit.php
+            tests/r291-r300-review-regression.php
+            tests/r299-cross-flow-regression.php
+            tests/r302-migration-postcondition-regression.php
+            tests/r303-registration-recovery-regression.php
+            tests/r304-google-auth-regression.php
+            tests/r305-passkey-lifecycle-regression.php
+            tests/r306-session-assurance-regression.php
+            tests/r307-privacy-operations-regression.php
+            tests/r308-route-ui-regression.php
+            tests/r309-release-truth-regression.php
+            tests/r310-final-adversarial-regression.php
+          )
+          for extra in tests/r31*-regression.php tests/r32*-regression.php tests/r33*-regression.php; do [ -e "$extra" ] && tests+=("$extra"); done
+          declare -A seen=()
+          for test_file in "${tests[@]}"; do
+            if [ -z "${seen[$test_file]+x}" ]; then php "$test_file"; seen[$test_file]=1; fi
+          done
+      - name: Validate JavaScript and CSS source
+        run: |
+          set -euo pipefail
+          node --check assets/js/authentication.js
+          python3 - <<'PY'
+          import pathlib
+          css=pathlib.Path('assets/css/authentication.css').read_text(encoding='utf-8')
+          if css.count('{') != css.count('}'): raise SystemExit('CSS brace mismatch')
+          if 'orange' in css.lower() or '#f97316' in css.lower(): raise SystemExit('superseded orange-primary token found')
+          js=pathlib.Path('assets/js/authentication.js').read_text(encoding='utf-8')
+          if 'attestation_object' not in js or 'getPublicKey(' in js: raise SystemExit('WebAuthn trust-boundary regression')
+          PY
+      - name: Enforce review-only artifact and correction-machinery boundary
+        run: |
+          set -euo pipefail
+          if find . -type f \( -name '*.zip' -o -name '*.tar' -o -name '*.tgz' -o -name '*.7z' -o -name '*.rar' \) -not -path './.git/*' | grep -q .; then
+            echo 'Review branch must not contain installable/archive artifacts.' >&2
+            exit 1
+          fi
+          if find .github/workflows -maxdepth 1 -type f -name '*correction*.yml' | grep -q .; then
+            echo 'Temporary write-capable correction workflow remains in final review source.' >&2
+            exit 1
+          fi
+          if [ -d .github/forty-round-payload ]; then
+            echo 'Historical corrective payload directory remains in final review source.' >&2
+            exit 1
+          fi
+          test ! -f tools/apply-current-review.py
+          if [ -f .github/workflows/round-ledger-apply.yml ] || [ -f tools/apply-round-ledger.py ]; then
+            echo 'Temporary round-ledger correction machinery remains in final review source.' >&2
+            exit 1
+          fi
+          echo 'Review head contains no installable archive or temporary correction machinery.'

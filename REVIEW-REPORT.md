@@ -1,3 +1,5 @@
+> **Historical evidence notice:** This root report records the earlier 1.1.0 four-round candidate and is retained for provenance only. It is **not** the current release/review status. Current source truth is the R337 comprehensive-remediation candidate at version 1.3.0 / DB 1.3.0 / passkey schema 1.0.1, subject to separate exact-head integration, staging and live gates.
+
 # File 02 — Four-Round Three-Plan Review, Correction and Retest Report
 
 **Module:** File 02 — Authentication and Accounts  

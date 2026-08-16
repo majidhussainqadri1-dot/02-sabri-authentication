@@ -1,8 +1,8 @@
-# File 02 Migration Guide — 1.2.0
+# File 02 Migration Guide — 1.3.0
 
 ## Migration model
 
-File 02 migration remains additive, idempotent and non-destructive. The 1.2.0 candidate preserves the seven canonical authentication tables from 1.1.0 and adds the isolated `sauth_passkeys` schema `1.0.0` plus its private passkey manager page.
+File 02 migration remains additive, idempotent and non-destructive. The 1.3.0 candidate advances File 02 DB identity to `1.3.0` and retains passkey schema identity `1.0.1`. The DB bump deliberately reruns `SAUTH_Activator::migrate_legacy_tables()` after replacing a query-text bypass with explicit compatibility-router suspension; readiness still proves required columns, security-critical indexes and legacy passkey-column reconciliation before successful markers are published.
 
 `SAUTH_Activator::repair()` continues to reconcile the original authentication schema. `SAUTH_Passkeys::maybe_install()` creates/reconciles the passkey table and manager page through WordPress `dbDelta`; guarded repair forces this passkey reconciliation even if its stored schema marker is stale.
 
@@ -10,10 +10,10 @@ File 02 never migrates or mutates File 00 roles, membership approvals, account-c
 
 ## Supported paths
 
-1. Fresh installation of 1.2.0.
-2. Upgrade from every repository-supported File 02 release to 1.2.0.
+1. Fresh installation of 1.3.0.
+2. Upgrade from every repository-supported File 02 release to 1.3.0.
 3. Upgrade from legacy `sa_*` tables/options/pages to canonical `sauth_*` storage and names.
-4. Upgrade from 1.1.0 to 1.2.0 with additive passkey table/page creation and no password/Google/session data loss.
+4. Upgrade from 1.1.0/1.2.x to 1.3.0 with additive passkey table/page creation and no password/Google/session data loss.
 5. Deactivate/reactivate without data loss; passkey cleanup cron is safely unscheduled/recreated.
 6. Re-run the same migration/guarded repair after interruption.
 7. Roll back code while preserving newer File 02 data; destructive passkey deletion is not part of ordinary rollback/uninstall.
@@ -21,20 +21,20 @@ File 02 never migrates or mutates File 00 roles, membership approvals, account-c
 ## Pre-migration gates
 
 - Record exact source head, package SHA-256, manifest and SBOM.
-- Verify File 00 `smc.authentication-account 1.1.0`, existing step-up assurance and later Advanced Trust passkey consumer compatibility.
+- Verify File 00 `smc.authentication-account 1.1.0`, current membership assurance, and the Advanced Trust consumer compatibility for File 02 passkey assurance; retired File 00 factor codes are not a File 02 ceremony.
 - Verify HTTPS canonical origin, OpenSSL support, PHP/WordPress requirements and database privileges.
-- Back up database, WordPress files and encryption-key configuration; prove isolated restore.
+- Back up database, WordPress files and encryption-key configuration; prove isolated restore. A dedicated `SA_MASTER_KEY` (32+ characters) is mandatory before enabling or migrating an encrypted Google Client Secret.
 - Enable Safe Mode before upgrading a populated environment.
 - Capture System Check, existing `sa_*`/`sauth_*` table counts, passkey table existence, routes and options.
 
 ## Execution
 
-1. Install the exact deterministic 1.2.0 package with registration/provider/passkey mutations gated.
+1. Install the exact deterministic 1.3.0 package only after its release build is separately produced and approved; registration/provider/passkey mutations remain gated.
 2. Activate or run guarded File 02 repair.
-3. Confirm `sauth_version` and `sauth_db_version` are `1.2.0` and `sauth_passkey_schema_version` is `1.0.0`.
+3. Confirm `sauth_version` is `1.3.0`, `sauth_db_version` is `1.3.0`, and `sauth_passkey_schema_version` is `1.0.1`.
 4. Confirm the seven prior canonical `sauth_*` tables plus `sauth_passkeys` and their indexes exist.
 5. Confirm the private `account-passkeys` manager page exists and remains `noindex/no-store` through File 02 private-page controls.
-6. Compare legacy/canonical row counts; duplicate keys may reduce copied row counts only where canonical rows already exist.
+6. With the compatibility router explicitly suspended by the activator, reconcile every legacy table by its stable logical identity (`bucket_hash`, `event_id`, `user_id` or `public_id` as applicable). Canonical auto-increment IDs are never copied from legacy evidence tables, and successful migration requires zero legacy logical identities missing from canonical storage.
 7. Confirm `/account/sessions/` resolves and `/account-sessions/` redirects without open redirect/loop.
 8. Confirm outbox/email/risk/session/provider/passkey cleanup schedules.
 9. Run password, Google-first registration, email verification, recovery, session and passkey journeys before reopening high-risk actions.
@@ -45,8 +45,9 @@ File 02 never migrates or mutates File 00 roles, membership approvals, account-c
 - Existing users remain valid under their prior approved authentication methods; passkey enrollment is an explicit authenticated action.
 - Passkey registration generates a random opaque user handle and derives the public key only from server-parsed authenticator data.
 - Existing WordPress salts can be rotated without changing the stable credential-ID lookup hash; encrypted exclusion/presentation copies fail closed if key material changes unexpectedly.
+- Legacy File 02 passkey rows using `credential_hash` / `credential_cipher` are reconciled non-destructively into canonical `credential_lookup_hash` / `credential_id_ciphertext` columns before schema completion is accepted; incomplete copies fail the migration postcondition.
 - File 00 receives only the versioned fresh passkey-assurance projection; no File 00 private MFA storage is imported into File 02.
-- If passkey table creation fails, password/Google authentication can remain available where their own dependencies are healthy, but passkey operations remain disabled and the System Check reports the missing schema.
+- Passkey storage, canonical manager-page and cleanup-schedule postconditions are mandatory activation/guarded-repair postconditions. If they fail, File 02 fails closed, does not publish a successful version/schema marker, enters/retains containment as applicable, and must not claim password/Google authentication availability from that incomplete migration.
 
 ## Reconciliation
 

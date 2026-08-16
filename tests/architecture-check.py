@@ -1,12 +1,21 @@
 #!/usr/bin/env python3
-"""Fail-fast architecture guard for the File 02 1.2.1 bootstrap-corrected four-plan source candidate."""
+"""Fail-fast architecture guard for the current File 02 release-locked source candidate."""
 from __future__ import annotations
 
+import json
 import pathlib
 import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+LOCK = json.loads((ROOT / "RELEASE-LOCK.json").read_text(encoding="utf-8"))
+RELEASE_VERSION = str(LOCK.get("release_version", ""))
+DB_VERSION = str(LOCK.get("database_version", ""))
+PASSKEY_SCHEMA_VERSION = str(LOCK.get("passkey_schema_version", ""))
+if not RELEASE_VERSION or not DB_VERSION or not PASSKEY_SCHEMA_VERSION:
+    print("ERROR: RELEASE-LOCK.json is missing current release/schema identity", file=sys.stderr)
+    raise SystemExit(1)
+
 PHP = {p.relative_to(ROOT).as_posix(): p.read_text(encoding="utf-8") for p in ROOT.rglob("*.php")}
 SOURCE_PHP = {path: text for path, text in PHP.items() if not path.startswith("tests/")}
 ALL = "\n".join(SOURCE_PHP.values())
@@ -54,9 +63,9 @@ if missing:
 
 main = PHP["sabri-authentication.php"]
 for marker in (
-    "Version: 1.2.1",
-    "define( 'SAUTH_VERSION', '1.2.1' );",
-    "define( 'SAUTH_DB_VERSION', '1.2.0' );",
+    f"Version: {RELEASE_VERSION}",
+    f"define( 'SAUTH_VERSION', '{RELEASE_VERSION}' );",
+    f"define( 'SAUTH_DB_VERSION', '{DB_VERSION}' );",
     "define( 'SAUTH_ACCOUNT_CONTRACT_VERSION', '1.1.0' );",
     "define( 'SAUTH_PASSKEY_CONTRACT_VERSION', '1.0.0' );",
     "class-sauth-storage-router.php",
@@ -119,7 +128,8 @@ require_markers(
         "email_verified",
         "hash_equals",
         "finalize_link",
-        "get_users",
+        "$wpdb->usermeta",
+        "SA_Google_OAuth::link_locks_owned",
         "google_registration_context",
     ),
 )
@@ -173,9 +183,10 @@ require_markers(
         "new_device",
         "new_network",
         "recent_failures",
-        "SA_Authentication_Assurance::verify_and_record",
+        "SAUTH_Provider_Health::available_for_ui",
+        "SAUTH_Passkeys::authentication_ready",
         "SAUTH_Completion_Resolver::resolve",
-        "step_up_verified",
+        "passkey_step_up_required",
     ),
 )
 
@@ -198,6 +209,7 @@ if "'session_token' =>" in PHP["includes/class-sauth-session-manager.php"]:
 passkeys = PHP["includes/class-sauth-passkeys.php"]
 for marker in (
     "CONTRACT_VERSION      = '1.0.0'",
+    f"SCHEMA_VERSION        = '{PASSKEY_SCHEMA_VERSION}'",
     "smc_file02_authentication_assurance_v1",
     "webauthn.create",
     "webauthn.get",
@@ -209,7 +221,7 @@ for marker in (
     "userVerification' => 'required",
     "residentKey' => 'required",
     "hash( 'sha256', (string) $raw_id )",
-    "$hardware_backed = false;",
+    "'hardware_backed' => 0",
     "PasskeyRegistered.v1",
     "PasskeyAuthenticated.v1",
     "PasskeyRevoked.v1",
@@ -230,24 +242,26 @@ for event in ("PasskeyRegistered.v1", "PasskeyAuthenticated.v1", "PasskeyRevoked
 require_markers(
     "includes/class-sauth-operations.php",
     (
-        "sauth.system-check",
         "SAFE_MODE_OPTION",
+        "safe_mode_entered_at",
+        "enforce_safe_mode_request_gate",
+        "high_risk_actions_available",
+        "run_repair",
         "system_check",
-        "handle_repair",
-        "foundation_manifest",
-        "shell_manifest",
-        "route_manifest",
+        "sauth_guarded_repair",
     ),
 )
 
 privacy = PHP["includes/class-sa-privacy.php"]
 for marker in (
-    "sa_email_verifications",
-    "sa_auth_sessions",
-    "sa_auth_devices",
-    "sa_auth_risk_challenges",
-    "sa_auth_attempts",
-    "privacy_anonymized",
+    "SAUTH_Activator::table( 'email_verifications' )",
+    "SAUTH_Activator::table( 'auth_sessions' )",
+    "SAUTH_Activator::table( 'auth_devices' )",
+    "SAUTH_Activator::table( 'risk_challenges' )",
+    "SAUTH_Activator::table( 'auth_attempts' )",
+    "SAUTH_Privacy_Jobs::begin_erasure",
+    "SAUTH_Passkeys::privacy_erase",
+    "erase_identity_payload",
 ):
     if marker not in privacy:
         fail(f"privacy lifecycle is missing {marker}")
@@ -267,5 +281,6 @@ login = PHP["templates/login.php"]
 if "data-sauth-passkey-login" not in login:
     fail("login surface does not expose passkey authentication")
 
-print("File 02 1.2.1 four-plan architecture guard passed.")
+print(f"File 02 {RELEASE_VERSION} release-locked four-plan architecture guard passed.")
+print(f"DB identity checked: {DB_VERSION}; passkey schema: {PASSKEY_SCHEMA_VERSION}")
 print(f"PHP files checked: {len(PHP)}")

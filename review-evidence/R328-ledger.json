@@ -1,0 +1,30 @@
+{
+  "round": "R328",
+  "correction_harness_version": 2,
+  "replacements": [
+    {
+      "path": "includes/class-sa-activator.php",
+      "count": 1,
+      "old": "\t\t$columns = array(\n\t\t\t'rate_limits'         => 'bucket_hash,hits,window_started,expires_at,updated_at',\n\t\t\t'auth_outbox'         => 'id,event_id,event_name,schema_version,privacy_class,actor_user_id,subject_user_id,trace_id,payload_json,status,attempts,available_at,published_at,last_error,created_at,updated_at',\n\t\t\t'email_verifications' => 'user_id,email_hash,token_hash,status,attempts,sent_at,expires_at,verified_at,created_at,updated_at',\n\t\t\t'auth_sessions'       => 'id,public_id,user_id,token_hash,device_hash,device_label,network_label,risk_level,status,revocation_reason,created_at,last_seen_at,expires_at,revoked_at,updated_at',\n\t\t\t'auth_devices'        => 'id,public_id,user_id,fingerprint_hash,network_hash,device_label,network_label,status,risk_score,first_seen_at,last_seen_at,last_login_at,updated_at',\n\t\t\t'risk_challenges'     => 'id,public_id,token_hash,user_id,fingerprint_hash,risk_score,reason_code,remember_session,destination,completion_json,status,attempts,expires_at,consumed_at,created_at,updated_at',\n\t\t\t'auth_attempts'       => 'id,public_id,user_id,fingerprint_hash,network_hash,result,reason_code,risk_score,created_at',\n\t\t);",
+      "new": "\t\t$columns = array(\n\t\t\t'rate_limits'         => 'bucket_hash,hits,window_started,expires_at,updated_at',\n\t\t\t'auth_outbox'         => 'event_id,event_name,schema_version,privacy_class,actor_user_id,subject_user_id,trace_id,payload_json,status,attempts,available_at,published_at,last_error,created_at,updated_at',\n\t\t\t'email_verifications' => 'user_id,email_hash,token_hash,status,attempts,sent_at,expires_at,verified_at,created_at,updated_at',\n\t\t\t'auth_sessions'       => 'public_id,user_id,token_hash,device_hash,device_label,network_label,risk_level,status,revocation_reason,created_at,last_seen_at,expires_at,revoked_at,updated_at',\n\t\t\t'auth_devices'        => 'public_id,user_id,fingerprint_hash,network_hash,device_label,network_label,status,risk_score,first_seen_at,last_seen_at,last_login_at,updated_at',\n\t\t\t'risk_challenges'     => 'public_id,token_hash,user_id,fingerprint_hash,risk_score,reason_code,remember_session,destination,completion_json,status,attempts,expires_at,consumed_at,created_at,updated_at',\n\t\t\t'auth_attempts'       => 'public_id,user_id,fingerprint_hash,network_hash,result,reason_code,risk_score,created_at',\n\t\t);\n\t\t$identity_columns = array(\n\t\t\t'rate_limits'         => 'bucket_hash',\n\t\t\t'auth_outbox'         => 'event_id',\n\t\t\t'email_verifications' => 'user_id',\n\t\t\t'auth_sessions'       => 'public_id',\n\t\t\t'auth_devices'        => 'public_id',\n\t\t\t'risk_challenges'     => 'public_id',\n\t\t\t'auth_attempts'       => 'public_id',\n\t\t);"
+    },
+    {
+      "path": "includes/class-sa-activator.php",
+      "count": 1,
+      "old": "\t\t\t$result = $wpdb->query( \"INSERT IGNORE INTO {$canonical} ({$column_list}) SELECT {$column_list} FROM {$legacy}\" ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared\n\t\t\tif ( false === $result ) {\n\t\t\t\t$ok = false;\n\t\t\t}",
+      "new": "\t\t\t$result = $wpdb->query( \"INSERT IGNORE INTO {$canonical} ({$column_list}) SELECT {$column_list} FROM {$legacy}\" ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared\n\t\t\tif ( false === $result ) {\n\t\t\t\t$ok = false;\n\t\t\t\tcontinue;\n\t\t\t}\n\t\t\t$identity = isset( $identity_columns[ $key ] ) ? (string) $identity_columns[ $key ] : '';\n\t\t\tif ( '' === $identity ) { $ok = false; continue; }\n\t\t\t$missing_raw = $wpdb->get_var( \"SELECT COUNT(*) FROM `{$legacy}` AS l LEFT JOIN `{$canonical}` AS c ON c.`{$identity}`=l.`{$identity}` WHERE c.`{$identity}` IS NULL\" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared\n\t\t\tif ( null === $missing_raw || '' !== (string) $wpdb->last_error || (int) $missing_raw > 0 ) {\n\t\t\t\t$ok = false;\n\t\t\t}"
+    },
+    {
+      "path": "MIGRATION.md",
+      "count": 1,
+      "old": "6. Compare legacy/canonical row counts; duplicate keys may reduce copied row counts only where canonical rows already exist.",
+      "new": "6. Reconcile every legacy table by its stable logical identity (`bucket_hash`, `event_id`, `user_id` or `public_id` as applicable). Canonical auto-increment IDs are never copied from legacy evidence tables, and successful migration requires zero legacy logical identities missing from canonical storage."
+    },
+    {
+      "path": "tests/storage-migration-unit.php",
+      "count": 1,
+      "old": "$migration = 'INSERT IGNORE INTO wp_sauth_auth_devices (id,public_id) SELECT id,public_id FROM wp_sa_auth_devices';",
+      "new": "$migration = 'INSERT IGNORE INTO wp_sauth_auth_devices (public_id) SELECT public_id FROM wp_sa_auth_devices';"
+    }
+  ]
+}

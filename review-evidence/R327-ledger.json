@@ -1,0 +1,23 @@
+{
+  "round": "R327",
+  "replacements": [
+    {
+      "path": "includes/class-sa-privacy.php",
+      "count": 1,
+      "old": "\t\t$failed = false;\n\t\ttry {",
+      "new": "\t\t$failed = false;\n\t\t$more_outbox = false;\n\t\ttry {"
+    },
+    {
+      "path": "includes/class-sa-privacy.php",
+      "count": 1,
+      "old": "\t\t\t\t$remaining_raw = $wpdb->get_var( $wpdb->prepare( \"SELECT COUNT(*) FROM `{$table}` WHERE actor_user_id=%d OR subject_user_id=%d\", $user_id, $user_id ) );\n\t\t\t\tif ( null === $remaining_raw || '' !== (string) $wpdb->last_error || (int) $remaining_raw > 0 ) { $failed = true; }",
+      "new": "\t\t\t\t$remaining_raw = $wpdb->get_var( $wpdb->prepare( \"SELECT COUNT(*) FROM `{$table}` WHERE actor_user_id=%d OR subject_user_id=%d\", $user_id, $user_id ) );\n\t\t\t\tif ( null === $remaining_raw || '' !== (string) $wpdb->last_error ) { $failed = true; }\n\t\t\t\telseif ( (int) $remaining_raw > 0 ) { $more_outbox = true; }"
+    },
+    {
+      "path": "includes/class-sa-privacy.php",
+      "count": 1,
+      "old": "\t\tif ( $failed ) {\n\t\t\t/* Do not clear the erasure barrier; no recovery/resend worker may recreate",
+      "new": "\t\tif ( $more_outbox && ! $failed ) {\n\t\t\t$messages[] = __( 'File 02 authentication-event anonymization is continuing in the next privacy-erasure page.', 'sabri-authentication' );\n\t\t\tSA_Membership_Adapter::audit( 'authentication_privacy_erasure_continuation', $user_id );\n\t\t\treturn array( 'items_removed' => $removed, 'items_retained' => true, 'messages' => $messages, 'done' => false );\n\t\t}\n\n\t\tif ( $failed ) {\n\t\t\t/* Do not clear the erasure barrier; no recovery/resend worker may recreate"
+    }
+  ]
+}

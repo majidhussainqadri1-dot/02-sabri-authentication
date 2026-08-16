@@ -18,12 +18,12 @@
 				<?php wp_nonce_field( 'sa_reset_password_' . $login, 'sa_nonce' ); ?>
 				<p>
 					<label for="sa-new-password">New password</label>
-					<input id="sa-new-password" name="password" type="password" minlength="12" autocomplete="new-password" required aria-describedby="sa-password-help">
+					<input id="sa-new-password" name="password" type="password" minlength="12" maxlength="4096" autocomplete="new-password" required aria-describedby="sa-password-help">
 					<span id="sa-password-help" class="sa-field-help">Use at least 12 characters and avoid reused passwords.</span>
 				</p>
 				<p>
 					<label for="sa-confirm-password">Confirm new password</label>
-					<input id="sa-confirm-password" name="password_confirm" type="password" minlength="12" autocomplete="new-password" required>
+					<input id="sa-confirm-password" name="password_confirm" type="password" minlength="12" maxlength="4096" autocomplete="new-password" required>
 				</p>
 				<button class="sa-primary-button" type="submit">Change Password and Sign Out Everywhere</button>
 			</form>

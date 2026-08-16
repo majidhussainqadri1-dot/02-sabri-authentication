@@ -1,4 +1,4 @@
-# File 02 Contract Register — Version 1.2.0
+# File 02 Contract Register — Version 1.3.0
 
 ## Required consumers
 
@@ -35,11 +35,11 @@ result: allow | deny | unknown
 reason_code
 ```
 
-Registration success additionally returns `user_id` and canonical subject identity. Completion state returns `missing_steps` and a same-origin `next_route`. Missing, incompatible or malformed responses fail closed.
+Registration success additionally returns `user_id` and canonical `subject_uuid`; Google registration verifies that subject against a fresh File 00 assertion before final linkage. Completion state returns `missing_steps` and a same-origin `next_route`. Missing, incompatible or malformed responses fail closed.
 
 ### `smc.cf01.membership-assurance` 1.0.0
 
-Provider: File 00. Supplies current membership, suspension, verification and MFA-readiness assertions and performs canonical step-up verification. File 02 never reads private File 00 TOTP or recovery-code storage.
+Provider: File 00. Supplies current membership, suspension, verification and eligibility assertions. File 02 never reads private File 00 TOTP/recovery-code storage and does not delegate its password/Google/passkey ceremony to retired File 00 factors.
 
 ## File 02 producers
 
@@ -47,9 +47,11 @@ Provider: File 00. Supplies current membership, suspension, verification and MFA
 
 Session-, purpose- and scope-bound authentication assurance for approved clinical/professional consumers. It never authorizes the consumer's native object or action.
 
+Professional reauthentication accepts valid provider evidence only when contract/version, `purpose=clinical_sign_in`, local scope hash, subject UUID, trace ID, AAL2 method and bounded timestamps all match. Stored receipts retain that provider provenance and are invalidated by session, fingerprint, password-binding or underlying-assurance changes.
+
 ### `smc_file02_authentication_assurance_v1` / File 02 Advanced Trust projection 1.0.0
 
-Consumer: File 00 Advanced Trust. Producer: `SAUTH_Passkeys::file00_assurance()`.
+Consumer: File 00 Advanced Trust. Public compatibility/filter projection: `SAUTH_Passkeys::file00_assurance()`. Current File 02 assurance consumers use the hardened epoch-aware `SAUTH_Passkey_Runtime::current_assurance()` projection so credential changes invalidate stale receipts.
 
 A successful fresh passkey sign-in may project only:
 
@@ -108,7 +110,7 @@ File 02 publishes its module and route manifests. File 20 remains the only globa
 - server extracts COSE public key; client-supplied public key is rejected by design;
 - only ES256 (`-7`) EC2 P-256 and RS256 (`-257`) RSA are accepted;
 - unique stable SHA-256 credential-ID index prevents duplicate registration;
-- management requires fresh reauthentication; File 00 2FA-enabled accounts cannot use password-only management.
+- management requires fresh File 02 reauthentication: fresh passkey assurance when available, otherwise current-password verification; retired File 00 factor codes are not accepted.
 
 ### Authentication
 
@@ -118,7 +120,8 @@ File 02 publishes its module and route manifests. File 20 remains the only globa
 - UP + UV flags required;
 - optional userHandle must equal the account's random opaque File 02 handle;
 - assertion signature verified over `authenticatorData || SHA256(clientDataJSON)`;
-- non-zero signature-counter regression marks credential compromised;
+- stored backup eligibility must equal the signed authenticator flag;
+- after a non-zero stored counter, any non-increase including zero marks the credential compromised;
 - membership/suspension/completion rechecked before session issuance;
 - successful session remains subject to File 00 and every native domain owner's authorization.
 

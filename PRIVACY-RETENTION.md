@@ -1,4 +1,4 @@
-# File 02 Privacy and Retention Register — 1.1.0
+# File 02 Privacy and Retention Register — 1.3.0
 
 ## Governing principles
 
@@ -18,7 +18,8 @@ File 00 remains the canonical owner of identity, account class, age/guardian tru
 | Authentication attempts | HMAC network/device and reason category | bounded security window | subject ID anonymized on erasure; residual minimized security evidence may remain |
 | Event outbox | sanitized versioned fact | published/dead-letter retention per security policy | no secrets; erasure/retention-hold coordination |
 | Google link projection | provider subject, verified matching email, timestamps, optional picture candidate | until unlink/erasure/retention hold | export and erase; no access/refresh token stored |
-| Provider configuration | encrypted secret and non-secret client ID/status | while configured | operator-controlled deletion/rotation |
+| Provider configuration | dedicated-`SA_MASTER_KEY` AES-256-GCM v3 secret plus non-secret client ID/status | while configured | operator-controlled deletion/rotation |
+| Passkey credentials | opaque credential lookup, encrypted presentation copy, server-derived public key, lifecycle metadata | active plus bounded revoked/compromised retention | paginated export; row/user-handle/assurance-epoch erasure with postcondition verification |
 | Legacy `sa_*` tables/options | rollback evidence only after 1.1 migration | until separately approved purge | not active source; protected and included in privacy scan |
 
 ## Parent-plan registration fields
@@ -31,14 +32,14 @@ File 02 does not retain raw passwords, reset keys, email-verification tokens, OA
 
 ## Export
 
-The privacy exporter may return provider-link metadata, challenge/session/device status, generalized labels, risk categories and timestamps. It must never reveal HMAC bindings, encrypted provider secrets, raw tokens, full network identifiers or internal collision keys. File 00 separately exports its owned registration/consent data.
+The privacy exporter returns provider-link metadata plus bounded 50-row pages of session, device, risk-challenge, attempt, event and passkey status. It must never reveal HMAC bindings, encrypted provider secrets, raw tokens, full network identifiers or internal collision keys. File 00 separately exports its owned registration/consent data.
 
 ## Erasure and anonymization
 
-- Google projections and local challenge/session/device rows are deleted where no legal/security hold applies.
+- Google projections and local challenge/session/device/passkey rows are deleted in bounded batches from canonical and preserved legacy stores where no legal/security hold applies; passkey user handle and assurance epoch are removed only after credential rows reach zero.
 - Active WordPress sessions are revoked before or with session-projection erasure.
-- Authentication-attempt subject IDs are anonymized while bounded security evidence may remain.
-- Outbox events follow their privacy class, retention hold and native owner policy.
+- Authentication-attempt subject IDs are erased with File 02-owned rows while bounded, identity-free security evidence may remain under separately governed retention.
+- Outbox actor/subject IDs are zeroed and identity-bearing payload keys are removed recursively with compare-and-set/readback proof; events then follow their privacy class and retention policy.
 - File 02 never erases File 00 identity/membership/guardian/consent truth or File 03 profile media.
 - Preserved legacy tables must be included in erasure verification until an approved purge removes them.
 

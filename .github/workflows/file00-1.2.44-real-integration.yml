@@ -1,0 +1,129 @@
+name: File 02 Current File 00 1.2.44 Integration
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - fix/**
+      - agent/**
+
+permissions:
+  contents: read
+
+env:
+  FILE00_REF: 1d7f215193d778b0977c8e50d738c42e1e5f66c2
+  FILE00_VERSION: '1.2.44'
+  FILE02_VERSION: '1.3.0'
+  FILE02_DB_VERSION: '1.3.0'
+  FILE02_PASSKEY_SCHEMA: '1.0.1'
+
+jobs:
+  wordpress-mariadb-integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_DATABASE: wordpress
+          MARIADB_USER: wordpress
+          MARIADB_PASSWORD: wordpress
+          MARIADB_ROOT_PASSWORD: root
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - name: Checkout exact File 02 head
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          path: file02
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Checkout exact corrected File 00 candidate
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          repository: majidhussainqadri1-dot/00-sabri-membership-core
+          path: file00
+          persist-credentials: false
+          ref: ${{ env.FILE00_REF }}
+      - name: Prove immutable paired inputs
+        run: |
+          set -euo pipefail
+          test "$(git -C file02 rev-parse HEAD)" = '${{ github.event.pull_request.head.sha || github.sha }}'
+          test "$(git -C file00 rev-parse HEAD)" = "$FILE00_REF"
+          grep -Fq "Version: ${FILE00_VERSION}" file00/source/sabri-membership-core/sabri-membership-core.php
+          grep -Fq '$allowed_types   = array_keys( smc_account_types() );' file00/source/sabri-membership-core/includes/class-smc-authentication-contract-v11.php
+          grep -Fq "Version: ${FILE02_VERSION}" file02/sabri-authentication.php
+          grep -Fq "'patient'" file02/includes/class-sa-registration.php
+          grep -Fq "'pharmacy'" file02/includes/class-sa-registration.php
+          grep -Fq "'clinic'" file02/includes/class-sa-registration.php
+          grep -Fq "'publisher'" file02/includes/class-sa-registration.php
+      - name: Set up PHP
+        uses: shivammathur/setup-php@2.37.2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: none
+          extensions: mysqli,openssl
+      - name: Install WordPress and exact plugins
+        run: |
+          set -euo pipefail
+          curl -fsSL https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar -o /tmp/wp
+          chmod +x /tmp/wp
+          mkdir -p /tmp/wordpress
+          /tmp/wp core download --version=7.0 --path=/tmp/wordpress --quiet
+          /tmp/wp config create --dbname=wordpress --dbuser=wordpress --dbpass=wordpress --dbhost=127.0.0.1:3306 --path=/tmp/wordpress --skip-check --quiet
+          /tmp/wp config set WP_ENVIRONMENT_TYPE 'staging' --type=constant --path=/tmp/wordpress
+          /tmp/wp config set SMC_MASTER_KEY 'file00-file02-integration-master-key-2026' --type=constant --path=/tmp/wordpress
+          /tmp/wp config set SMC_MASTER_KEY_ID 'file02-integration-key-v1' --type=constant --path=/tmp/wordpress
+          /tmp/wp config set SA_MASTER_KEY 'file02-integration-dedicated-master-key-2026' --type=constant --path=/tmp/wordpress
+          /tmp/wp core install --url=http://example.test --title='File 02 Integration' --admin_user=admin --admin_password='Integration-Only-Password-2026!' --admin_email=admin@example.test --skip-email --path=/tmp/wordpress --quiet
+          cp -R file00/source/sabri-membership-core /tmp/wordpress/wp-content/plugins/sabri-membership-core
+          mkdir -p /tmp/wordpress/wp-content/plugins/sabri-authentication
+          rsync -a --exclude='.git' --exclude='.github' --exclude='tests' --exclude='tools' --exclude='review-evidence' file02/ /tmp/wordpress/wp-content/plugins/sabri-authentication/
+      - name: Activate File 00 and prove queued deferred bootstrap state
+        run: |
+          set -euo pipefail
+          /tmp/wp plugin activate sabri-membership-core --path=/tmp/wordpress
+          /tmp/wp eval '$facts=array(); $facts["SMC_VERSION"]=defined("SMC_VERSION")?SMC_VERSION:"<undefined>"; $facts["SMC_DB_VERSION"]=defined("SMC_DB_VERSION")?SMC_DB_VERSION:"<undefined>"; $facts["stored_smc_db_version"]=(string)get_option("smc_db_version",""); $facts["safe_mode"]=class_exists("SMC_Completion")?(bool)SMC_Completion::safe_mode():null; $facts["SMC_CF01_CONTRACT_VERSION"]=defined("SMC_CF01_CONTRACT_VERSION")?SMC_CF01_CONTRACT_VERSION:"<undefined>"; $facts["membership_assertion_callable"]=is_callable(array("SMC_CF01_Contract","membership_assertion")); $facts["activation_state"]=get_option("smc_activation_bootstrap_state_v2",array()); echo wp_json_encode($facts,JSON_PRETTY_PRINT)."\n"; if((string)get_option("smc_db_version","")!==""){fwrite(STDERR,"Fresh activation unexpectedly completed deferred DB bootstrap inside activation request.\n");exit(1);} if(($facts["activation_state"]["status"]??"")!=="queued"){fwrite(STDERR,"File00 did not record queued deferred bootstrap.\n");exit(1);}' --path=/tmp/wordpress
+      - name: Complete supported File 00 deferred administrator bootstrap
+        run: |
+          set -euo pipefail
+          /tmp/wp eval 'wp_set_current_user(1); if(!current_user_can("manage_options")){fwrite(STDERR,"Administrator capability unavailable in integration fixture.\n");exit(1);} do_action("admin_init"); $stored=(string)get_option("smc_db_version",""); $state=get_option("smc_activation_bootstrap_state_v2",array()); echo wp_json_encode(array("target_db"=>SMC_DB_VERSION,"stored_db"=>$stored,"bootstrap_state"=>$state),JSON_PRETTY_PRINT)."\n"; if($stored!==SMC_DB_VERSION){fwrite(STDERR,"File00 deferred bootstrap did not reach target DB version.\n");exit(1);} if(!is_array($state)||($state["status"]??"")!=="ready"){fwrite(STDERR,"File00 deferred bootstrap state is not ready.\n");exit(1);} if(SMC_Completion::safe_mode()){fwrite(STDERR,"File00 Safe Mode remained active after deferred bootstrap.\n");exit(1);}' --path=/tmp/wordpress
+      - name: Activate File 02 and prove fresh-install material postconditions
+        run: |
+          set -euo pipefail
+          /tmp/wp eval 'if (!class_exists("SMC_Authentication_Contract_V11")) exit(1);' --path=/tmp/wordpress
+          /tmp/wp plugin activate sabri-authentication --path=/tmp/wordpress
+          /tmp/wp eval 'if (!SAUTH_Account_Contract::provider_available()) exit(1); if ((string)get_option("sauth_version","")!=="1.3.0"||(string)get_option("sauth_db_version","")!=="1.3.0"||(string)get_option("sauth_passkey_schema_version","")!=="1.0.1") exit(1); if(!SAUTH_Activator::storage_ready()||!SAUTH_Passkeys::installation_ready()) exit(1);' --path=/tmp/wordpress
+          /tmp/wp eval '$checks=SAUTH_Operations::system_check(); if(!is_array($checks)) exit(1);' --path=/tmp/wordpress
+      - name: Prove canonical account taxonomy parity on both runtimes
+        run: |
+          set -euo pipefail
+          /tmp/wp eval '$expected=array("member","patient","student","doctor","teacher","researcher","pharmacy","clinic","publisher"); $actual=array_keys(smc_account_types()); if($actual!==$expected){fwrite(STDERR,"File00 canonical taxonomy mismatch\n");exit(1);} $r=new ReflectionMethod("SMC_Authentication_Contract_V11","validate_extra_fields"); $r->setAccessible(true); foreach($expected as $type){$checked=$r->invoke(null,array("city"=>"Gujrat","account_type"=>$type,"authentication_method"=>"password","ethical_conduct_version"=>"2026-integration","profile_photo_required"=>true)); if(!is_array($checked)||($checked["account_type"]??"")!==$type){fwrite(STDERR,"File00 provider rejected canonical type {$type}\n");exit(1);}} foreach(array("clinic_staff","institution_representative") as $legacy){$checked=$r->invoke(null,array("city"=>"Gujrat","account_type"=>$legacy,"authentication_method"=>"password","ethical_conduct_version"=>"2026-integration","profile_photo_required"=>true)); if(is_array($checked)){fwrite(STDERR,"File00 provider accepted legacy alias {$legacy}\n");exit(1);}} $file02=array_keys(SA_Registration::account_types()); if($file02!==$expected){fwrite(STDERR,"File02 public account choices mismatch\n");exit(1);} echo "PASS canonical taxonomy parity\n";' --path=/tmp/wordpress
+      - name: Rehearse legacy 1.2.1 passkey-column upgrade on real MariaDB
+        run: |
+          set -euo pipefail
+          /tmp/wp eval 'global $wpdb; $t=$wpdb->prefix."sauth_passkeys"; $now=current_time("mysql",true); $wpdb->insert($t,array("public_id"=>"11111111-1111-4111-8111-111111111111","user_id"=>1,"credential_lookup_hash"=>str_repeat("a",64),"credential_id_ciphertext"=>"legacy-cipher","public_key_pem"=>"legacy-public-key","algorithm"=>"ES256","sign_count"=>0,"nickname"=>"Legacy credential","attachment"=>"platform","transports"=>"[]","discoverable"=>1,"backup_eligible"=>0,"backup_state"=>0,"hardware_backed"=>0,"status"=>"active","created_at"=>$now,"updated_at"=>$now)); if($wpdb->last_error){fwrite(STDERR,$wpdb->last_error."\n");exit(1);}' --path=/tmp/wordpress
+          /tmp/wp plugin deactivate sabri-authentication --path=/tmp/wordpress
+          /tmp/wp eval 'global $wpdb; $t=$wpdb->prefix."sauth_passkeys"; if(false===$wpdb->query("ALTER TABLE `{$t}` CHANGE credential_lookup_hash credential_hash char(64) NOT NULL, CHANGE credential_id_ciphertext credential_cipher longtext NOT NULL")){exit(1);} update_option("sauth_version","1.2.2",false); update_option("sauth_db_version","1.2.0",false); update_option("sauth_passkey_schema_version","1.0.0",false);' --path=/tmp/wordpress
+          /tmp/wp plugin activate sabri-authentication --path=/tmp/wordpress
+          /tmp/wp eval 'global $wpdb; $t=$wpdb->prefix."sauth_passkeys"; $row=$wpdb->get_row("SELECT credential_lookup_hash,credential_id_ciphertext FROM `{$t}` WHERE public_id=\"11111111-1111-4111-8111-111111111111\"",ARRAY_A); if(!is_array($row)||$row["credential_lookup_hash"]!==str_repeat("a",64)||$row["credential_id_ciphertext"]!=="legacy-cipher") exit(1); if((string)get_option("sauth_version","")!=="1.3.0"||(string)get_option("sauth_db_version","")!=="1.3.0"||(string)get_option("sauth_passkey_schema_version","")!=="1.0.1") exit(1); if(!SAUTH_Activator::storage_ready()||!SAUTH_Passkeys::installation_ready()) exit(1);' --path=/tmp/wordpress
+      - name: Rehearse legacy logical-identity collision migration on real MariaDB
+        run: |
+          set -euo pipefail
+          /tmp/wp plugin deactivate sabri-authentication --path=/tmp/wordpress
+          /tmp/wp eval 'global $wpdb; $c=$wpdb->prefix."sauth_auth_sessions"; $l=$wpdb->prefix."sa_auth_sessions"; $wpdb->query("DROP TABLE IF EXISTS `{$l}`"); if(false===$wpdb->query("CREATE TABLE `{$l}` LIKE `{$c}`")){exit(1);} $now=current_time("mysql",true); $future=gmdate("Y-m-d H:i:s",time()+3600); $base=array("id"=>900001,"public_id"=>"canonical-collision-session","user_id"=>1,"token_hash"=>str_repeat("c",64),"device_hash"=>str_repeat("d",64),"device_label"=>"Canonical collision","network_label"=>"Private","risk_level"=>"low","status"=>"active","revocation_reason"=>"","created_at"=>$now,"last_seen_at"=>$now,"expires_at"=>$future,"revoked_at"=>null,"updated_at"=>$now); $wpdb->insert($c,$base); if($wpdb->last_error){fwrite(STDERR,$wpdb->last_error."\n");exit(1);} $legacy=$base; $legacy["public_id"]="legacy-logical-session"; $legacy["token_hash"]=str_repeat("e",64); $legacy["device_hash"]=str_repeat("f",64); $legacy["device_label"]="Legacy logical"; $wpdb->insert($l,$legacy); if($wpdb->last_error){fwrite(STDERR,$wpdb->last_error."\n");exit(1);} update_option("sauth_legacy_table_migration_version","0.0.0",false); update_option("sauth_version","1.2.2",false);' --path=/tmp/wordpress
+          /tmp/wp plugin activate sabri-authentication --path=/tmp/wordpress
+          /tmp/wp eval 'global $wpdb; $c=$wpdb->prefix."sauth_auth_sessions"; $l=$wpdb->prefix."sa_auth_sessions"; $legacy=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM `{$c}` WHERE public_id=%s","legacy-logical-session")); $collision=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM `{$c}` WHERE public_id=%s","canonical-collision-session")); $legacy_id=(int)$wpdb->get_var($wpdb->prepare("SELECT id FROM `{$c}` WHERE public_id=%s","legacy-logical-session")); if($legacy!==1||$collision!==1||$legacy_id===900001||(string)get_option("sauth_legacy_table_migration_version","")!=="1.3.0"||(string)get_option("sauth_version","")!=="1.3.0"){exit(1);} SAUTH_Storage_Router::suspend(); try{$wpdb->query("DROP TABLE IF EXISTS `{$l}`");}finally{SAUTH_Storage_Router::resume();}' --path=/tmp/wordpress
+      - name: Prove active-router one-way legacy migration on real MariaDB
+        run: |
+          set -euo pipefail
+          /tmp/wp eval 'global $wpdb; $c=$wpdb->prefix."sauth_auth_sessions"; $l=$wpdb->prefix."sa_auth_sessions"; $now=current_time("mysql",true); $future=gmdate("Y-m-d H:i:s",time()+3600); SAUTH_Storage_Router::suspend(); try{$wpdb->query("DROP TABLE IF EXISTS `{$l}`"); if(false===$wpdb->query("CREATE TABLE `{$l}` LIKE `{$c}`")){exit(1);} $row=array("id"=>900002,"public_id"=>"active-router-session","user_id"=>1,"token_hash"=>str_repeat("7",64),"device_hash"=>str_repeat("8",64),"device_label"=>"Active router fixture","network_label"=>"Private","risk_level"=>"low","status"=>"active","revocation_reason"=>"","created_at"=>$now,"last_seen_at"=>$now,"expires_at"=>$future,"revoked_at"=>null,"updated_at"=>$now); $wpdb->insert($l,$row); if($wpdb->last_error){fwrite(STDERR,$wpdb->last_error."\n");exit(1);}}finally{SAUTH_Storage_Router::resume();} if((int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM `{$c}` WHERE public_id=%s","active-router-session"))!==0){exit(1);} update_option("sauth_legacy_table_migration_version","0.0.0",false); if(!SAUTH_Activator::migrate_legacy_tables()){exit(1);} $copied=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM `{$c}` WHERE public_id=%s","active-router-session")); $copied_id=(int)$wpdb->get_var($wpdb->prepare("SELECT id FROM `{$c}` WHERE public_id=%s","active-router-session")); if($copied!==1||$copied_id===900002||(string)get_option("sauth_legacy_table_migration_version","")!=="1.3.0"){exit(1);} SAUTH_Storage_Router::suspend(); try{$wpdb->query("DROP TABLE IF EXISTS `{$l}`");}finally{SAUTH_Storage_Router::resume();}' --path=/tmp/wordpress
+      - name: Prove current File 00/File 02 boundaries
+        run: |
+          set -euo pipefail
+          /tmp/wp eval 'if (!defined("SMC_VERSION") || SMC_VERSION!=="1.2.44") exit(1); if (!defined("SAUTH_VERSION") || SAUTH_VERSION!=="1.3.0") exit(1); if (!defined("SAUTH_DB_VERSION") || SAUTH_DB_VERSION!=="1.3.0") exit(1); if (SAUTH_Passkeys::SCHEMA_VERSION!=="1.0.1") exit(1); if (!defined("SAUTH_PASSKEY_CONTRACT_VERSION") || SAUTH_PASSKEY_CONTRACT_VERSION!=="1.0.0") exit(1); if(!SA_Security::master_key_ready()) exit(1);' --path=/tmp/wordpress
+          echo 'Exact File 00 1.2.44/File 02 1.3.0 fresh-install, canonical taxonomy, passkey-upgrade, legacy logical-identity collision and active-router migration PASS.'

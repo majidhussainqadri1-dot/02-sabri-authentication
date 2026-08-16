@@ -7,11 +7,21 @@
 define( 'ABSPATH', __DIR__ . '/' );
 define( 'MINUTE_IN_SECONDS', 60 );
 define( 'HOUR_IN_SECONDS', 3600 );
+define( 'SA_MASTER_KEY', 'file02-unit-test-dedicated-master-key-2026-08-14' );
 
 $GLOBALS['sa_test_options'] = array(
 	'sa_google_client_id' => '123456789.apps.googleusercontent.com',
 );
 $GLOBALS['sa_test_meta'] = array();
+
+class WP_User {
+	public $ID;
+	public $user_email;
+	public function __construct( $user_id, $email ) {
+		$this->ID = (int) $user_id;
+		$this->user_email = (string) $email;
+	}
+}
 
 function wp_salt( $scheme = 'auth' ) {
 	return hash( 'sha256', 'file02-test-salt|' . $scheme );
@@ -22,11 +32,23 @@ function home_url( $path = '/' ) {
 function wp_validate_redirect( $url, $fallback = '' ) {
 	return 0 === strpos( (string) $url, 'https://example.test/' ) ? $url : $fallback;
 }
+function apply_filters( $hook, $value ) {
+	return $value;
+}
+function add_query_arg( $args, $url ) {
+	$args = is_array( $args ) ? $args : array();
+	$query = http_build_query( $args );
+	if ( '' === $query ) { return $url; }
+	return $url . ( false === strpos( $url, '?' ) ? '?' : '&' ) . $query;
+}
 function absint( $value ) {
 	return abs( (int) $value );
 }
 function wp_generate_password( $length = 12, $special_chars = true, $extra_special_chars = false ) {
 	return substr( str_repeat( 'aB3', (int) ceil( $length / 3 ) ), 0, $length );
+}
+function sanitize_key( $value ) {
+	return strtolower( preg_replace( '/[^a-z0-9_\-]/i', '', (string) $value ) );
 }
 function sanitize_text_field( $value ) {
 	return trim( strip_tags( (string) $value ) );
@@ -36,6 +58,9 @@ function get_option( $name, $default = false ) {
 }
 function get_user_meta( $user_id, $key, $single = false ) {
 	return isset( $GLOBALS['sa_test_meta'][ $user_id ][ $key ] ) ? $GLOBALS['sa_test_meta'][ $user_id ][ $key ] : '';
+}
+function get_userdata( $user_id ) {
+	return 7 === (int) $user_id ? new WP_User( 7, 'member@example.test' ) : false;
 }
 function is_email( $email ) {
 	return false !== filter_var( $email, FILTER_VALIDATE_EMAIL );
@@ -51,16 +76,24 @@ function sa_test_assert( $condition, $message ) {
 require_once dirname( __DIR__ ) . '/includes/class-sa-security.php';
 require_once dirname( __DIR__ ) . '/includes/class-sa-google-oauth.php';
 
+sa_test_assert( SA_Security::master_key_ready(), 'dedicated File 02 master key was not recognized' );
 $plain  = 'unit-test-google-client-secret';
 $cipher = SA_Security::encrypt( $plain );
-sa_test_assert( 0 === strpos( $cipher, 'v2:' ), 'encrypted value must use v2 envelope' );
-sa_test_assert( $plain === SA_Security::decrypt( $cipher ), 'AES-256-GCM round trip failed' );
+sa_test_assert( 0 === strpos( $cipher, 'v3:' ), 'encrypted value must use dedicated-key v3 envelope' );
+sa_test_assert( $plain === SA_Security::decrypt( $cipher ), 'AES-256-GCM dedicated-key round trip failed' );
+sa_test_assert( SA_Security::current_cipher_ready( $cipher ), 'v3 dedicated-key ciphertext was not accepted as current' );
 $last = substr( $cipher, -1 );
 $tampered = substr( $cipher, 0, -1 ) . ( 'A' === $last ? 'B' : 'A' );
 sa_test_assert( '' === SA_Security::decrypt( $tampered ), 'tampered ciphertext must fail authentication' );
 sa_test_assert( strlen( SA_Security::random_token( 32 ) ) >= 64, 'random token is unexpectedly short' );
 sa_test_assert( 'https://example.test/member' === SA_Security::safe_redirect( 'https://example.test/member' ), 'valid local redirect rejected' );
 sa_test_assert( 'https://example.test/' === SA_Security::safe_redirect( 'https://attacker.test/path' ), 'external redirect was not rejected' );
+
+$notice = SA_Security::message_url( 'login', 'success', 'Verified server notice' );
+parse_str( (string) parse_url( $notice, PHP_URL_QUERY ), $notice_args );
+sa_test_assert( isset( $notice_args['sa_sig'] ), 'server notice signature missing' );
+sa_test_assert( SA_Security::notice_valid( $notice_args['sa_notice'] ?? '', $notice_args['sa_msg'] ?? '', $notice_args['sa_sig'] ?? '', $notice_args['sa_iat'] ?? 0 ), 'valid server notice signature was rejected' );
+sa_test_assert( ! SA_Security::notice_valid( 'success', 'Forged success', $notice_args['sa_sig'] ?? '', $notice_args['sa_iat'] ?? 0 ), 'forged success notice was accepted' );
 
 $oauth  = new SA_Google_OAuth();
 $method = new ReflectionMethod( 'SA_Google_OAuth', 'valid_claims' );

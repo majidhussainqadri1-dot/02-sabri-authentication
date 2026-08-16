@@ -2,7 +2,110 @@
 
 All notable changes to Sabri Authentication and Accounts are recorded here.
 
-## 1.2.1 — Live-Proven Storage Router Bootstrap Correction
+## 1.3.0 — Comprehensive Concurrency, Evidence and Privacy Remediation
+
+### Corrected
+
+- Replaced query-text self-identification in legacy migration with an explicit, nested-safe storage-router suspension and advanced the File 02 DB marker so supported installations rerun the repaired copy.
+- Converted email-verification issuance and consumption to compare-and-set transitions with delivery/publication/readback containment.
+- Serialized Google registration, login, linking and unlinking on shared database subject/user locks; added exact subject, link, session and rollback postconditions.
+- Required password, Google and passkey success to own the exact WordPress token, File 02 session projection and durable device/risk evidence before emitting success.
+- Made session registration return an exact result, failed closed when lazy legacy projection cannot be proved, and routed user-facing “revoke others” through the exact-token postcondition helper.
+- Enforced immutable WebAuthn backup eligibility, non-zero counter regression including reset-to-zero, assertion-time algorithm/key-shape validation, RSA keys of at least 2048 bits with exponent 65537, exact challenge receipts and assurance/session invalidation.
+- Released every passkey enrollment lock before responding and removed any unproven credential row when the enrollment readback fails.
+- Bounded privacy export/erasure to 50-row batches, covered canonical and preserved legacy stores, exported device/risk state and recursively removed identity-bearing event fields.
+- Preserved File 00 as identity/membership/eligibility authority and validated professional reauthentication provider contract, purpose, scope and trace provenance.
+
+### Identity
+
+- Runtime: `1.3.0`.
+- File 02 DB schema: `1.3.0`.
+- Passkey schema: `1.0.1` unchanged.
+- Passkey assurance contract: `1.0.0` unchanged.
+- Exact-head QA/integration, staging, live deployment and operational status remain separate gates.
+
+## 1.2.6 — Legacy Passkey Index Reconciliation Candidate
+
+### Corrected
+
+- MariaDB 11.4 proof established that renaming `credential_lookup_hash` to legacy `credential_hash` preserves the unique key name `credential_lookup_hash` while rebinding that key to the legacy column.
+- Before dbDelta, File 02 now detects only that exact misbound unique-index state, fails closed on unexpected bindings, preserves legacy uniqueness under a legacy key name when necessary, and frees the canonical key name for the canonical column/index.
+- The correction is idempotent and data-preserving; the intended physical schema is unchanged.
+
+### Identity
+
+- Runtime: `1.2.6`.
+- File 02 DB schema: `1.2.1` unchanged.
+- Passkey schema: `1.0.1` unchanged.
+- Passkey assurance contract: `1.0.0` unchanged.
+- Staging-Accepted, Live-Deployed and Operational remain unclaimed.
+
+## 1.2.5 — Passkey dbDelta Migration Compatibility Candidate
+
+### Corrected
+
+- Real WordPress 7.0 / MariaDB 11.4 upgrade rehearsal proved that the passkey CREATE TABLE statement placed all index definitions on one line, causing `dbDelta()` to misparse later `UNIQUE KEY` / `KEY` tokens into an invalid primary-key ALTER.
+- Each passkey index definition is now emitted on its own SQL line, preserving the exact intended schema while making existing-table reconciliation dbDelta-compatible.
+- Permanent R334 regression coverage rejects the former combined-key line and preserves the one-index-per-line invariant.
+
+### Identity
+
+- Runtime: `1.2.5`.
+- File 02 DB schema remains `1.2.1`.
+- Passkey schema remains `1.0.1`; passkey assurance contract remains `1.0.0`.
+- Staging-Accepted, Live-Deployed and Operational remain unclaimed.
+
+## 1.2.4 — Canonical Account Taxonomy Parity Candidate
+
+### Corrected
+
+- File 02 public account choices now use the File 00 canonical taxonomy directly: `member`, `patient`, `student`, `doctor`, `teacher`, `researcher`, `pharmacy`, `clinic`, `publisher`.
+- Provider-only `clinic_staff` and `institution_representative` aliases are no longer exposed as File 02 account choices; no lossy remap is performed.
+- Permanent R331/R332 regressions preserve taxonomy parity, release identity and non-live completion boundaries.
+
+### Identity
+
+- Runtime: `1.2.4`.
+- File 02 DB schema identity remains `1.2.1`.
+- Passkey schema identity remains `1.0.1`; passkey assurance contract remains `1.0.0`.
+
+## 1.2.3 — R321–R330 Corrective Hardening Candidate
+
+### Corrected
+
+- Centralized Safe Mode entry/revocation semantics and idempotent bootstrap/migration containment.
+- Evidence-honest password reset, bounded recovery/resend retries and single-encoding redirect continuity.
+- Google OIDC state-cookie persistence and linkage containment through File 02 session/Safe Mode authority.
+- Passkey quarantine/assurance-invalidation containment, session-risk unknown states and non-consuming provider-health projections.
+- Safe Mode provider-setting mutation block, verified settings rollback, high-volume privacy-erasure continuation and stable logical-identity legacy migration.
+- Permanent release/documentation/integration gates synchronized to the R321–R330 line; staging/live/operational status remains unclaimed.
+
+### Identity
+
+- Runtime: `1.2.3`.
+- File 02 DB schema identity remains `1.2.1`.
+- Passkey schema identity remains `1.0.1`; passkey assurance contract remains `1.0.0`.
+
+## 1.2.2 — R311–R320 Final Corrective Hardening Candidate
+
+### Corrected
+
+- Fail-closed risk-storage and provider-HTTPS boundaries; email/recovery provider-circuit behavior; Google half-open probe ownership.
+- Material DB/page/passkey migration postconditions, including canonical passkey-column reconciliation and security-critical index/uniqueness proof.
+- Hardened passkey runtime, Safe Mode ceremony completion, credential quarantine and epoch-aware assurance consumption.
+- Session-revocation, privacy export/erasure/anonymization and operational-system-check postconditions.
+- Canonical route/redirect encoding, evidence-honest provider UI, touch targets and release/dependency documentation truth.
+- Permanent PHP 7.4/8.3 cumulative regressions plus current File 00/real MariaDB fresh-install and legacy passkey upgrade integration.
+- Removal of temporary correction workflows and historical corrective payload files from the final candidate.
+
+### Identity
+
+- Runtime: `1.2.2`.
+- File 02 DB schema identity: `1.2.1`.
+- Passkey schema identity: `1.0.1`; passkey assurance contract remains `1.0.0`.
+- Staging/live/operational completion remains unclaimed.
+
+## 1.2.1 — WordPress-Integration-Proven Storage Router Bootstrap Correction
 
 ### Corrected
 
@@ -40,7 +143,7 @@ The defect was reproduced by a cross-repository WordPress run after corrected Fi
 - Replaced salt-dependent credential lookup with stable SHA-256 over random WebAuthn credential IDs.
 - Replaced salt-derived user handles with random opaque handles.
 - Removed false `hardware_backed` inference under `attestation=none`; hardware provenance remains false unless independently proven.
-- Prevented password-only passkey management when File 00 two-factor protection is enabled; current passkey or File 00 step-up is required.
+- Historical 1.2.0 review initially coupled passkey management to File 00 step-up; the later ownership correction retires that coupling. Current File 02 management uses fresh File 02 passkey assurance or current-password reauthentication.
 - Added passkey events to the bounded authentication event allowlist and passkey schema to System Check/repair.
 
 ### Ownership

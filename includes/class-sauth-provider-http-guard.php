@@ -19,6 +19,10 @@ final class SAUTH_Provider_HTTP_Guard {
 		if ( '' === $provider ) {
 			return $preempt;
 		}
+		$scheme = strtolower( (string) wp_parse_url( (string) $url, PHP_URL_SCHEME ) );
+		if ( 'https' !== $scheme ) {
+			return new WP_Error( 'sauth_provider_https_required', 'Authentication provider calls require HTTPS.' );
+		}
 		if ( SAUTH_Operations::safe_mode() ) {
 			return new WP_Error( 'sauth_provider_safe_mode', 'Authentication provider calls are temporarily disabled by Safe Mode.' );
 		}

@@ -65,9 +65,16 @@ $quoted = "SELECT * FROM `wp_sa_email_verifications` WHERE user_id=9";
 $routed = SAUTH_Storage_Router::canonicalize_query( $quoted );
 sauth_storage_assert( false !== strpos( $routed, '`wp_sauth_email_verifications`' ), 'quoted legacy email table was not routed' );
 
-$migration = 'INSERT IGNORE INTO wp_sauth_auth_devices (id,public_id) SELECT id,public_id FROM wp_sa_auth_devices';
+$migration = 'INSERT IGNORE INTO wp_sauth_auth_devices (public_id) SELECT public_id FROM wp_sa_auth_devices';
 $routed = SAUTH_Storage_Router::canonicalize_query( $migration );
-sauth_storage_assert( $migration === $routed, 'one-way legacy migration was rewritten into a canonical self-copy' );
+sauth_storage_assert( $migration !== $routed && false === strpos( $routed, 'wp_sa_auth_devices' ), 'query text improperly bypassed active compatibility routing' );
+SAUTH_Storage_Router::suspend();
+SAUTH_Storage_Router::suspend();
+sauth_storage_assert( $migration === SAUTH_Storage_Router::canonicalize_query( $migration ), 'explicitly suspended migration query was rewritten' );
+SAUTH_Storage_Router::resume();
+sauth_storage_assert( $migration === SAUTH_Storage_Router::canonicalize_query( $migration ), 'nested router suspension was restored too early' );
+SAUTH_Storage_Router::resume();
+sauth_storage_assert( $migration !== SAUTH_Storage_Router::canonicalize_query( $migration ), 'router did not resume after balanced suspension' );
 
 $canonical = 'UPDATE wp_sauth_auth_outbox SET status="published" WHERE id=1';
 sauth_storage_assert( $canonical === SAUTH_Storage_Router::canonicalize_query( $canonical ), 'canonical query was changed unexpectedly' );

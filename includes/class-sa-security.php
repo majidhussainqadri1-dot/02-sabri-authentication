@@ -3,6 +3,7 @@
 defined( 'ABSPATH' ) || exit;
 
 final class SA_Security {
+	const NOTICE_TTL = 600;
 	public static function client_fingerprint() {
 		$ip = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : 'unknown';
 		$ua = isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : 'unknown';
@@ -37,18 +38,20 @@ final class SA_Security {
 		);
 		$result = $wpdb->query( $sql );
 		if ( false === $result ) {
-			$key    = 'sauth_fallback_' . substr( $bucket, 0, 32 );
-			$state  = get_transient( $key );
+			$key = 'sauth_fallback_' . substr( $bucket, 0, 32 );
+			$state = get_transient( $key );
 			$now_ts = time();
-			if ( ! is_array( $state ) || empty( $state['expires'] ) || (int) $state['expires'] <= $now_ts ) {
-				$state = array( 'hits' => 0, 'expires' => $now_ts + $window );
-			}
+			if ( ! is_array( $state ) || empty( $state['expires'] ) || (int) $state['expires'] <= $now_ts ) { $state = array( 'hits' => 0, 'expires' => $now_ts + $window ); }
 			$state['hits']++;
 			$ttl = max( 1, (int) $state['expires'] - $now_ts );
-			set_transient( $key, $state, $ttl );
+			$stored = set_transient( $key, $state, $ttl );
+			$verified = get_transient( $key );
+			if ( false === $stored || ! is_array( $verified ) || (int) ( $verified['hits'] ?? -1 ) !== (int) $state['hits'] || (int) ( $verified['expires'] ?? 0 ) !== (int) $state['expires'] ) { return true; }
 			return $state['hits'] > $limit;
 		}
-		$hits = (int) $wpdb->get_var( $wpdb->prepare( "SELECT hits FROM {$table} WHERE bucket_hash = %s", $bucket ) );
+		$hits_raw = $wpdb->get_var( $wpdb->prepare( "SELECT hits FROM {$table} WHERE bucket_hash = %s", $bucket ) );
+		if ( null === $hits_raw || '' !== (string) $wpdb->last_error ) { return true; }
+		$hits = (int) $hits_raw;
 		if ( 1 === wp_rand( 1, 100 ) ) {
 			$wpdb->query( $wpdb->prepare( "DELETE FROM {$table} WHERE expires_at < %s", gmdate( 'Y-m-d H:i:s', time() - DAY_IN_SECONDS ) ) );
 		}
@@ -68,49 +71,69 @@ final class SA_Security {
 		return wp_validate_redirect( (string) $url, $fallback );
 	}
 
+	public static function master_key_ready() {
+		return defined( 'SA_MASTER_KEY' ) && is_string( SA_MASTER_KEY ) && strlen( SA_MASTER_KEY ) >= 32;
+	}
+
 	private static function encryption_key() {
-		$material = defined( 'SA_MASTER_KEY' ) && is_string( SA_MASTER_KEY ) && strlen( SA_MASTER_KEY ) >= 32 ? SA_MASTER_KEY : wp_salt( 'auth' );
-		return hash( 'sha256', 'sabri-authentication|v2|' . $material, true );
+		if ( ! self::master_key_ready() ) { return ''; }
+		return hash( 'sha256', 'sabri-authentication|dedicated-master|v3|' . SA_MASTER_KEY, true );
+	}
+
+	private static function legacy_v2_key_from_master() {
+		if ( ! self::master_key_ready() ) { return ''; }
+		return hash( 'sha256', 'sabri-authentication|v2|' . SA_MASTER_KEY, true );
+	}
+
+	private static function legacy_v2_key_from_auth_salt() {
+		return hash( 'sha256', 'sabri-authentication|v2|' . wp_salt( 'auth' ), true );
 	}
 
 	public static function encrypt( $plain ) {
-		if ( '' === $plain || ! function_exists( 'openssl_encrypt' ) ) {
-			return '';
-		}
-		try {
-			$iv = random_bytes( 12 );
-		} catch ( Exception $exception ) {
-			return '';
-		}
+		$key = self::encryption_key();
+		if ( '' === $plain || '' === $key || ! function_exists( 'openssl_encrypt' ) ) { return ''; }
+		try { $iv = random_bytes( 12 ); } catch ( Exception $exception ) { return ''; }
 		$tag = '';
-		$out = openssl_encrypt( $plain, 'aes-256-gcm', self::encryption_key(), OPENSSL_RAW_DATA, $iv, $tag, 'sa-google-secret-v2' );
-		return false === $out ? '' : 'v2:' . base64_encode( $iv . $tag . $out );
+		$out = openssl_encrypt( $plain, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag, 'sa-google-secret-v3' );
+		return false === $out ? '' : 'v3:' . base64_encode( $iv . $tag . $out );
 	}
 
 	public static function decrypt( $cipher ) {
-		if ( '' === $cipher || ! function_exists( 'openssl_decrypt' ) ) {
-			return '';
+		if ( '' === $cipher || ! self::master_key_ready() || ! function_exists( 'openssl_decrypt' ) ) { return ''; }
+		if ( 0 === strpos( $cipher, 'v3:' ) ) {
+			return self::decrypt_gcm_payload( substr( $cipher, 3 ), self::encryption_key(), 'sa-google-secret-v3' );
 		}
-		if ( 0 !== strpos( $cipher, 'v2:' ) ) {
-			return self::decrypt_legacy( $cipher );
+		if ( 0 === strpos( $cipher, 'v2:' ) ) {
+			$payload = substr( $cipher, 3 );
+			$out = self::decrypt_gcm_payload( $payload, self::legacy_v2_key_from_master(), 'sa-google-secret-v2' );
+			if ( '' !== $out ) { return $out; }
+			/* Migration-only compatibility for historical v2 ciphertext that was
+			 * derived from WordPress auth salt. Runtime still requires SA_MASTER_KEY. */
+			return self::decrypt_gcm_payload( $payload, self::legacy_v2_key_from_auth_salt(), 'sa-google-secret-v2' );
 		}
-		$raw = base64_decode( substr( $cipher, 3 ), true );
-		if ( false === $raw || strlen( $raw ) < 29 ) {
-			return '';
-		}
-		$iv  = substr( $raw, 0, 12 );
+		return self::decrypt_legacy( $cipher );
+	}
+
+	public static function current_cipher_ready( $cipher ) { $cipher = (string) $cipher; return self::master_key_ready() && 0 === strpos( $cipher, 'v3:' ) && '' !== self::decrypt( $cipher ); }
+
+	private static function decrypt_gcm_payload( $payload, $key, $aad ) {
+		if ( '' === (string) $key ) { return ''; }
+		$raw = base64_decode( (string) $payload, true );
+		if ( false === $raw || strlen( $raw ) < 29 ) { return ''; }
+		$iv = substr( $raw, 0, 12 );
 		$tag = substr( $raw, 12, 16 );
-		$out = openssl_decrypt( substr( $raw, 28 ), 'aes-256-gcm', self::encryption_key(), OPENSSL_RAW_DATA, $iv, $tag, 'sa-google-secret-v2' );
+		$out = openssl_decrypt( substr( $raw, 28 ), 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag, $aad );
 		return false === $out ? '' : $out;
 	}
 
 	private static function decrypt_legacy( $cipher ) {
+		/* Pre-v2 ciphertext is readable only while a dedicated master key is
+		 * configured, solely so activation can migrate it to v3. */
+		if ( ! self::master_key_ready() ) { return ''; }
 		$raw = base64_decode( $cipher, true );
-		if ( false === $raw || strlen( $raw ) < 29 ) {
-			return '';
-		}
+		if ( false === $raw || strlen( $raw ) < 29 ) { return ''; }
 		$key = hash( 'sha256', wp_salt( 'auth' ), true );
-		$iv  = substr( $raw, 0, 12 );
+		$iv = substr( $raw, 0, 12 );
 		$tag = substr( $raw, 12, 16 );
 		$out = openssl_decrypt( substr( $raw, 28 ), 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag );
 		return false === $out ? '' : $out;
@@ -130,14 +153,36 @@ final class SA_Security {
 	}
 
 	public static function message_url( $page_key, $type, $message, array $extra = array() ) {
-		$args = array_merge(
-			$extra,
-			array(
-				'sa_notice' => sanitize_key( $type ),
-				'sa_msg'    => rawurlencode( $message ),
-			)
-		);
-		return add_query_arg( $args, self::page_url( $page_key ) );
+		return add_query_arg( array_merge( $extra, self::notice_query_args( $type, $message ) ), self::page_url( $page_key ) );
+	}
+
+	public static function notice_query_args( $type, $message ) {
+		$type = 'success' === sanitize_key( $type ) ? 'success' : 'error';
+		$message = sanitize_text_field( (string) $message );
+		$issued_at = time();
+		return array( 'sa_notice' => $type, 'sa_msg' => $message, 'sa_iat' => $issued_at, 'sa_sig' => self::notice_signature( $type, $message, $issued_at ) );
+	}
+
+	public static function notice_valid( $type, $message, $signature, $issued_at = 0 ) {
+		$type = 'success' === sanitize_key( $type ) ? 'success' : 'error';
+		$message = sanitize_text_field( (string) $message );
+		$signature = sanitize_text_field( (string) $signature );
+		$issued_at = absint( $issued_at );
+		$age = time() - $issued_at;
+		return 64 === strlen( $signature ) && $issued_at > 0 && $age >= 0 && $age <= self::NOTICE_TTL && hash_equals( self::notice_signature( $type, $message, $issued_at ), $signature );
+	}
+
+	public static function request_notice() {
+		if ( ! isset( $_GET['sa_notice'], $_GET['sa_msg'], $_GET['sa_sig'], $_GET['sa_iat'] ) ) { return array(); }
+		$type = 'success' === sanitize_key( wp_unslash( $_GET['sa_notice'] ) ) ? 'success' : 'error';
+		$message = sanitize_text_field( wp_unslash( $_GET['sa_msg'] ) );
+		$signature = sanitize_text_field( wp_unslash( $_GET['sa_sig'] ) );
+		$issued_at = absint( wp_unslash( $_GET['sa_iat'] ) );
+		return self::notice_valid( $type, $message, $signature, $issued_at ) ? array( 'type' => $type, 'message' => $message ) : array();
+	}
+
+	private static function notice_signature( $type, $message, $issued_at ) {
+		return hash_hmac( 'sha256', sanitize_key( $type ) . '|' . sanitize_text_field( (string) $message ) . '|' . absint( $issued_at ), wp_salt( 'nonce' ) );
 	}
 
 	public static function random_token( $bytes = 32 ) {

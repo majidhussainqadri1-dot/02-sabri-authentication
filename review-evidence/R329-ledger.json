@@ -1,0 +1,267 @@
+{
+  "round": "R329",
+  "replacements": [
+    {
+      "path": "README.md",
+      "old": "1.2.2",
+      "new": "1.2.3",
+      "replace_all": true,
+      "min_count": 1,
+      "max_count": 20
+    },
+    {
+      "path": "README.md",
+      "old": "R311–R320",
+      "new": "R321–R329",
+      "replace_all": true,
+      "min_count": 1,
+      "max_count": 10
+    },
+    {
+      "path": "STATUS.md",
+      "old": "1.2.2",
+      "new": "1.2.3",
+      "replace_all": true,
+      "min_count": 1,
+      "max_count": 30
+    },
+    {
+      "path": "STATUS.md",
+      "old": "R311–R320",
+      "new": "R321–R329",
+      "replace_all": true,
+      "min_count": 1,
+      "max_count": 10
+    },
+    {
+      "path": "RELEASE-MANIFEST.md",
+      "old": "1.2.2",
+      "new": "1.2.3",
+      "replace_all": true,
+      "min_count": 1,
+      "max_count": 30
+    },
+    {
+      "path": "RELEASE-MANIFEST.md",
+      "old": "review/file02-r311-r320-2026-08-14",
+      "new": "review/file02-r321-r330-2026-08-14",
+      "replace_all": true,
+      "min_count": 1,
+      "max_count": 5
+    },
+    {
+      "path": "RELEASE-MANIFEST.md",
+      "old": "R311–R320",
+      "new": "R321–R329",
+      "replace_all": true,
+      "min_count": 1,
+      "max_count": 10
+    },
+    {
+      "path": "PLAN-TRACEABILITY.md",
+      "old": "1.2.2",
+      "new": "1.2.3",
+      "replace_all": true,
+      "min_count": 1,
+      "max_count": 20
+    },
+    {
+      "path": "PLAN-TRACEABILITY.md",
+      "old": "review/file02-r311-r320-2026-08-14",
+      "new": "review/file02-r321-r330-2026-08-14",
+      "replace_all": true,
+      "min_count": 1,
+      "max_count": 5
+    },
+    {
+      "path": "PLAN-TRACEABILITY.md",
+      "old": "R319",
+      "new": "R329",
+      "replace_all": true,
+      "min_count": 1,
+      "max_count": 10
+    },
+    {
+      "path": "SBOM.spdx.json",
+      "old": "1.2.2",
+      "new": "1.2.3",
+      "replace_all": true,
+      "min_count": 1,
+      "max_count": 20
+    },
+    {
+      "path": "SBOM.spdx.json",
+      "old": "R311–R320",
+      "new": "R321–R329",
+      "replace_all": true,
+      "min_count": 1,
+      "max_count": 5
+    },
+    {
+      "path": "ARCHITECTURE.md",
+      "old": "Authentication and Accounts 1.2.2",
+      "new": "Authentication and Accounts 1.2.3",
+      "count": 1
+    },
+    {
+      "path": "ARCHITECTURE.md",
+      "old": "`SAUTH_Activator::migrate_legacy_tables()` copies old `sa_*` rows through `INSERT IGNORE` without deletion. Legacy tables remain rollback evidence and are not the active DB 1.2.1 source of truth.",
+      "new": "`SAUTH_Activator::migrate_legacy_tables()` copies old `sa_*` evidence without carrying legacy auto-increment IDs, preserves canonical rows on duplicate logical identities, and requires every legacy row's stable logical identity (`bucket_hash`, `event_id`, `user_id` or `public_id`) to be represented in canonical storage before migration success is published. Legacy tables remain rollback evidence and are not the active DB 1.2.1 source of truth.",
+      "count": 1
+    },
+    {
+      "path": "CONTRACTS.md",
+      "old": "Contract Register — Version 1.2.2",
+      "new": "Contract Register — Version 1.2.3",
+      "count": 1
+    },
+    {
+      "path": "MIGRATION.md",
+      "old": "1.2.2",
+      "new": "1.2.3",
+      "replace_all": true,
+      "min_count": 1,
+      "max_count": 30
+    },
+    {
+      "path": "STAGING-ACCEPTANCE.md",
+      "old": "Staging Acceptance — Version 1.2.2",
+      "new": "Staging Acceptance — Version 1.2.3",
+      "count": 1
+    },
+    {
+      "path": "REVIEW-REPORT.md",
+      "old": "> **Historical evidence notice:** This root report records the earlier 1.1.0 four-round candidate and is retained for provenance only. It is **not** the current release/review status. Current source truth is the R311–R320 review line and version 1.2.2 / DB 1.2.1 / passkey schema 1.0.1, subject to the separate release/staging/live gates.",
+      "new": "> **Historical evidence notice:** This root report records the earlier 1.1.0 four-round candidate and is retained for provenance only. It is **not** the current release/review status. Current source truth is the R321–R329 corrective line and version 1.2.3 / DB 1.2.1 / passkey schema 1.0.1, subject to the separate release/staging/live gates.",
+      "count": 1
+    },
+    {
+      "path": "CHANGELOG.md",
+      "old": "# Changelog\n\nAll notable changes to Sabri Authentication and Accounts are recorded here.\n\n## 1.2.2 — R311–R320 Final Corrective Hardening Candidate",
+      "new": "# Changelog\n\nAll notable changes to Sabri Authentication and Accounts are recorded here.\n\n## 1.2.3 — R321–R329 Corrective Hardening Candidate\n\n### Corrected\n\n- Centralized Safe Mode entry/revocation semantics and idempotent bootstrap/migration containment.\n- Evidence-honest password reset, bounded recovery/resend retries and single-encoding redirect continuity.\n- Google OIDC state-cookie persistence and linkage containment through File 02 session/Safe Mode authority.\n- Passkey quarantine/assurance-invalidation containment, session-risk unknown states and non-consuming provider-health projections.\n- Safe Mode provider-setting mutation block, verified settings rollback, high-volume privacy-erasure continuation and stable logical-identity legacy migration.\n- Permanent release/documentation/integration gates synchronized to the R321–R329 line; staging/live/operational status remains unclaimed.\n\n### Identity\n\n- Runtime: `1.2.3`.\n- File 02 DB schema identity remains `1.2.1`.\n- Passkey schema identity remains `1.0.1`; passkey assurance contract remains `1.0.0`.\n\n## 1.2.2 — R311–R320 Final Corrective Hardening Candidate",
+      "count": 1
+    },
+    {
+      "path": "readme.txt",
+      "old": "Stable tag: 1.2.2",
+      "new": "Stable tag: 1.2.3",
+      "count": 1
+    },
+    {
+      "path": "readme.txt",
+      "old": "Version 1.2.2 is the current R311–R320 repository/source candidate. It retains the 1.2.1 storage-router bootstrap correction and adds fail-closed risk/provider/privacy/session hardening, canonical passkey migration with material index postconditions, hardened assurance consumption, route/UI corrections and current release/integration gates. DB identity is 1.2.1 and passkey schema identity is 1.0.1. Source/CI completion does not by itself prove Hostinger staging, deployment or operations.",
+      "new": "Version 1.2.3 is the current R321–R329 repository/source candidate. It retains the 1.2.2 schema/passkey foundations and adds centralized Safe Mode containment, evidence-honest recovery/session behavior, bounded asynchronous retries, Google/passkey containment hardening, privacy-erasure continuation and stable logical-identity legacy migration. DB identity remains 1.2.1 and passkey schema identity remains 1.0.1. Source/CI completion does not by itself prove Hostinger staging, deployment or operations.",
+      "count": 1
+    },
+    {
+      "path": "readme.txt",
+      "old": "== Changelog ==\n\n= 1.2.2 =",
+      "new": "== Changelog ==\n\n= 1.2.3 =\n* Completes the sequential R321–R329 corrective source line before the final R330 adversarial review.\n* Centralizes Safe Mode/session containment, hardens recovery/resend retry lifecycle, Google OIDC/passkey containment, session/risk evidence and settings rollback.\n* Adds privacy-erasure continuation and stable logical-identity legacy migration without changing DB 1.2.1 or passkey schema 1.0.1.\n* Keeps staging/live/operational completion explicitly unclaimed.\n\n= 1.2.2 =",
+      "count": 1
+    },
+    {
+      "path": "tests/three-plan-completion-unit.php",
+      "old": "1.2.2",
+      "new": "1.2.3",
+      "replace_all": true,
+      "min_count": 1,
+      "max_count": 15
+    },
+    {
+      "path": "tests/three-plan-completion-unit.php",
+      "old": "R311-R320",
+      "new": "R321-R329",
+      "replace_all": true,
+      "min_count": 1,
+      "max_count": 5
+    },
+    {
+      "path": "tests/r319-release-contract-truth-regression.php",
+      "old": "review/file02-r311-r320-2026-08-14",
+      "new": "review/file02-r321-r330-2026-08-14",
+      "count": 2
+    },
+    {
+      "path": "tests/r319-release-contract-truth-regression.php",
+      "old": "R311–R320",
+      "new": "R321–R329",
+      "replace_all": true,
+      "min_count": 1,
+      "max_count": 5
+    },
+    {
+      "path": "tests/r320-final-release-regression.php",
+      "old": "1.2.2",
+      "new": "1.2.3",
+      "replace_all": true,
+      "min_count": 1,
+      "max_count": 30
+    },
+    {
+      "path": "tests/r320-final-release-regression.php",
+      "old": "review/file02-r311-r320-2026-08-14",
+      "new": "review/file02-r321-r330-2026-08-14",
+      "count": 1
+    },
+    {
+      "path": ".github/workflows/baseline-integrity.yml",
+      "old": "1.2.2",
+      "new": "1.2.3",
+      "replace_all": true,
+      "min_count": 1,
+      "max_count": 30
+    },
+    {
+      "path": ".github/workflows/baseline-integrity.yml",
+      "old": "shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240",
+      "new": "shivammathur/setup-php@2.37.2",
+      "replace_all": true,
+      "min_count": 1,
+      "max_count": 4
+    },
+    {
+      "path": ".github/workflows/baseline-integrity.yml",
+      "old": "for extra in tests/r31*-regression.php tests/r32*-regression.php; do",
+      "new": "for extra in tests/r31*-regression.php tests/r32*-regression.php tests/r33*-regression.php; do",
+      "count": 1
+    },
+    {
+      "path": ".github/workflows/baseline-integrity.yml",
+      "old": "'tests/r320-final-release-regression.php'",
+      "new": "'tests/r320-final-release-regression.php','tests/r329-release-truth-regression.php'",
+      "count": 1
+    },
+    {
+      "path": ".github/workflows/baseline-integrity.yml",
+      "old": "req(not list((root/'.github/workflows').glob('*correction*.yml')),'temporary correction workflow remains')\n          req(not (root/'.github/forty-round-payload').exists(),'historical corrective payload remains')",
+      "new": "req(not list((root/'.github/workflows').glob('*correction*.yml')),'temporary correction workflow remains')\n          req(not (root/'.github/workflows/round-ledger-apply.yml').exists(),'temporary round ledger workflow remains')\n          req(not (root/'tools/apply-round-ledger.py').exists(),'temporary round ledger applicator remains')\n          req(not (root/'.github/forty-round-payload').exists(),'historical corrective payload remains')",
+      "count": 1
+    },
+    {
+      "path": ".github/workflows/canonical-storage-and-docs.yml",
+      "old": "1.2.2",
+      "new": "1.2.3",
+      "replace_all": true,
+      "min_count": 1,
+      "max_count": 30
+    },
+    {
+      "path": ".github/workflows/canonical-storage-and-docs.yml",
+      "old": "review/file02-r311-r320-2026-08-14",
+      "new": "review/file02-r321-r330-2026-08-14",
+      "count": 1
+    },
+    {
+      "path": ".github/workflows/canonical-storage-and-docs.yml",
+      "old": "shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240",
+      "new": "shivammathur/setup-php@2.37.2",
+      "count": 1
+    },
+    {
+      "path": ".github/workflows/canonical-storage-and-docs.yml",
+      "old": "for extra in tests/r31*-regression.php tests/r32*-regression.php; do",
+      "new": "for extra in tests/r31*-regression.php tests/r32*-regression.php tests/r33*-regression.php; do",
+      "count": 1
+    }
+  ]
+}

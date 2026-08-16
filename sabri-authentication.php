@@ -3,7 +3,7 @@
  * Plugin Name: Sabri Authentication and Accounts
  * Plugin URI: https://www.sabrihomeopathy.com/
  * Description: Email/password, Google OAuth and WebAuthn/passkey authentication orchestration, registration, recovery, risk challenge, session controls and authentication assurance for the Sabri Social Homeopathy Platform. Requires Sabri Membership Core.
- * Version: 1.2.1
+ * Version: 1.3.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: Dr. Allama Majid Hussain Sabri
@@ -14,8 +14,8 @@
 defined( 'ABSPATH' ) || exit;
 
 /* Canonical File 02 constitution. */
-define( 'SAUTH_VERSION', '1.2.1' );
-define( 'SAUTH_DB_VERSION', '1.2.0' );
+define( 'SAUTH_VERSION', '1.3.0' );
+define( 'SAUTH_DB_VERSION', '1.3.0' );
 define( 'SAUTH_ACCOUNT_CONTRACT_VERSION', '1.1.0' );
 define( 'SAUTH_AUTH_EVENT_SCHEMA_VERSION', '1.0.0' );
 define( 'SAUTH_CF01_ASSURANCE_VERSION', '1.0.0' );
@@ -49,6 +49,7 @@ require_once SAUTH_DIR . 'includes/class-sa-professional-reauthentication.php';
 require_once SAUTH_DIR . 'includes/class-sa-membership-adapter.php';
 require_once SAUTH_DIR . 'includes/class-sa-activator.php';
 require_once SAUTH_DIR . 'includes/class-sauth-storage-router.php';
+require_once SAUTH_DIR . 'includes/class-sauth-privacy-jobs.php';
 require_once SAUTH_DIR . 'includes/class-sa-registration.php';
 require_once SAUTH_DIR . 'includes/class-sa-profile.php';
 require_once SAUTH_DIR . 'includes/class-sa-google-oauth.php';
@@ -56,9 +57,11 @@ require_once SAUTH_DIR . 'includes/class-sauth-google-registration.php';
 require_once SAUTH_DIR . 'includes/class-sa-access-control.php';
 require_once SAUTH_DIR . 'includes/class-sa-privacy.php';
 require_once SAUTH_DIR . 'includes/class-sauth-operations.php';
+require_once SAUTH_DIR . 'includes/class-sauth-safe-mode-challenge-gate.php';
 require_once SAUTH_DIR . 'includes/class-sauth-provider-http-guard.php';
 require_once SAUTH_DIR . 'includes/class-sauth-canonical-routes.php';
 require_once SAUTH_DIR . 'includes/class-sauth-passkeys.php';
+require_once SAUTH_DIR . 'includes/class-sauth-passkey-runtime.php';
 require_once SAUTH_DIR . 'includes/class-sa-plugin.php';
 
 /* Canonical class names with legacy implementation aliases. */
@@ -90,18 +93,37 @@ function sauth_validate_activation_dependencies() {
 	}
 	deactivate_plugins( plugin_basename( SAUTH_FILE ) );
 	wp_die(
-		esc_html__( 'Sabri Authentication requires File 00 — Sabri Membership Core with smc.authentication-account 1.1.0 and the approved assurance contract. Activation stopped before File 02 changed tables, pages or options.', 'sabri-authentication' ),
+		esc_html__( 'Sabri Authentication requires File 00 — Sabri Membership Core 1.2.43+ with its current database migration complete, Safe Mode clear, smc.authentication-account 1.1.0 and the current membership-assurance contract. Activation stopped before File 02 changed tables, pages or options.', 'sabri-authentication' ),
 		esc_html__( 'Required File 00 contract unavailable', 'sabri-authentication' ),
 		array( 'back_link' => true )
 	);
 }
 register_activation_hook( SAUTH_FILE, 'sauth_validate_activation_dependencies' );
 register_activation_hook( SAUTH_FILE, array( 'SAUTH_Activator', 'activate' ) );
-register_activation_hook( SAUTH_FILE, array( 'SAUTH_Passkeys', 'maybe_install' ) );
 register_deactivation_hook( SAUTH_FILE, array( 'SAUTH_Passkeys', 'deactivate' ) );
 register_deactivation_hook( SAUTH_FILE, array( 'SAUTH_Activator', 'deactivate' ) );
 
+/**
+ * Rotating the passkey assurance epoch is a security-containment event. Destroy
+ * every WordPress session so historical direct consumers cannot retain a stale
+ * five-minute passkey assertion after credential revoke/compromise.
+ */
+function sauth_passkey_assurance_epoch_rotated( $meta_id, $user_id, $meta_key, $meta_value ) {
+	if ( SAUTH_Passkey_Runtime::EPOCH_META !== (string) $meta_key || ! $user_id || '' === (string) $meta_value ) {
+		return;
+	}
+	if ( class_exists( 'SAUTH_Session_Manager' ) && ! SAUTH_Session_Manager::revoke_user_sessions( absint( $user_id ), 'passkey_assurance_epoch_rotated' ) ) {
+		SAUTH_Operations::enter_safe_mode();
+	}
+}
+add_action( 'updated_user_meta', 'sauth_passkey_assurance_epoch_rotated', 10, 4 );
+
 function sauth_start_plugin() {
+	static $started = false;
+	if ( $started ) {
+		return;
+	}
+	$started = true;
 	SAUTH_Storage_Router::init();
 	SAUTH_Provider_Health::init();
 	SAUTH_Provider_HTTP_Guard::init();
@@ -111,6 +133,7 @@ function sauth_start_plugin() {
 	SAUTH_Login_Risk::init();
 	SAUTH_Session_Manager::init();
 	SAUTH_Passkeys::init();
+	SAUTH_Passkey_Runtime::init();
 	SAUTH_Professional_Reauthentication::init();
 	SAUTH_Google_Registration::init();
 	SAUTH_Canonical_Routes::init();

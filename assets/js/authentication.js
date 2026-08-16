@@ -157,21 +157,16 @@
       return;
     }
     var password = document.getElementById('sauth-passkey-password');
-    var stepUp = document.getElementById('sauth-passkey-stepup');
     var nickname = document.getElementById('sauth-passkey-name');
     button.disabled = true;
     setPasskeyStatus('Confirming your current account security…', false);
     try {
       var begin = await post('sauth_passkey_begin_registration', {
         nonce: cfg.nonce || '',
-        current_password: password ? password.value : '',
-        step_up_code: stepUp ? stepUp.value : ''
+        current_password: password ? password.value : ''
       });
       if (password) {
         password.value = '';
-      }
-      if (stepUp) {
-        stepUp.value = '';
       }
       setPasskeyStatus('Use your device or security key to create the passkey…', false);
       var credential = await navigator.credentials.create({ publicKey: normalizeCreationOptions(begin) });
@@ -209,21 +204,16 @@
       return;
     }
     var password = document.getElementById('sauth-passkey-password');
-    var stepUp = document.getElementById('sauth-passkey-stepup');
     button.disabled = true;
     setPasskeyStatus('Revoking the selected passkey…', false);
     try {
       var result = await post('sauth_passkey_revoke', {
         nonce: cfg.nonce || '',
         credential_id: button.getAttribute('data-sauth-passkey-revoke') || '',
-        current_password: password ? password.value : '',
-        step_up_code: stepUp ? stepUp.value : ''
+        current_password: password ? password.value : ''
       });
       if (password) {
         password.value = '';
-      }
-      if (stepUp) {
-        stepUp.value = '';
       }
       setPasskeyStatus(result.message || 'Passkey revoked.', false);
       if (result.reload) {

@@ -7,10 +7,11 @@ defined( 'ABSPATH' ) || exit;
  *
  * File 02 historically used `sa_*` table identifiers. Version 1.1.0 creates
  * and owns only canonical `sauth_*` tables, copies legacy rows idempotently,
- * and rewrites any retained compatibility query before it reaches MySQL.
+ * and rewrites retained compatibility queries only in SQL identifier positions.
  */
 final class SAUTH_Storage_Router {
 	private static $initialized = false;
+	private static $suspension_depth = 0;
 
 	public static function init() {
 		if ( self::$initialized ) {
@@ -23,7 +24,7 @@ final class SAUTH_Storage_Router {
 	public static function canonicalize_query( $query ) {
 		global $wpdb;
 		$query = (string) $query;
-		if ( '' === $query || ! isset( $wpdb->prefix ) ) {
+		if ( self::suspended() || '' === $query || ! isset( $wpdb->prefix ) ) {
 			return $query;
 		}
 		$map = array(
@@ -39,16 +40,38 @@ final class SAUTH_Storage_Router {
 			if ( '' === $canonical || $legacy === $canonical ) {
 				continue;
 			}
-		/* Do not rewrite the source side of the explicit one-way migration. */
-			$migration = false !== strpos( $query, 'INSERT IGNORE INTO ' . $canonical )
-				&& false !== strpos( $query, ' FROM ' . $legacy );
-			if ( $migration ) {
-				continue;
-			}
-			$query = str_replace( '`' . $legacy . '`', '`' . $canonical . '`', $query );
-			$query = str_replace( $legacy, $canonical, $query );
+
+			/* Rewrite only SQL table-identifier positions. Broad string replacement
+			 * can corrupt literal values, JSON or diagnostic text that merely contains
+			 * a legacy table name. */
+			$pattern = '/\b(FROM|JOIN|UPDATE|INTO|TABLE)\s+`?' . preg_quote( $legacy, '/' ) . '`?/i';
+			$query = preg_replace_callback(
+				$pattern,
+				static function ( $matches ) use ( $canonical ) {
+					return strtoupper( (string) $matches[1] ) . ' `' . $canonical . '`';
+				},
+				$query
+			);
 		}
 		return $query;
+	}
+
+	/**
+	 * Explicitly suspend compatibility routing around the activator's audited,
+	 * one-way legacy copy. Query text is never trusted to declare itself a
+	 * migration because attacker-controlled literal values can contain SQL-like
+	 * text. The depth counter keeps nested repair calls balanced.
+	 */
+	public static function suspend() {
+		self::$suspension_depth++;
+	}
+
+	public static function resume() {
+		self::$suspension_depth = max( 0, self::$suspension_depth - 1 );
+	}
+
+	public static function suspended() {
+		return self::$suspension_depth > 0;
 	}
 
 	public static function canonical_tables() {

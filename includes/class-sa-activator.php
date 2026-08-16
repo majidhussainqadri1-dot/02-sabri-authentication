@@ -27,12 +27,20 @@ final class SA_Activator {
 		if ( ! SA_Membership_Adapter::plugin_active() ) {
 			deactivate_plugins( plugin_basename( SAUTH_FILE ) );
 			wp_die(
-				esc_html__( 'Sabri Authentication requires File 00 — Sabri Membership Core 1.2.11 or later with smc.authentication-account 1.1.0 and the approved assurance contract. No account, role, guardian or verification authority will be created independently.', 'sabri-authentication' ),
+				esc_html__( 'Sabri Authentication requires File 00 — Sabri Membership Core 1.2.43 or later with its current database migration complete, Safe Mode clear, smc.authentication-account 1.1.0 and the current membership-assurance contract. No account, role, guardian or verification authority will be created independently.', 'sabri-authentication' ),
 				esc_html__( 'Required dependency missing', 'sabri-authentication' ),
 				array( 'back_link' => true )
 			);
 		}
-		self::repair();
+		if ( ! self::repair() ) {
+			SAUTH_Operations::enter_safe_mode();
+			deactivate_plugins( plugin_basename( SAUTH_FILE ) );
+			wp_die(
+				esc_html__( 'File 02 activation stopped because its database/page migration postconditions were not satisfied. Safe Mode was enabled and no successful version marker was published.', 'sabri-authentication' ),
+				esc_html__( 'Authentication migration incomplete', 'sabri-authentication' ),
+				array( 'back_link' => true )
+			);
+		}
 		add_option( 'sauth_google_enabled', '0', '', false );
 		add_option( 'sauth_google_client_id', '', '', false );
 		add_option( SAUTH_Operations::SAFE_MODE_OPTION, '0', '', false );
@@ -59,8 +67,12 @@ final class SA_Activator {
 		$stored_db = (string) get_option( 'sauth_db_version', get_option( 'sa_db_version', '' ) );
 		$stored    = (string) get_option( 'sauth_version', get_option( 'sa_version', '' ) );
 		if ( SAUTH_DB_VERSION !== $stored_db || SAUTH_VERSION !== $stored ) {
-			self::repair();
+			if ( ! self::repair() ) {
+				SAUTH_Operations::enter_safe_mode();
+				return false;
+			}
 		}
+		return true;
 	}
 
 	/**
@@ -74,13 +86,26 @@ final class SA_Activator {
 		self::create_device_table();
 		self::create_risk_challenge_table();
 		self::create_attempt_table();
-		self::migrate_legacy_tables();
+		$migration_ok = self::migrate_legacy_tables();
 		self::create_pages();
-		self::migrate_google_secret();
+		$google_secret_ok = self::migrate_google_secret();
 		self::ensure_dummy_password_hash();
+		$passkey_ok = class_exists( 'SAUTH_Passkeys' ) && SAUTH_Passkeys::maybe_install( true );
+
+		/* Never publish a successful runtime/schema marker merely because dbDelta
+		 * returned. Prove every required table and managed page exists first and
+		 * preserve retryability on partial/failed deployment. */
+		if ( ! $migration_ok || ! $google_secret_ok || ! $passkey_ok || ! self::storage_ready() ) {
+			return false;
+		}
+
 		update_option( 'sauth_version', SAUTH_VERSION, false );
 		update_option( 'sauth_db_version', SAUTH_DB_VERSION, false );
-		/* Compatibility mirrors are retained only for old integrations. */
+		if ( SAUTH_VERSION !== (string) get_option( 'sauth_version', '' ) || SAUTH_DB_VERSION !== (string) get_option( 'sauth_db_version', '' ) ) {
+			return false;
+		}
+		/* Compatibility mirrors are retained only for old integrations; they are
+		 * not accepted as proof of a completed canonical migration. */
 		update_option( 'sa_version', SAUTH_VERSION, false );
 		update_option( 'sa_db_version', SAUTH_DB_VERSION, false );
 		return true;
@@ -111,6 +136,71 @@ final class SA_Activator {
 			'risk challenges'    => self::table( 'risk_challenges' ),
 			'auth attempts'      => self::table( 'auth_attempts' ),
 		);
+	}
+
+	private static function required_table_columns() {
+		return array(
+			'rate limits'        => array( 'bucket_hash','hits','window_started','expires_at','updated_at' ),
+			'event outbox'       => array( 'id','event_id','event_name','schema_version','privacy_class','actor_user_id','subject_user_id','trace_id','payload_json','status','attempts','available_at','published_at','last_error','created_at','updated_at' ),
+			'email verification' => array( 'user_id','email_hash','token_hash','status','attempts','sent_at','expires_at','verified_at','created_at','updated_at' ),
+			'session registry'   => array( 'id','public_id','user_id','token_hash','device_hash','device_label','network_label','risk_level','status','revocation_reason','created_at','last_seen_at','expires_at','revoked_at','updated_at' ),
+			'trusted devices'    => array( 'id','public_id','user_id','fingerprint_hash','network_hash','device_label','network_label','status','risk_score','first_seen_at','last_seen_at','last_login_at','updated_at' ),
+			'risk challenges'    => array( 'id','public_id','token_hash','user_id','fingerprint_hash','risk_score','reason_code','remember_session','destination','completion_json','status','attempts','expires_at','consumed_at','created_at','updated_at' ),
+			'auth attempts'      => array( 'id','public_id','user_id','fingerprint_hash','network_hash','result','reason_code','risk_score','created_at' ),
+		);
+	}
+
+	private static function required_table_indexes() {
+		return array(
+			'rate limits' => array(
+				'PRIMARY'=>array(0,array('bucket_hash')), 'expires_at'=>array(1,array('expires_at')),
+			),
+			'event outbox' => array(
+				'PRIMARY'=>array(0,array('id')), 'event_id'=>array(0,array('event_id')), 'dispatch_due'=>array(1,array('status','available_at','id')), 'subject_event'=>array(1,array('subject_user_id','event_name','created_at')), 'trace_id'=>array(1,array('trace_id')),
+			),
+			'email verification' => array(
+				'PRIMARY'=>array(0,array('user_id')), 'expiry_status'=>array(1,array('status','expires_at')), 'email_hash'=>array(1,array('email_hash')),
+			),
+			'session registry' => array(
+				'PRIMARY'=>array(0,array('id')), 'public_id'=>array(0,array('public_id')), 'user_token'=>array(0,array('user_id','token_hash')), 'user_status_seen'=>array(1,array('user_id','status','last_seen_at')), 'expiry_status'=>array(1,array('expires_at','status')),
+			),
+			'trusted devices' => array(
+				'PRIMARY'=>array(0,array('id')), 'public_id'=>array(0,array('public_id')), 'user_fingerprint'=>array(0,array('user_id','fingerprint_hash')), 'user_network_status'=>array(1,array('user_id','network_hash','status')), 'last_seen_at'=>array(1,array('last_seen_at')),
+			),
+			'risk challenges' => array(
+				'PRIMARY'=>array(0,array('id')), 'public_id'=>array(0,array('public_id')), 'token_hash'=>array(0,array('token_hash')), 'subject_status'=>array(1,array('user_id','status','expires_at')), 'expiry_status'=>array(1,array('expires_at','status')),
+			),
+			'auth attempts' => array(
+				'PRIMARY'=>array(0,array('id')), 'public_id'=>array(0,array('public_id')), 'subject_time'=>array(1,array('user_id','created_at')), 'result_time'=>array(1,array('result','created_at')),
+			),
+		);
+	}
+
+	private static function table_indexes_ready( $table, array $required ) {
+		global $wpdb;
+		$rows = $wpdb->get_results( "SHOW INDEX FROM `{$table}`", ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		if ( ! is_array( $rows ) || '' !== (string) $wpdb->last_error ) { return false; }
+		$actual = array();
+		foreach ( $rows as $row ) {
+			$name = (string) ( $row['Key_name'] ?? '' ); $seq = absint( $row['Seq_in_index'] ?? 0 );
+			if ( '' === $name || $seq < 1 ) { continue; }
+			if ( ! isset( $actual[ $name ] ) ) { $actual[ $name ]=array('non_unique'=>(int)( $row['Non_unique'] ?? 1 ),'columns'=>array()); }
+			$actual[ $name ]['columns'][ $seq ] = (string) ( $row['Column_name'] ?? '' );
+		}
+		foreach ( $required as $name => $spec ) {
+			if ( ! isset( $actual[ $name ] ) || (int) $actual[ $name ]['non_unique'] !== (int) $spec[0] ) { return false; }
+			ksort( $actual[ $name ]['columns'] );
+			if ( array_values( $actual[ $name ]['columns'] ) !== $spec[1] ) { return false; }
+		}
+		return true;
+	}
+
+	private static function table_columns_ready( $table, array $required ) {
+		global $wpdb;
+		if ( '' === (string) $table ) { return false; }
+		$columns = $wpdb->get_col( "SHOW COLUMNS FROM `{$table}`", 0 ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		if ( ! is_array( $columns ) || '' !== (string) $wpdb->last_error ) { return false; }
+		return ! array_diff( $required, array_map( 'strval', $columns ) );
 	}
 
 	public static function create_rate_limit_table() {
@@ -282,28 +372,93 @@ final class SA_Activator {
 	 */
 	public static function migrate_legacy_tables() {
 		global $wpdb;
+		$ok = true;
+		$router_suspended = false;
+		if ( class_exists( 'SAUTH_Storage_Router' ) ) {
+			SAUTH_Storage_Router::suspend();
+			$router_suspended = true;
+		}
 		$columns = array(
 			'rate_limits'         => 'bucket_hash,hits,window_started,expires_at,updated_at',
-			'auth_outbox'         => 'id,event_id,event_name,schema_version,privacy_class,actor_user_id,subject_user_id,trace_id,payload_json,status,attempts,available_at,published_at,last_error,created_at,updated_at',
+			'auth_outbox'         => 'event_id,event_name,schema_version,privacy_class,actor_user_id,subject_user_id,trace_id,payload_json,status,attempts,available_at,published_at,last_error,created_at,updated_at',
 			'email_verifications' => 'user_id,email_hash,token_hash,status,attempts,sent_at,expires_at,verified_at,created_at,updated_at',
-			'auth_sessions'       => 'id,public_id,user_id,token_hash,device_hash,device_label,network_label,risk_level,status,revocation_reason,created_at,last_seen_at,expires_at,revoked_at,updated_at',
-			'auth_devices'        => 'id,public_id,user_id,fingerprint_hash,network_hash,device_label,network_label,status,risk_score,first_seen_at,last_seen_at,last_login_at,updated_at',
-			'risk_challenges'     => 'id,public_id,token_hash,user_id,fingerprint_hash,risk_score,reason_code,remember_session,destination,completion_json,status,attempts,expires_at,consumed_at,created_at,updated_at',
-			'auth_attempts'       => 'id,public_id,user_id,fingerprint_hash,network_hash,result,reason_code,risk_score,created_at',
+			'auth_sessions'       => 'public_id,user_id,token_hash,device_hash,device_label,network_label,risk_level,status,revocation_reason,created_at,last_seen_at,expires_at,revoked_at,updated_at',
+			'auth_devices'        => 'public_id,user_id,fingerprint_hash,network_hash,device_label,network_label,status,risk_score,first_seen_at,last_seen_at,last_login_at,updated_at',
+			'risk_challenges'     => 'public_id,token_hash,user_id,fingerprint_hash,risk_score,reason_code,remember_session,destination,completion_json,status,attempts,expires_at,consumed_at,created_at,updated_at',
+			'auth_attempts'       => 'public_id,user_id,fingerprint_hash,network_hash,result,reason_code,risk_score,created_at',
 		);
-		foreach ( $columns as $key => $column_list ) {
-			$legacy    = self::legacy_table( $key );
-			$canonical = self::table( $key );
-			if ( '' === $legacy || '' === $canonical || $legacy === $canonical ) {
-				continue;
+		$identity_columns = array(
+			'rate_limits'         => 'bucket_hash',
+			'auth_outbox'         => 'event_id',
+			'email_verifications' => 'user_id',
+			'auth_sessions'       => 'public_id',
+			'auth_devices'        => 'public_id',
+			'risk_challenges'     => 'public_id',
+			'auth_attempts'       => 'public_id',
+		);
+		try {
+			foreach ( $columns as $key => $column_list ) {
+				$legacy    = self::legacy_table( $key );
+				$canonical = self::table( $key );
+				if ( '' === $legacy || '' === $canonical || $legacy === $canonical ) {
+					continue;
+				}
+				$exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $legacy ) ) );
+				if ( $legacy !== $exists ) {
+					continue;
+				}
+				$result = $wpdb->query( "INSERT IGNORE INTO {$canonical} ({$column_list}) SELECT {$column_list} FROM {$legacy}" ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+				if ( false === $result ) {
+					$ok = false;
+					continue;
+				}
+				$identity = isset( $identity_columns[ $key ] ) ? (string) $identity_columns[ $key ] : '';
+				if ( '' === $identity ) { $ok = false; continue; }
+				$missing_raw = $wpdb->get_var( "SELECT COUNT(*) FROM `{$legacy}` AS l LEFT JOIN `{$canonical}` AS c ON c.`{$identity}`=l.`{$identity}` WHERE c.`{$identity}` IS NULL" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				if ( null === $missing_raw || '' !== (string) $wpdb->last_error || (int) $missing_raw > 0 ) {
+					$ok = false;
+				}
 			}
-			$exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $legacy ) ) );
-			if ( $legacy !== $exists ) {
-				continue;
+		} finally {
+			if ( $router_suspended ) {
+				SAUTH_Storage_Router::resume();
 			}
-			$wpdb->query( "INSERT IGNORE INTO {$canonical} ({$column_list}) SELECT {$column_list} FROM {$legacy}" ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 		}
-		update_option( 'sauth_legacy_table_migration_version', SAUTH_DB_VERSION, false );
+		if ( $ok ) {
+			update_option( 'sauth_legacy_table_migration_version', SAUTH_DB_VERSION, false );
+			$ok = SAUTH_DB_VERSION === (string) get_option( 'sauth_legacy_table_migration_version', '' );
+		}
+		return $ok;
+	}
+
+
+	/**
+	 * Canonical migration postcondition. Version markers are evidence only after
+	 * every File 02 table and every managed core page is materially present.
+	 */
+	public static function storage_ready() {
+		global $wpdb;
+		$required_columns = self::required_table_columns();
+		$required_indexes = self::required_table_indexes();
+		foreach ( self::required_tables() as $key => $table ) {
+			if ( '' === $table ) {
+				return false;
+			}
+			$exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) );
+			if ( $table !== (string) $exists || ! isset( $required_columns[ $key ], $required_indexes[ $key ] ) || ! self::table_columns_ready( $table, $required_columns[ $key ] ) || ! self::table_indexes_ready( $table, $required_indexes[ $key ] ) ) {
+				return false;
+			}
+		}
+		$map = (array) get_option( 'sauth_page_map', array() );
+		foreach ( self::page_specs() as $key => $spec ) {
+			$page_id = isset( $map[ $key ] ) ? absint( $map[ $key ] ) : 0;
+			$page = $page_id ? get_post( $page_id ) : null;
+			if ( ! $page instanceof WP_Post || 'page' !== $page->post_type || 'trash' === $page->post_status || ! self::is_owned_page( $page ) || ! self::exact_shortcode_page( $page, $spec['shortcode'] ) ) {
+				return false;
+			}
+		}
+		if ( ! class_exists( 'SAUTH_Passkeys' ) || ! SAUTH_Passkeys::installation_ready() ) { return false; }
+		return true;
 	}
 
 	public static function create_pages() {
@@ -395,19 +550,13 @@ final class SA_Activator {
 		return is_wp_error( $page ) ? 0 : (int) $page;
 	}
 
-	public static function migrate_google_secret() {
-		$cipher = (string) get_option( 'sauth_google_client_secret', get_option( 'sa_google_client_secret', '' ) );
-		if ( '' === $cipher || 0 === strpos( $cipher, 'v2:' ) ) {
-			return;
-		}
-		$plain = SA_Security::decrypt( $cipher );
-		if ( '' !== $plain ) {
-			$encrypted = SA_Security::encrypt( $plain );
-			if ( '' !== $encrypted ) {
-				update_option( 'sauth_google_client_secret', $encrypted, false );
-				update_option( 'sa_google_client_secret', $encrypted, false );
-			}
-		}
+	private static function migrate_google_secret() {
+		$cipher=(string)get_option('sauth_google_client_secret',get_option('sa_google_client_secret',''));
+		if(''===$cipher){return true;} if(SA_Security::current_cipher_ready($cipher)){return true;} if(!SA_Security::master_key_ready()){return false;}
+		$plain=SA_Security::decrypt($cipher); if(''===$plain){return false;} $encrypted=SA_Security::encrypt($plain); $plain=''; if(!SA_Security::current_cipher_ready($encrypted)){return false;}
+		update_option('sauth_google_client_secret',$encrypted,false); update_option('sa_google_client_secret',$encrypted,false);
+		$canonical=(string)get_option('sauth_google_client_secret',''); $mirror=(string)get_option('sa_google_client_secret','');
+		return hash_equals($encrypted,$canonical) && hash_equals($encrypted,$mirror) && SA_Security::current_cipher_ready($canonical);
 	}
 
 	public static function ensure_dummy_password_hash() {

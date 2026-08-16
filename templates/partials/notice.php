@@ -1,6 +1,5 @@
 <?php defined( 'ABSPATH' ) || exit; ?>
-<?php if ( isset( $_GET['sa_notice'], $_GET['sa_msg'] ) ) : ?>
-	<?php $notice_type = 'success' === sanitize_key( wp_unslash( $_GET['sa_notice'] ) ) ? 'success' : 'error'; ?>
-	<div class="sa-notice sa-notice-<?php echo esc_attr( $notice_type ); ?>" role="status"><?php echo esc_html( rawurldecode( sanitize_text_field( wp_unslash( $_GET['sa_msg'] ) ) ) ); ?></div>
+<?php $sauth_notice = SA_Security::request_notice(); ?>
+<?php if ( ! empty( $sauth_notice ) ) : ?>
+<div class="sa-notice sa-notice-<?php echo esc_attr( $sauth_notice['type'] ); ?>" role="status"><?php echo esc_html( $sauth_notice['message'] ); ?></div>
 <?php endif; ?>
-

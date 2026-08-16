@@ -1,26 +1,50 @@
-# File 02 — Release Manifest — 1.2.1
+# File 02 — Release Manifest — 1.3.0
 
 ## Release identity
 
 - Module: `02 — Authentication and Accounts`
-- Candidate version/schema: `1.2.1 / 1.2.0`
-- Passkey schema/assurance: `1.0.0 / 1.0.0`
-- Candidate branch: `fix/live-bootstrap-storage-router-1.2.1`
-- Incident baseline main: `8192c45b595b34e13e09934e3b2d554aa2d8553f`
-- Canonical repository: `02-sabri-authentication-and-accounts`
+- Candidate version/schema: `1.3.0 / 1.3.0`
+- Passkey schema/assurance: `1.0.1 / 1.0.0`
+- Candidate branch: `agent/file02-comprehensive-remediation-1.3.0`
+- Current repository `main` re-verified during R319: `0f011b1876e217b7ee46f92903e5315538c1025e`
+- Historical incident baseline main: `8192c45b595b34e13e09934e3b2d554aa2d8553f`
+- Intended canonical repository name: `02-sabri-authentication-and-accounts` (owner-level rename is still external)
 - Current transport repository: `02-sabri-authentication`
 - Package root: `02-sabri-authentication`
-- Package: `02-sabri-authentication-1.2.1-SOURCE-CANDIDATE.zip`
-- Manifest: `02-sabri-authentication-1.2.1-MANIFEST.json`
+- Package: `02-sabri-authentication-1.3.0-SOURCE-CANDIDATE.zip`
+- Manifest: `02-sabri-authentication-1.3.0-MANIFEST.json`
 - Checksums: `CHECKSUMS.sha256` plus exact-head CI checksum record
 - SBOM: `SBOM.spdx.json`
 - Required File 00 provider: `smc.authentication-account 1.1.0`
-- Paired File 00 repository candidate: `1.2.43` exact head `a71dc91b8ce80774adac35a90d7517999054f120` until separately superseded/merged
+- Exact paired File 00 repository candidate: `1d7f215193d778b0977c8e50d738c42e1e5f66c2`, runtime `1.2.44`, DB `1.4.5`
 - Advanced Trust projection: File 02 passkey assurance `1.0.0`, owner `file02`
+- Current cross-file blocker: exact File 00 `1.2.44` / File 02 `1.3.0` integration is pending; run `31850253635` is retained only as historical File 02 `1.2.6` evidence.
 
-## Patch correction
+## Current hardening release
 
-File 02 1.2.0 contained `includes/class-sauth-storage-router.php` and invoked `SAUTH_Storage_Router::init()` during `plugins_loaded`, but the main plugin file did not require that class. Real WordPress cross-repository testing therefore activated the plugin and then reproduced a fatal on the next WordPress request. Version 1.2.1 loads the storage-router source before startup registration and adds permanent source, package and real WordPress reload guards.
+Version 1.3.0 preserves the R321–R336 line and adds R337 comprehensive remediation. The repaired legacy copy uses explicit compatibility-router suspension instead of trusting SQL text; DB identity advances to `1.3.0` so supported installations rerun that copy. Email verification uses compare-and-set state transitions. Google registration/login/link/unlink share ordered database locks and exact postconditions. Password, Google and passkey success require exact WordPress/File 02 session binding plus persisted risk evidence. Passkeys enforce immutable backup eligibility, strict counter regression, RSA-2048/65537 and exact receipt ownership. Privacy export/erasure is bounded, covers canonical and preserved legacy stores, and proves recursive event anonymization.
+
+Passkey schema identity remains `1.0.1` because the intended passkey table schema did not change. This source identity remains separate from exact-head CI, staging and live completion.
+
+## Cross-file integration evidence boundary
+
+Current exact-head File 02 `1.3.0` integration with File 00 `1d7f215193d778b0977c8e50d738c42e1e5f66c2` is pending. The workflow must prove:
+
+1. immutable paired input verification;
+2. WordPress 7.0 / MariaDB 11.4 installation;
+3. File 00 activation in queued state plus supported deferred administrator bootstrap to DB 1.4.5;
+4. File 02 fresh activation at runtime 1.3.0 / DB 1.3.0 / passkey schema 1.0.1;
+5. two-sided canonical account taxonomy parity for `member`, `patient`, `student`, `doctor`, `teacher`, `researcher`, `pharmacy`, `clinic`, `publisher`;
+6. legacy passkey column/index upgrade on real MariaDB;
+7. legacy logical-identity collision migration;
+8. active-router one-way legacy-table migration; and
+9. final paired runtime/schema boundary verification.
+
+Historical run `31850253635` passed the analogous boundary for File 02 `f740ca65fc33031b98d7d75e5f27b7ccbeeefbf9` / runtime `1.2.6`; it is not evidence for this candidate.
+
+## Historical bootstrap correction
+
+File 02 1.2.0 contained `includes/class-sauth-storage-router.php` and invoked `SAUTH_Storage_Router::init()` during `plugins_loaded`, but the main plugin file did not require that class. Real WordPress cross-repository testing therefore activated the plugin and then reproduced a fatal on the next WordPress request. Version 1.2.1 loaded the storage-router source before startup registration and added permanent source, package and real WordPress reload guards.
 
 ## Installable runtime inventory
 
@@ -49,30 +73,28 @@ SBOM.spdx.json
 PACKAGE-MANIFEST.json (generated)
 ```
 
-The runtime inventory includes `includes/class-sauth-storage-router.php`, `includes/class-sauth-passkeys.php` and the browser WebAuthn client in `assets/js/authentication.js`. Tests, CI workflows, historical baseline locks, development reports and committed archives are excluded from the installable ZIP.
+Tests, CI workflows, historical review evidence, development reports and committed archives are excluded from the installable ZIP.
 
 ## Exact-head evidence rule
 
-The current GitHub Actions head must:
+The corrected current GitHub Actions head must:
 
-1. prove checkout equals the immutable PR/source HEAD;
+1. prove checkout equals the immutable source HEAD;
 2. lint every PHP source file on PHP 7.4 and 8.3;
-3. execute all security, assurance, registration, completion, prior three-plan and WebAuthn CBOR/COSE/signature suites;
-4. enforce the architecture guard, including File 02/File 00 ownership and rejection of client-supplied WebAuthn public keys;
+3. execute all security, assurance, registration, completion, plan, WebAuthn and R29x–R337 permanent regressions;
+4. enforce the release-lock-driven architecture guard, including File 02/File 00 ownership and rejection of client-supplied WebAuthn public keys;
 5. prove the storage-router source is loaded before File 02 startup;
 6. validate JavaScript syntax and CSS structure;
-7. build the 1.2.1 package twice from a fixed source epoch and prove byte identity;
+7. build the 1.3.0 package twice from a fixed source epoch and prove byte identity;
 8. reject archive traversal, unexpected roots, secrets and forbidden files;
-9. clean-extract and lint every packaged PHP file and prove the storage-router bootstrap binding survives packaging;
-10. run a real WordPress/MariaDB integration against the exact paired File 00 candidate, activate File 02 and prove at least two subsequent independent WordPress loads remain non-fatal; and
-11. publish the ZIP, manifest and checksums as a retained workflow artifact.
+9. clean-extract and lint every packaged PHP file and prove bootstrap/migration invariants survive packaging;
+10. pass the separate exact WordPress/File 00 integration against the same File 02 head; and
+11. never infer staging/live completion from repository/package success.
 
-The actual package digest is produced only from the immutable workflow head rather than guessed or copied from an earlier release.
-
-## Source completion boundary
-
-The 1.2.1 source candidate preserves the previous 12 File 02 functional requirements plus CV-005 Passkey/MFA ceremony, CV-006 device/session center and CV-010 recovery within File 02's canonical boundary. File 00 remains identity/MFA-policy authority and File 24 remains assurance/risk governance rather than a credential store.
+The actual package digest may be claimed only from the successful immutable workflow head.
 
 ## External completion boundary
 
-This manifest can prove source/package identity and automated evidence only after current exact-head CI succeeds. Hostinger staging, real production-domain WebAuthn authenticators, SMTP/Google, File 00 Advanced Trust integration, browser/RTL/WCAG, performance/load, backup/restore, rollback, Founder acceptance, live deployment and operations remain separate gates.
+Current repository/source integration with File 00 is pending as described above. Hostinger staging, real production-domain WebAuthn authenticators, real SMTP/Google, browser/RTL/WCAG, other cross-file/theme/LiteSpeed integrations, performance/load, backup/restore, rollback, Founder acceptance, live deployment and operations remain separate gates.
+
+Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔

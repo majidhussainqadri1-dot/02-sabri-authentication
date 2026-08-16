@@ -1,0 +1,35 @@
+{
+  "round": "R325",
+  "replacements": [
+    {
+      "path": "includes/class-sauth-session-manager.php",
+      "count": 1,
+      "old": "\t\t$sessions = self::list_for_user( $user_id );\n\t\t$current_hash = self::current_token_hash();\n\t\t$active_count = 0;\n\t\tforeach ( $sessions as $session ) { if ( 'active' === $session['status'] ) { $active_count++; } }",
+      "new": "\t\t$sessions = self::list_for_user( $user_id );\n\t\t$session_list_unavailable = is_wp_error( $sessions );\n\t\tif ( $session_list_unavailable ) { $sessions = array(); }\n\t\t$current_hash = self::current_token_hash();\n\t\t$active_count = 0;\n\t\tforeach ( $sessions as $session ) { if ( 'active' === $session['status'] ) { $active_count++; } }"
+    },
+    {
+      "path": "includes/class-sauth-session-manager.php",
+      "count": 1,
+      "old": "\t\t\t\t<div class=\"sa-session-summary\" role=\"status\"><strong>Total active sessions:</strong> <?php echo esc_html( (string) $active_count ); ?></div>\n\t\t\t\t<div class=\"sa-session-list\">\n\t\t\t\t<?php if ( empty( $sessions ) ) : ?><p>No session projections are available. The current session remains governed by WordPress.</p><?php endif; ?>",
+      "new": "\t\t\t\t<div class=\"sa-session-summary\" role=\"status\"><strong>Total active sessions:</strong> <?php echo esc_html( $session_list_unavailable ? 'Unavailable' : (string) $active_count ); ?></div>\n\t\t\t\t<div class=\"sa-session-list\">\n\t\t\t\t<?php if ( $session_list_unavailable ) : ?><div class=\"sa-notice sa-notice-error\" role=\"alert\">Session evidence is temporarily unavailable. No zero-session claim is being made; reload before taking security action.</div><?php elseif ( empty( $sessions ) ) : ?><p>No session projections are available. The current session remains governed by WordPress.</p><?php endif; ?>"
+    },
+    {
+      "path": "includes/class-sauth-session-manager.php",
+      "count": 1,
+      "old": "\tprivate static function list_for_user( $user_id ) {\n\t\tglobal $wpdb;\n\t\t$rows = $wpdb->get_results( $wpdb->prepare( 'SELECT public_id,token_hash,device_label,network_label,risk_level,status,last_seen_at,expires_at FROM ' . self::table() . \" WHERE user_id=%d AND (status='active' OR updated_at>=%s) ORDER BY status='active' DESC,last_seen_at DESC LIMIT %d\", absint( $user_id ), gmdate( 'Y-m-d H:i:s', time() - self::HISTORY_RETENTION ), self::MAX_LIST ), ARRAY_A );\n\t\treturn is_array( $rows ) ? $rows : array();\n\t}",
+      "new": "\tprivate static function list_for_user( $user_id ) {\n\t\tglobal $wpdb;\n\t\t$rows = $wpdb->get_results( $wpdb->prepare( 'SELECT public_id,token_hash,device_label,network_label,risk_level,status,last_seen_at,expires_at FROM ' . self::table() . \" WHERE user_id=%d AND (status='active' OR updated_at>=%s) ORDER BY status='active' DESC,last_seen_at DESC LIMIT %d\", absint( $user_id ), gmdate( 'Y-m-d H:i:s', time() - self::HISTORY_RETENTION ), self::MAX_LIST ), ARRAY_A );\n\t\tif ( ! is_array( $rows ) || '' !== (string) $wpdb->last_error ) {\n\t\t\treturn new WP_Error( 'session_registry_unavailable', 'Session evidence could not be read safely.' );\n\t\t}\n\t\treturn $rows;\n\t}"
+    },
+    {
+      "path": "includes/class-sauth-session-manager.php",
+      "count": 1,
+      "old": "\tprivate static function current_risk_level( $user_id ) {\n\t\tglobal $wpdb;\n\t\t$score = $wpdb->get_var( $wpdb->prepare( 'SELECT risk_score FROM ' . SAUTH_Activator::table( 'auth_devices' ) . ' WHERE user_id=%d AND fingerprint_hash=%s ORDER BY last_seen_at DESC LIMIT 1', absint( $user_id ), SA_Security::client_fingerprint() ) );\n\t\t$score = absint( $score ); return $score >= 80 ? 'high' : ( $score >= 45 ? 'medium' : 'low' );\n\t}",
+      "new": "\tprivate static function current_risk_level( $user_id ) {\n\t\tglobal $wpdb;\n\t\t$score = $wpdb->get_var( $wpdb->prepare( 'SELECT risk_score FROM ' . SAUTH_Activator::table( 'auth_devices' ) . ' WHERE user_id=%d AND fingerprint_hash=%s ORDER BY last_seen_at DESC LIMIT 1', absint( $user_id ), SA_Security::client_fingerprint() ) );\n\t\tif ( null === $score || '' !== (string) $wpdb->last_error ) { return 'unknown'; }\n\t\t$score = absint( $score ); return $score >= 80 ? 'high' : ( $score >= 45 ? 'medium' : 'low' );\n\t}"
+    },
+    {
+      "path": "includes/class-sauth-login-risk.php",
+      "count": 1,
+      "old": "\t\tif ( ! SAUTH_Provider_Health::allow_request( 'membership' ) ) { $score += 30; $reasons[] = 'membership_provider_degraded'; }",
+      "new": "\t\tif ( ! SAUTH_Provider_Health::available_for_ui( 'membership' ) ) { $score += 30; $reasons[] = 'membership_provider_degraded'; }"
+    }
+  ]
+}

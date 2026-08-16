@@ -1,0 +1,20 @@
+<?php
+$root = dirname( __DIR__ );
+$passkeys = file_get_contents( $root . '/includes/class-sauth-passkeys.php' );
+$runtime = file_get_contents( $root . '/includes/class-sauth-passkey-runtime.php' );
+$fail = array();
+$checks = array(
+    array( $passkeys, 'maxlength="4096"', 'passkey manager truncates server-accepted password length' ),
+    array( $passkeys, 'true === ( $assertion[\'membership\'][\'active\'] ?? false )', 'legacy passkey sign-in can override inactive membership denial' ),
+    array( $runtime, 'true === ( $assertion[\'membership\'][\'active\'] ?? false )', 'runtime passkey sign-in can override inactive membership denial' ),
+    array( $runtime, 'SAUTH_Passkeys::CONTRACT_VERSION === (string) ( $receipt[\'contract_version\'] ?? \'\' )', 'passkey assurance does not bind current contract version' ),
+    array( $passkeys, '$schema_ready', 'passkey availability ignores schema marker' ),
+    array( $passkeys, '$table_ready', 'passkey availability ignores physical table state' ),
+    array( $passkeys, 'SELECT public_id,nickname,status,created_at,last_used_at,revoked_at', 'privacy export omits retained inactive passkeys' ),
+    array( $passkeys, 'items_retained', 'passkey erasure cannot truthfully report retained data' ),
+    array( $passkeys, 'SAUTH_Passkey_Runtime::invalidate_user_assurance', 'privacy erasure does not invalidate passkey assurance' ),
+    array( $passkeys, 'SAUTH_Passkey_Runtime::EPOCH_META', 'privacy erasure does not clear passkey assurance epoch' ),
+);
+foreach ( $checks as $c ) { if ( false === strpos( $c[0], $c[1] ) ) { $fail[] = $c[2]; } }
+if ( $fail ) { fwrite( STDERR, "R305 passkey lifecycle regressions:\n- " . implode( "\n- ", $fail ) . "\n" ); exit( 1 ); }
+echo 'R305 passkey lifecycle regression PASS (' . count( $checks ) . " assertions).\n";

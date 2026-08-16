@@ -1,0 +1,43 @@
+{
+  "round": "R323",
+  "correction_harness_aligned": true,
+  "correction_harness_version": 2,
+  "replacements": [
+    {
+      "path": "includes/class-sauth-google-registration.php",
+      "count": 1,
+      "old": "wp_safe_redirect( add_query_arg( 'google_registration', rawurlencode( $registration_token ), SA_Security::page_url( 'signup', wp_registration_url() ) ) );",
+      "new": "wp_safe_redirect( add_query_arg( 'google_registration', $registration_token, SA_Security::page_url( 'signup', wp_registration_url() ) ) );"
+    },
+    {
+      "path": "includes/class-sa-google-oauth.php",
+      "count": 1,
+      "old": "\t\t$this->state_cookie( $state, time() + self::STATE_TTL );\n\n\t\t$url = add_query_arg(",
+      "new": "\t\tif ( ! $this->state_cookie( $state, time() + self::STATE_TTL ) ) {\n\t\t\tdelete_transient( $key );\n\t\t\t$this->fail( 'The secure Google state cookie could not be established.' );\n\t\t}\n\n\t\t$url = add_query_arg("
+    },
+    {
+      "path": "includes/class-sauth-google-registration.php",
+      "count": 1,
+      "old": "\t\tself::state_cookie( $state, time() + self::STATE_TTL );\n\t\t$url = add_query_arg(",
+      "new": "\t\tif ( ! self::state_cookie( $state, time() + self::STATE_TTL ) ) {\n\t\t\tdelete_transient( $key );\n\t\t\tself::fail( 'The secure Google registration state cookie could not be established.' );\n\t\t}\n\t\t$url = add_query_arg("
+    },
+    {
+      "path": "includes/class-sa-google-oauth.php",
+      "count": 1,
+      "old": "\t\tsetcookie( self::COOKIE_NAME, $value, $options );\n\t}",
+      "new": "\t\treturn setcookie( self::COOKIE_NAME, $value, $options );\n\t}"
+    },
+    {
+      "path": "includes/class-sauth-google-registration.php",
+      "count": 1,
+      "old": "\t\tsetcookie( self::COOKIE_NAME, $value, $options );\n\t}",
+      "new": "\t\treturn setcookie( self::COOKIE_NAME, $value, $options );\n\t}"
+    },
+    {
+      "path": "includes/class-sa-google-oauth.php",
+      "count": 1,
+      "old": "\t\tif ( ! $disabled ) {\n\t\t\tupdate_option( SAUTH_Operations::SAFE_MODE_OPTION, '1', false );\n\t\t}\n\t\tif ( class_exists( 'WP_Session_Tokens' ) ) {\n\t\t\tWP_Session_Tokens::get_instance( $user_id )->destroy_all();\n\t\t}\n\t\tSA_Membership_Adapter::audit( sanitize_key( (string) $reason ), $user_id, array( 'disabled_marker_verified' => $disabled ) );\n\t\treturn $disabled;",
+      "new": "\t\t$revoked = SAUTH_Session_Manager::revoke_user_sessions( $user_id, 'google_linkage_containment' );\n\t\tif ( ! $disabled || ! $revoked ) {\n\t\t\tSAUTH_Operations::enter_safe_mode();\n\t\t}\n\t\tSA_Membership_Adapter::audit( sanitize_key( (string) $reason ), $user_id, array( 'disabled_marker_verified' => $disabled, 'sessions_revoked_verified' => $revoked ) );\n\t\treturn $disabled && $revoked;"
+    }
+  ]
+}
