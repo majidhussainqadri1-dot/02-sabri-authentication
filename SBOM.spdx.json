@@ -34,7 +34,7 @@
           "referenceLocator": "pkg:wordpress/sabri-authentication@1.3.1"
         }
       ],
-      "comment": "R338 live-root-cause hotfix candidate. Runtime 1.3.1 / DB 1.3.0 / passkey schema 1.0.1. It adds bounded reconciliation for the exact live-proven stale user_status(user_id,status,updated_at) passkey index; staging/live resolution remains unclaimed until deployment and live re-verification."
+      "comment": "R338 live-root-cause hotfix candidate. Runtime 1.3.1 / DB 1.3.0 / passkey schema 1.0.1. It adds bounded reconciliation for the exact live-proven stale user_status(user_id,status,updated_at) passkey index. Repository CI is not a live-deployment claim; staging/live resolution remains unclaimed until deployment and live re-verification."
     },
     {
       "SPDXID": "SPDXRef-Package-WordPress",
