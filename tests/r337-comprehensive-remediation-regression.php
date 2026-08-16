@@ -30,13 +30,15 @@ $professional = $read( 'includes/class-sa-professional-reauthentication.php' );
 $completion = $read( 'includes/class-sauth-completion-resolver.php' );
 $integration = $read( '.github/workflows/file00-1.2.44-real-integration.yml' );
 $lock = json_decode( $read( 'RELEASE-LOCK.json' ), true );
+$lineage = json_decode( $read( 'SOURCE-LINEAGE-LOCK.json' ), true );
 
-/* Current identity and truthful evidence boundary. */
-$has( $main, 'Version: 1.3.0', 'runtime header is not 1.3.0' );
-$has( $main, "SAUTH_VERSION', '1.3.0", 'runtime constant is not 1.3.0' );
-$has( $main, "SAUTH_DB_VERSION', '1.3.0", 'DB marker was not advanced for repaired migration' );
-$req( is_array( $lock ) && 'pending_exact_head' === ( $lock['cross_file_integration_evidence']['status'] ?? '' ), 'current cross-file evidence is falsely complete' );
+/* Recoverable identity plus current R338 truth boundary. */
+$has( $main, 'Version: 1.3.0', 'recoverable runtime header is not 1.3.0' );
+$has( $main, "SAUTH_VERSION', '1.3.0", 'recoverable runtime constant is not 1.3.0' );
+$has( $main, "SAUTH_DB_VERSION', '1.3.0", 'recoverable DB marker was not retained for repaired migration' );
+$req( is_array( $lock ) && 'pending_exact_head_review_source_only' === ( $lock['cross_file_integration_evidence']['status'] ?? '' ), 'current cross-file evidence is falsely complete' );
 $req( 31850253635 === (int) ( $lock['prior_cross_file_integration_evidence']['workflow_run_id'] ?? 0 ), 'historical 1.2.6 integration evidence was not preserved separately' );
+$req( is_array( $lineage ) && false === ( $lineage['packaging_allowed'] ?? true ) && false === ( $lineage['current_source_has_complete_x24_scope'] ?? true ), 'R338 source-lineage containment is not fail-closed' );
 $req( false === ( $lock['status']['staging_accepted'] ?? true ) && false === ( $lock['status']['live_deployed'] ?? true ) && false === ( $lock['status']['operational'] ?? true ), 'external completion gates were falsely advanced' );
 
 /* Storage migration must never trust attacker-influenced SQL text. */
@@ -104,15 +106,15 @@ foreach ( array( 'provider_contract', 'provider_version', 'provider_scope_hash',
 $has( $completion, 'file00_mfa_required', 'completion resolver does not require explicit File 00 MFA-retirement evidence' );
 $has( $completion, "in_array( (string) ( \$assertion['result'] ?? '' ), array( 'allow', 'deny' ), true )", 'an unresolved File 00 assertion can retire a completion requirement' );
 
-/* Real integration must exercise the defect while the router is active. */
+/* Real integration workflow still rehearses the recovered hardening defects; passing it cannot close the X24 lineage blocker. */
 $has( $integration, 'Prove active-router one-way legacy migration on real MariaDB', 'real integration lacks active-router migration rehearsal' );
 $has( $integration, 'SAUTH_Activator::migrate_legacy_tables()', 'real integration does not invoke the repaired migration while active' );
-$has( $integration, 'FILE02_VERSION: \'1.3.0\'', 'real integration runtime identity is stale' );
-$has( $integration, 'FILE02_DB_VERSION: \'1.3.0\'', 'real integration DB identity is stale' );
+$has( $integration, 'FILE02_VERSION: \'1.3.0\'', 'real integration recoverable runtime identity is stale' );
+$has( $integration, 'FILE02_DB_VERSION: \'1.3.0\'', 'real integration recoverable DB identity is stale' );
 $req( file_exists( $root . '/review-evidence/R337-COMPREHENSIVE-REMEDIATION.md' ), 'R337 review evidence is missing' );
 
 if ( $fail ) {
 	fwrite( STDERR, "R337 comprehensive remediation regressions:\n- " . implode( "\n- ", $fail ) . "\n" );
 	exit( 1 );
 }
-echo 'R337 comprehensive remediation regression PASS (' . $count . ' assertions).' . PHP_EOL;
+echo 'R337 hardening preserved under R338 source-lineage containment (' . $count . ' assertions).' . PHP_EOL;
