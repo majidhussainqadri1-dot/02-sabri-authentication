@@ -11,7 +11,7 @@ $checks = array(
     'legacy migration marker waits for success' => 'if ( $ok )',
     'table postcondition exists' => "SHOW TABLES LIKE %s",
     'page postcondition exists' => '! self::exact_shortcode_page( $page, $spec[\'shortcode\'] )',
-    'minimum File 00 version copy is current' => "Membership Core 1.2.43 or later",
+    'minimum File 00 version copy is current' => "Membership Core 1.2.44 or later",
 );
 foreach ( $checks as $label => $needle ) {
     if ( false === strpos( $activator, $needle ) ) { $fail[] = $label; }
