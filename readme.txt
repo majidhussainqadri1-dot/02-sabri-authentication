@@ -4,14 +4,14 @@ Tags: authentication, passkeys, webauthn, google login, registration, accounts, 
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.3.2
+Stable tag: 1.3.3
 License: GPLv2 or later
 
 Complete authentication and account-entry orchestration for the Sabri Social Homeopathy Platform. File 00 — Sabri Membership Core remains the exclusive identity, membership, account-class, guardian, role, verification and MFA-policy authority; File 02 owns password, Google OAuth and WebAuthn/passkey authentication ceremonies.
 
 == Truthful release status ==
 
-Version 1.3.2 is the File 00 canonical membership-route contract hotfix built on the reviewed 1.3.1 line. Runtime identity is 1.3.2; DB identity remains 1.3.0 and passkey schema identity remains 1.0.1 because no database schema changes. The correction removes invented File 02 membership-route keys and binds membership/profile completion to File 00 `application` (`/membership-application/`), membership security to `security` (`/membership-security/`) and verification/status to `status` (`/membership-status/`). The 1.3.1 bounded passkey-index reconciliation remains intact. Repository/CI success does not by itself prove Hostinger staging, live deployment, Safe Mode exit or operational resolution.
+Version 1.3.3 is the live-root-cause passkey-assurance cycle correction built on 1.3.2. Runtime identity is 1.3.3; DB identity remains 1.3.0 and passkey schema identity remains 1.0.1 because no database schema changes. The correction makes `SAUTH_Passkey_Runtime::current_assurance()` a pure session-bound authentication-evidence projection and removes its circular re-entry into File 00 membership authorization. File 00 and every native action owner continue to apply authorization at their own boundaries; Google linking still checks current approved membership before requiring a fresh File 02 passkey. Repository/CI/package success does not claim live resolution until controlled deployment and a live passkey → Google-link → callback re-test complete.
 
 == Canonical constitution ==
 
@@ -45,6 +45,7 @@ If a required contract is missing, malformed or circuit-open, protected mutation
 * WebAuthn/passkey usernameless sign-in and passkey enrollment/revocation with required user verification, discoverable credentials, RP-ID/origin binding, one-time challenge replay claims, server-side CBOR/COSE parsing, ES256/RS256 verification, signature-counter checks and privacy-minimized metadata.
 * Passkey registration accepts only the COSE public key embedded in authenticatorData inside an `attestation=none` attestation object; a browser-supplied public key can never establish registration.
 * Fresh passkey assurance is session-bound and projected to File 00 as owner=`file02`, contract `1.0.0`, level 3, `passkey_asserted=true`; hardware-backed status is not claimed when attestation provenance is intentionally unavailable.
+* `current_assurance()` projects File 02 authentication evidence only and never performs File 00 membership authorization; consumer/action boundaries independently authorize the protected action and therefore cannot recursively destroy a valid assurance receipt.
 * Passkey enrollment/revocation requires fresh reauthentication: a fresh File 02 passkey assurance, otherwise the current password. Retired File 00 Authenticator/recovery codes are never solicited or accepted as File 02 authentication authority.
 * New-device/network/recent-failure risk scoring; elevated password risk requires a separate File 02 passkey sign-in.
 * Loop-safe account-completion resolution including profile photograph, city, account type, ethical consent, phone, identity, guardian and MFA steps.
@@ -71,7 +72,8 @@ If a required contract is missing, malformed or circuit-open, protected mutation
 
 * Owner-level GitHub repository rename to the canonical repository name.
 * Hostinger staging/live exact-deployed recovery verification against the proven stale passkey-index incident.
-* Deploy File 02 1.3.2 and live-retest Membership Profile, Membership Security and Verification Status against the exact deployed File 00 page map.
+* Deploy File 02 1.3.3 and live-retest fresh passkey assurance persistence through File 00 capability evaluation, Google Link start and Google callback completion.
+* Reconfirm the 1.3.2 canonical Membership Profile, Membership Security and Verification Status route correction against the exact deployed File 00 page map.
 * Hostinger fresh install and supported upgrades with real MySQL/dbDelta, SMTP, Google OAuth and real WebAuthn authenticators on the production RP ID/origin.
 * File 00 Advanced Trust, File 01, File 20, File 03, File 24, theme and LiteSpeed integration.
 * Real Founder/member/minor/guardian/suspended/security-operator journeys.
@@ -83,6 +85,13 @@ If a required contract is missing, malformed or circuit-open, protected mutation
 Passwords, reset keys, verification tokens, OAuth tokens, TOTP/recovery codes, passkey private keys, biometric templates, raw session tokens, full IP addresses and provider secrets are excluded from events and public diagnostics. Authentication success is never authorization.
 
 == Changelog ==
+
+= 1.3.3 =
+* Fixes the live-proven circular File 00 ↔ File 02 authentication-assurance dependency that deleted an otherwise valid session-bound passkey receipt while File 00 evaluated membership/capabilities.
+* Makes `SAUTH_Passkey_Runtime::current_assurance()` a pure File 02 authentication-evidence projection: current user, current WordPress session token and a valid session-bound receipt; it no longer calls File 00 membership authorization.
+* Preserves authorization at consumer boundaries: Google linking still requires `SA_Membership_Adapter::can_use_google()` before fresh passkey assurance, while File 00 keeps independent membership/capability/revalidation authority.
+* Adds permanent R340 regression coverage and extends cumulative CI through the R34x line.
+* Keeps DB schema 1.3.0 and passkey schema 1.0.1 unchanged; live resolution remains unclaimed until controlled deployment and live Google callback re-verification.
 
 = 1.3.2 =
 * Corrects the File 02 → File 00 membership-route contract mismatch: File 02 no longer requests non-existent `sabri_profile`, `sabri_security_center` or `sabri_verification_status` page-map keys.
