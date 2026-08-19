@@ -379,11 +379,9 @@ final class SAUTH_Passkey_Runtime {
 		if ( '' === $token ) { return array(); }
 		$receipt = get_transient( self::session_assurance_key( $user_id, $token ) );
 		if ( ! self::valid_session_receipt( $receipt, $user_id, $token ) ) { return array(); }
-		$membership = SA_Membership_Adapter::membership_assertion( $user_id, 'clinical_identity_link', 'authentication_assurance' );
-		if ( 'allow' !== ( $membership['result'] ?? '' ) || empty( $membership['membership']['active'] ) || ! empty( $membership['membership']['suspended'] ) ) {
-			delete_transient( self::session_assurance_key( $user_id, $token ) );
-			return array();
-		}
+		/* Authentication assurance is evidence, not authorization. File 00 and
+		 * action owners apply membership/capability policy at their own boundary.
+		 * Calling File 00 here creates a circular assurance dependency. */
 		return array(
 			'contract_version' => SAUTH_Passkeys::CONTRACT_VERSION,
 			'owner' => 'file02',
