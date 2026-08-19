@@ -2,6 +2,24 @@
 
 All notable changes to Sabri Authentication and Accounts are recorded here.
 
+## 1.3.3 — Live Passkey Assurance Cycle Correction
+
+### Corrected
+
+- Fixed the live-proven circular File 00 ↔ File 02 authentication-assurance dependency that deleted a valid session-bound passkey receipt during File 00 capability/membership evaluation.
+- Made `SAUTH_Passkey_Runtime::current_assurance()` a pure authentication-evidence projection over the current subject/session plus a valid session-bound receipt; it no longer invokes File 00 membership authorization.
+- Preserved authorization at consumer boundaries: Google linking still requires `SA_Membership_Adapter::can_use_google()` before fresh passkey assurance, and File 00 retains independent membership/capability/revalidation authority.
+- Added permanent R340 regression coverage and extended cumulative CI through the R34x line.
+- Preserved DB `1.3.0`, passkey schema `1.0.1` and passkey assurance contract `1.0.0` unchanged.
+
+### Identity
+
+- Runtime: `1.3.3`.
+- File 02 DB schema: `1.3.0` unchanged.
+- Passkey schema: `1.0.1` unchanged.
+- Passkey assurance contract: `1.0.0` unchanged.
+- Repository/CI/package success is not a live-resolution claim; deployment, live passkey → Google-link → callback retest and parity confirmation are still required.
+
 ## 1.3.2 — File 00 Canonical Membership Route Contract Correction
 
 ### Corrected
