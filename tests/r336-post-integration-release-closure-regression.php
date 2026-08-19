@@ -10,11 +10,12 @@ $fail = array();
 $req = static function ( $ok, $message ) use ( &$fail ) { if ( ! $ok ) { $fail[] = $message; } };
 
 $req( is_array( $lock ), 'release lock is invalid' );
-$req( '1.3.2' === (string) ( $lock['release_version'] ?? '' ) && '1.3.0' === (string) ( $lock['database_version'] ?? '' ) && '1.0.1' === (string) ( $lock['passkey_schema_version'] ?? '' ), 'current release/schema identity is stale' );
+$req( '1.3.3' === (string) ( $lock['release_version'] ?? '' ) && '1.3.0' === (string) ( $lock['database_version'] ?? '' ) && '1.0.1' === (string) ( $lock['passkey_schema_version'] ?? '' ), 'current release/schema identity is stale' );
 $current = is_array( $lock['cross_file_integration_evidence'] ?? null ) ? $lock['cross_file_integration_evidence'] : array();
 $prior = is_array( $lock['prior_cross_file_integration_evidence'] ?? null ) ? $lock['prior_cross_file_integration_evidence'] : array();
 $pre_route = is_array( $lock['pre_route_fix_cross_file_integration_evidence'] ?? null ) ? $lock['pre_route_fix_cross_file_integration_evidence'] : array();
 $req( in_array( (string) ( $current['status'] ?? '' ), array( 'repository_integration_green_on_pre_release_identity_head', 'repository_integration_green', 'pending_exact_head' ), true ), 'current cross-file integration status is invalid' );
+$req( '1.3.3' === (string) ( $current['file02_runtime'] ?? '' ), 'current cross-file integration runtime identity is stale' );
 $req( 'repository_integration_green' === (string) ( $pre_route['status'] ?? '' ) && 31953732443 === (int) ( $pre_route['workflow_run_id'] ?? 0 ), 'pre-route-fix File 02 1.3.1 integration evidence was not retained' );
 $req( 'repository_integration_green' === (string) ( $prior['status'] ?? '' ), 'historical cross-file integration status was not retained' );
 $req( 31850253635 === (int) ( $prior['workflow_run_id'] ?? 0 ), 'historical integration run ID is not the proven run' );
@@ -25,6 +26,8 @@ $req( false === ( $lock['status']['staging_accepted'] ?? true ) && false === ( $
 $req( false === ( $lock['live_1_3_0_activation_incident']['live_resolution_claimed'] ?? true ), 'passkey live incident was falsely marked resolved before deployment/retest' );
 $req( false === ( $lock['live_1_3_1_membership_route_contract_incident']['live_resolution_claimed'] ?? true ), 'route-contract live incident was falsely marked resolved before deployment/retest' );
 $req( false === ( $lock['live_1_3_1_membership_route_contract_incident']['exact_deployed_file02_source_parity_verified'] ?? true ), 'exact deployed File02 parity was falsely claimed for the route incident' );
+$req( false === ( $lock['live_1_3_2_passkey_assurance_cycle_incident']['live_resolution_claimed'] ?? true ), 'R340 passkey-assurance cycle incident was falsely marked resolved before deployment/retest' );
+$req( true === ( $lock['live_1_3_2_passkey_assurance_cycle_incident']['exact_deployed_key_source_parity_verified'] ?? false ), 'R340 live root-cause evidence lost its verified key-source parity boundary' );
 
 $req( false !== strpos( $architecture, 'LOCK = json.loads((ROOT / "RELEASE-LOCK.json")' ), 'architecture guard does not consume RELEASE-LOCK identity' );
 $req( false !== strpos( $architecture, 'RELEASE_VERSION = str(LOCK.get("release_version"' ), 'architecture guard does not derive release version' );
@@ -35,7 +38,7 @@ foreach ( array(
 	'FILE00_REF: 1d7f215193d778b0977c8e50d738c42e1e5f66c2',
 	"FILE00_VERSION: '1.2.44'",
 	'FILE00_LIVE_ROUTE_REF: c4ab298b3ba2b870d507d32b36b1b4afd2771621',
-	"FILE02_VERSION: '1.3.2'",
+	"FILE02_VERSION: '1.3.3'",
 	"FILE02_DB_VERSION: '1.3.0'",
 	'Complete supported File 00 deferred administrator bootstrap',
 	'Prove material File 00 managed-page contract',
@@ -55,6 +58,7 @@ $req( false !== strpos( $status, 'Historical paired evidence' ), 'status no long
 $req( false !== strpos( $manifest, 'Historical run `31850253635`' ), 'release manifest no longer separates historical integration evidence' );
 $req( file_exists( $root . '/review-evidence/R336-REVIEW-FROZEN.md' ), 'R336 frozen review evidence is missing' );
 $req( file_exists( $root . '/tests/r339-file00-canonical-route-contract-regression.php' ), 'R339 route regression is missing' );
+$req( file_exists( $root . '/tests/r340-passkey-assurance-cycle-regression.php' ), 'R340 passkey-assurance cycle regression is missing' );
 
 if ( $fail ) { fwrite( STDERR, "R336 regressions:\n- " . implode( "\n- ", $fail ) . "\n" ); exit( 1 ); }
 echo 'R336 post-integration evidence-preservation regression PASS.' . PHP_EOL;
