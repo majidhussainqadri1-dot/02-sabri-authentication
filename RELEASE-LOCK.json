@@ -1,14 +1,14 @@
 {
-  "schema": 6,
+  "schema": 7,
   "file_number": "02",
   "module": "Sabri Authentication and Accounts",
   "plan_id": "SSH-F02-PLAN-2026-v1.0",
-  "release_version": "1.3.2",
+  "release_version": "1.3.3",
   "database_version": "1.3.0",
   "passkey_schema_version": "1.0.1",
-  "candidate_branch": "fix/file02-file00-canonical-routes-1.3.2-2026-08-16",
-  "candidate_base": "0d21739f145c0abd3f5d6b00f29cfc989a5b04d8",
-  "current_repository_main": "0d21739f145c0abd3f5d6b00f29cfc989a5b04d8",
+  "candidate_branch": "fix/file02-passkey-assurance-cycle-1.3.3-2026-08-19",
+  "candidate_base": "58cc464ff4f62d7e83ff3ba0b9cb25ecd3140a13",
+  "current_repository_main": "58cc464ff4f62d7e83ff3ba0b9cb25ecd3140a13",
   "intended_canonical_repository": "02-sabri-authentication-and-accounts",
   "transport_repository": "02-sabri-authentication",
   "package_folder": "02-sabri-authentication",
@@ -21,8 +21,8 @@
   "minimum_account_contract_version": "1.1.0",
   "passkey_assurance_contract_version": "1.0.0",
   "passkey_assurance_owner": "file02",
-  "package_name": "02-sabri-authentication-1.3.2-SOURCE-CANDIDATE.zip",
-  "manifest_name": "02-sabri-authentication-1.3.2-MANIFEST.json",
+  "package_name": "02-sabri-authentication-1.3.3-SOURCE-CANDIDATE.zip",
+  "manifest_name": "02-sabri-authentication-1.3.3-MANIFEST.json",
   "checksums_name": "CHECKSUMS.sha256",
   "sbom_name": "SBOM.spdx.json",
   "historical_incident_baseline_main": "8192c45b595b34e13e09934e3b2d554aa2d8553f",
@@ -52,10 +52,36 @@
     "permanent_fix": "Runtime 1.3.2 maps File 02 membership/profile completion to application + /membership-application/, membership security to security + /membership-security/, and verification/status to status + /membership-status/. It adds R339 regression coverage forbidding the invented sabri-* membership routes.",
     "live_resolution_claimed": false
   },
+  "live_1_3_2_passkey_assurance_cycle_incident": {
+    "status": "root_cause_proven_repository_fix_candidate_not_live_verified",
+    "file02_repository_baseline": "58cc464ff4f62d7e83ff3ba0b9cb25ecd3140a13",
+    "deployed_file02_runtime": "1.3.2",
+    "deployed_file02_database": "1.3.0",
+    "deployed_file02_passkey_schema": "1.0.1",
+    "exact_deployed_key_source_parity_verified": true,
+    "verified_key_blobs": {
+      "includes/class-sauth-passkeys.php": "a65a86d7925314361e0641d6a7aca3f1f1e962db",
+      "includes/class-sauth-session-manager.php": "d812242b5041f0fd36b9f1db9529cbc6b7e38c64",
+      "includes/class-sa-security.php": "0a432e381895e2aafc6e5b6e50f442557b56a839",
+      "sabri-authentication.php": "2208168b0ea3c09afd808238feced5c845309774"
+    },
+    "root_cause": "SAUTH_Passkey_Runtime::current_assurance() re-entered File 00 membership authorization after validating a session-bound passkey receipt. File 00 membership/capability evaluation itself consumes File 02 authentication assurance, creating a circular/re-entrant dependency. During that cycle the nested membership assertion could not complete as allow/active/not-suspended, so File 02 deleted the otherwise valid passkey receipt and Google linking later reported that no fresh passkey existed.",
+    "permanent_fix": "Runtime 1.3.3 makes current_assurance() a pure authentication-evidence projection based on the current user, current WordPress session token and valid session-bound receipt. It does not call File 00 membership authorization. Consumer/action boundaries retain independent authorization, including Google can_use_google() before fresh_passkey(). R340 permanently guards this separation.",
+    "excluded_root_causes": [
+      "LiteSpeed/Memcached transient persistence",
+      "cross-process WordPress salt changes",
+      "session-token rotation",
+      "fingerprint mismatch",
+      "assurance TTL expiry",
+      "database migration/schema failure",
+      "stale deployed source for the verified key files"
+    ],
+    "live_resolution_claimed": false
+  },
   "artifact_policy": "Exact-head CI may lint, regression-test and deterministically package this source candidate, but staging/live/operational claims remain separate gates and must not be inferred from repository success.",
   "status": {
     "specified": "complete",
-    "coded": "live_route_contract_hotfix_candidate_r339",
+    "coded": "live_passkey_assurance_cycle_hotfix_candidate_r340",
     "packaged": "pending_exact_head",
     "automated_qa": "pending_exact_head",
     "staging_accepted": false,
@@ -65,31 +91,35 @@
   "external_gates": [
     "Owner-level repository rename",
     "Hostinger fresh install and supported upgrades",
-    "Exact live 1.3.0 stale-index recovery deployment and activation retest",
-    "Deploy File 02 1.3.2 and live-retest Membership Profile, Membership Security and Verification Status routes against the exact deployed File 00 page map",
-    "Prove exact deployed File 02 package/source parity for the route-contract incident",
+    "Deploy File 02 1.3.3 and verify exact deployed package/source parity",
+    "Create a fresh live passkey assurance and prove it survives File 00 capability/membership evaluation for the full five-minute bounded receipt lifetime unless independently invalidated",
+    "Live-retest Google Link start and Google callback completion without the false fresh-passkey rejection",
+    "Reconfirm the 1.3.2 canonical Membership Profile, Membership Security and Verification Status route correction against the exact deployed File 00 page map",
+    "Remove temporary diagnostic MU plugins and restore temporary WordPress debug configuration after evidence capture",
+    "Controlled Safe Mode exit/System Check and email-verification retest if Safe Mode is still active",
     "Real production-domain WebAuthn authenticators and browser/device acceptance",
     "Real Google/SMTP integration",
     "Security/privacy/IDOR/replay/race/accessibility/performance acceptance",
     "Backup/restore and rollback rehearsal",
     "Founder staging and production authorization"
   ],
-  "review_line": "R339-file00-canonical-route-contract",
+  "review_line": "R340-passkey-assurance-cycle",
   "cross_file_blockers": [],
   "cross_file_integration_evidence": {
     "status": "pending_exact_head",
     "workflow_run_id": 0,
     "file02_sha": "",
-    "file02_runtime": "1.3.2",
+    "file02_runtime": "1.3.3",
     "file02_database": "1.3.0",
     "file02_passkey_schema": "1.0.1",
     "file00_sha": "1d7f215193d778b0977c8e50d738c42e1e5f66c2",
     "file00_runtime": "1.2.44",
     "wordpress": "7.0",
     "mariadb": "11.4",
-    "scope": "The 1.3.2 exact-head integration must re-prove all prior File 00/File 02 boundaries and the canonical File 00 managed-page route contract. Repository evidence is not live-resolution evidence.",
+    "scope": "The 1.3.3 exact-head integration must re-prove all prior File 00/File 02 boundaries while R340 proves that File 02 authentication-assurance projection no longer re-enters File 00 authorization. Repository evidence is not live-resolution evidence.",
     "required_proofs": [
       "fresh activation and exact runtime/schema markers",
+      "R340 pure authentication-assurance projection boundary",
       "canonical account taxonomy parity",
       "canonical File 00 page-key parity for application/status/security",
       "legacy passkey column/index upgrade",
@@ -110,7 +140,7 @@
     "file00_runtime": "1.2.44",
     "wordpress": "7.0",
     "mariadb": "11.4",
-    "scope": "Historical pre-route-fix evidence only; it does not prove File 02 1.3.2."
+    "scope": "Historical pre-route-fix evidence only; it does not prove File 02 1.3.3."
   },
   "release_integrity_evidence": {
     "status": "pending_exact_head",
@@ -141,7 +171,7 @@
     "file00_runtime": "1.2.44",
     "wordpress": "7.0",
     "mariadb": "11.4",
-    "scope": "Historical evidence only; it does not prove the current File 02 1.3.2 head."
+    "scope": "Historical evidence only; it does not prove the current File 02 1.3.3 head."
   },
   "r320_review_baseline": "fe66788cb6c12e966bb198b361347cb74ec490b0"
 }

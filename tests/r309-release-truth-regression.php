@@ -11,11 +11,13 @@ $sbom = file_get_contents( $root . '/SBOM.spdx.json' );
 $adapter = file_get_contents( $root . '/includes/class-sa-membership-adapter.php' );
 $fail = array();
 $checks = array(
-  array($baseline, "lock.get('release_version')=='1.3.2'", 'release CI does not enforce current release-lock runtime identity'),
-  array($baseline, 'tests/r33*-regression.php', 'release CI omits final corrective regressions'),
+  array($baseline, "lock.get('release_version')=='1.3.3'", 'release CI does not enforce current release-lock runtime identity'),
+  array($baseline, 'tests/r33*-regression.php', 'release CI omits prior corrective regressions'),
+  array($baseline, 'tests/r34*-regression.php', 'release CI omits current R340 corrective regression family'),
   array($baseline, 'tests/r339-file00-canonical-route-contract-regression.php', 'release CI does not require the R339 route-contract regression'),
+  array($baseline, 'tests/r340-passkey-assurance-cycle-regression.php', 'release CI does not require the R340 passkey-assurance cycle regression'),
   array($docs, 'table_indexes_ready', 'storage/docs gate does not assert material index readiness'),
-  array($docs, 'tests/r33*-regression.php', 'storage/docs gate omits final corrective regressions'),
+  array($docs, 'tests/r33*-regression.php', 'storage/docs gate omits prior corrective regressions'),
   array($integration, '1d7f215193d778b0977c8e50d738c42e1e5f66c2', 'integration gate is not pinned to exact corrected File00 1.2.44 candidate'),
   array($integration, "FILE00_VERSION: '1.2.44'", 'integration gate does not assert File00 1.2.44 runtime'),
   array($integration, 'c4ab298b3ba2b870d507d32b36b1b4afd2771621', 'integration gate does not pin the exact File00 1.2.43 route baseline'),
