@@ -1,6 +1,7 @@
 name: R341 Exact Pair Runtime Diagnostic
 
 on:
+  pull_request:
   push:
     branches:
       - fix/file02-legacy-email-verification-reconciliation-1.3.4
@@ -33,7 +34,7 @@ jobs:
         with:
           path: file02
           persist-credentials: false
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Checkout exact File 00 main
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
