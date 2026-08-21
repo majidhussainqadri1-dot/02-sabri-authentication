@@ -19,7 +19,7 @@ $req( false !== strpos( $baseline, 'round-ledger-apply.yml' ) && false !== strpo
 $req( false !== strpos( $baseline, 'tests/r330-final-adversarial-regression.php' ), 'release constitution does not require R330 final regression' );
 $req( false !== strpos( $baseline, 'tests/r339-file00-canonical-route-contract-regression.php' ), 'release constitution does not require R339 route regression' );
 $req( false !== strpos( $baseline, 'tests/r340-passkey-assurance-cycle-regression.php' ), 'release constitution does not require R340 passkey-assurance cycle regression' );
-$req( false !== strpos( $main, 'Version: 1.3.3' ) && false !== strpos( $main, "SAUTH_VERSION', '1.3.3" ), 'current runtime release identity is not synchronized' );
+$req( false !== strpos( $main, 'Version: 1.3.4' ) && false !== strpos( $main, "SAUTH_VERSION', '1.3.4" ), 'current runtime release identity is not synchronized' );
 $req( false !== strpos( $main, "SAUTH_DB_VERSION', '1.3.0" ), 'DB identity is not synchronized after later corrective work' );
 $req( false !== strpos( $adapter, "MEMBERSHIP_APPLICATION_KEY  = 'application'" ) && false !== strpos( $adapter, "MEMBERSHIP_SECURITY_KEY     = 'security'" ) && false !== strpos( $adapter, "MEMBERSHIP_STATUS_KEY       = 'status'" ), 'File00 canonical membership route contract is not synchronized' );
 $req( false === strpos( $adapter, 'sabri_profile' ) && false === strpos( $adapter, 'sabri_security_center' ) && false === strpos( $adapter, 'sabri_verification_status' ), 'invented File00 membership route keys remain' );
@@ -37,7 +37,7 @@ $req( $review_round >= 340, 'release lock review line regressed below the R340 c
 $req( false === ( $lock['status']['staging_accepted'] ?? true ) && false === ( $lock['status']['live_deployed'] ?? true ) && false === ( $lock['status']['operational'] ?? true ), 'later corrective work falsely advances external completion gates' );
 foreach ( array( $readme, $status, $manifest, $changelog, $report ) as $evidence ) { $req( false !== strpos( $evidence, '1.3.0' ), 'release-facing evidence lost the R337 1.3.0 base history' ); }
 $wordpress_readme = file_get_contents( $root . '/readme.txt' );
-$req( false !== strpos( $wordpress_readme, 'Stable tag: 1.3.3' ), 'current WordPress release identity is not 1.3.3' );
+$req( false !== strpos( $wordpress_readme, 'Stable tag: 1.3.4' ), 'current WordPress release identity is not 1.3.4' );
 $req( false !== strpos( $wordpress_readme, '= 1.3.3 =' ), 'WordPress changelog does not record 1.3.3' );
 $req( false !== strpos( $wordpress_readme, '= 1.3.2 =' ), 'WordPress changelog lost 1.3.2 history' );
 $req( false !== strpos( $status, 'Live-Deployed | No' ), 'status must continue to deny live-deployed completion' );
