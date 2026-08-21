@@ -1,0 +1,133 @@
+name: R341 Exact Pair Runtime Diagnostic
+
+on:
+  push:
+    branches:
+      - fix/file02-legacy-email-verification-reconciliation-1.3.4
+
+permissions:
+  contents: read
+
+env:
+  FILE00_REF: 738aa2ab4b8be3d6cfdb3ecd46c88aa8d9ece3a0
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_DATABASE: wordpress
+          MARIADB_USER: wordpress
+          MARIADB_PASSWORD: wordpress
+          MARIADB_ROOT_PASSWORD: root
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - name: Checkout exact File 02 head
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          path: file02
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Checkout exact File 00 main
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          repository: majidhussainqadri1-dot/00-sabri-membership-core
+          path: file00
+          persist-credentials: false
+          ref: ${{ env.FILE00_REF }}
+      - name: Set up PHP
+        uses: shivammathur/setup-php@2.37.2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: none
+          extensions: mysqli,openssl
+      - name: Install WordPress and exact plugins
+        run: |
+          set -euo pipefail
+          curl -fsSL https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar -o /tmp/wp
+          chmod +x /tmp/wp
+          mkdir -p /tmp/wordpress
+          /tmp/wp core download --version=7.0 --path=/tmp/wordpress --quiet
+          /tmp/wp config create --dbname=wordpress --dbuser=wordpress --dbpass=wordpress --dbhost=127.0.0.1:3306 --path=/tmp/wordpress --skip-check --quiet
+          /tmp/wp config set WP_ENVIRONMENT_TYPE 'staging' --type=constant --path=/tmp/wordpress
+          /tmp/wp config set SMC_MASTER_KEY 'file00-file02-diagnostic-master-key-2026' --type=constant --path=/tmp/wordpress
+          /tmp/wp config set SMC_MASTER_KEY_ID 'file02-diagnostic-key-v1' --type=constant --path=/tmp/wordpress
+          /tmp/wp config set SA_MASTER_KEY 'file02-diagnostic-dedicated-master-key-2026' --type=constant --path=/tmp/wordpress
+          /tmp/wp core install --url=http://example.test --title='R341 Diagnostic' --admin_user=admin --admin_password='Diagnostic-Only-Password-2026!' --admin_email=admin@example.test --skip-email --path=/tmp/wordpress --quiet
+          cp -R file00/source/sabri-membership-core /tmp/wordpress/wp-content/plugins/sabri-membership-core
+          mkdir -p /tmp/wordpress/wp-content/plugins/sabri-authentication
+          rsync -a --exclude='.git' --exclude='.github' --exclude='tests' --exclude='tools' --exclude='review-evidence' file02/ /tmp/wordpress/wp-content/plugins/sabri-authentication/
+          /tmp/wp plugin activate sabri-membership-core --path=/tmp/wordpress
+          /tmp/wp eval 'wp_set_current_user(1); do_action("admin_init"); if((string)get_option("smc_db_version","")!==SMC_DB_VERSION||SMC_Completion::safe_mode()){fwrite(STDERR,"File00 bootstrap not ready\n");exit(1);}' --path=/tmp/wordpress
+          /tmp/wp plugin activate sabri-authentication --path=/tmp/wordpress
+      - name: Diagnose R341 handoff without exposing secrets
+        run: |
+          set -euo pipefail
+          /tmp/wp eval '
+          global $wpdb;
+          $uid=1;
+          $u=get_userdata($uid);
+          $email=strtolower(trim((string)$u->user_email));
+          $now=current_time("mysql",true);
+          $file02=SAUTH_Activator::table("email_verifications");
+          $expected_email_hash=hash_hmac("sha256",$email,wp_salt("secure_auth"));
+          $zero=str_repeat("0",64);
+          $wpdb->query($wpdb->prepare("INSERT INTO {$file02} (user_id,email_hash,token_hash,status,attempts,sent_at,expires_at,verified_at,created_at,updated_at) VALUES (%d,%s,%s,\"verified\",1,%s,%s,%s,%s,%s) ON DUPLICATE KEY UPDATE email_hash=VALUES(email_hash),token_hash=VALUES(token_hash),status=VALUES(status),attempts=VALUES(attempts),sent_at=VALUES(sent_at),expires_at=VALUES(expires_at),verified_at=VALUES(verified_at),updated_at=VALUES(updated_at)",$uid,$expected_email_hash,$zero,$now,$now,$now,$now,$now));
+          $target=SMC_Security::blind_index($email,"contact-target");
+          $lookup=SMC_Security::blind_index("historical-file02-token","contact-code");
+          $hash=wp_hash_password("historical-file02-token");
+          $t=$wpdb->prefix."smc_contact_otps";
+          $fixture=$wpdb->prepare("INSERT INTO {$t} (user_id,channel,target_hash,code_lookup_hash,code_hash,attempts,expires_at,verified_at,created_at,delivery_receipt_hash,delivered_at) VALUES (%d,\"email\",%s,%s,%s,0,%s,%s,%s,NULL,NULL) ON DUPLICATE KEY UPDATE target_hash=VALUES(target_hash),code_lookup_hash=VALUES(code_lookup_hash),code_hash=VALUES(code_hash),attempts=0,expires_at=VALUES(expires_at),verified_at=VALUES(verified_at),delivery_receipt_hash=NULL,delivered_at=NULL",$uid,$target,$lookup,$hash,$now,$now,$now);
+          $wpdb->query($fixture);
+          $local=$wpdb->get_row($wpdb->prepare("SELECT email_hash,token_hash,status,attempts,verified_at FROM {$file02} WHERE user_id=%d LIMIT 1",$uid),ARRAY_A);
+          $before=array(
+            "provider_available"=>SAUTH_Account_Contract::provider_available(),
+            "file00_safe_mode"=>SMC_Completion::safe_mode(),
+            "privacy_erasure_lock"=>smc_privacy_erasure_lock($uid),
+            "local_row_present"=>is_array($local),
+            "local_status_verified"=>is_array($local)&&"verified"===(string)$local["status"],
+            "local_attempt_consumed"=>is_array($local)&&absint($local["attempts"])>=1,
+            "local_verified_at_present"=>is_array($local)&&""!==trim((string)$local["verified_at"]),
+            "local_token_tombstone_match"=>is_array($local)&&hash_equals($zero,(string)$local["token_hash"]),
+            "local_email_hash_match"=>is_array($local)&&hash_equals($expected_email_hash,(string)$local["email_hash"]),
+            "file00_verified_before"=>SMC_Contracts::contact_verified($uid,"email"),
+            "wpdb_error_before"=>sanitize_text_field((string)$wpdb->last_error)
+          );
+          $state=array("contract"=>"sauth.account-orchestration","contract_version"=>"1.1.0","provider_contract"=>"smc.authentication-account","provider_version"=>"1.1.0","result"=>"allow","reason_code"=>"completion_required","missing_steps"=>array("email"),"next_route"=>home_url("/verify-email/"));
+          $out=SAUTH_Email_Verification_Reconciler::reconcile_if_needed($uid,$state);
+          $after_row=$wpdb->get_row($wpdb->prepare("SELECT target_hash,verified_at,delivery_receipt_hash,delivered_at FROM {$t} WHERE user_id=%d AND channel=\"email\" LIMIT 1",$uid),ARRAY_A);
+          $after=array(
+            "file00_verified_after_reconciler"=>SMC_Contracts::contact_verified($uid,"email"),
+            "reconciler_email_still_missing"=>in_array("email",(array)($out["missing_steps"]??array()),true),
+            "receipt_verified_at_present"=>is_array($after_row)&&!empty($after_row["verified_at"]),
+            "receipt_delivery_hash_present"=>is_array($after_row)&&!empty($after_row["delivery_receipt_hash"]),
+            "receipt_delivered_at_present"=>is_array($after_row)&&!empty($after_row["delivered_at"]),
+            "receipt_target_match"=>is_array($after_row)&&is_string($target)&&hash_equals((string)$target,(string)$after_row["target_hash"]),
+            "wpdb_error_after_reconciler"=>sanitize_text_field((string)$wpdb->last_error)
+          );
+          $direct=null;
+          if(!$after["file00_verified_after_reconciler"]){
+            $wpdb->query($fixture);
+            $direct_result=SAUTH_Account_Contract::mark_email_verified($uid,$u->user_email,array("purpose"=>"email_verification","idempotency_key"=>"r341-diagnostic-direct-public-contract-0001"));
+            $direct_row=$wpdb->get_row($wpdb->prepare("SELECT target_hash,verified_at,delivery_receipt_hash,delivered_at FROM {$t} WHERE user_id=%d AND channel=\"email\" LIMIT 1",$uid),ARRAY_A);
+            $direct=array(
+              "result"=>sanitize_key((string)($direct_result["result"]??"")),
+              "reason_code"=>sanitize_key((string)($direct_result["reason_code"]??"")),
+              "user_id"=>absint($direct_result["user_id"]??0),
+              "file00_verified_after_direct"=>SMC_Contracts::contact_verified($uid,"email"),
+              "receipt_verified_at_present"=>is_array($direct_row)&&!empty($direct_row["verified_at"]),
+              "receipt_delivery_hash_present"=>is_array($direct_row)&&!empty($direct_row["delivery_receipt_hash"]),
+              "receipt_delivered_at_present"=>is_array($direct_row)&&!empty($direct_row["delivered_at"]),
+              "receipt_target_match"=>is_array($direct_row)&&is_string($target)&&hash_equals((string)$target,(string)$direct_row["target_hash"]),
+              "wpdb_error"=>sanitize_text_field((string)$wpdb->last_error)
+            );
+          }
+          echo wp_json_encode(array("before"=>$before,"after_reconciler"=>$after,"direct_public_contract_after_reset"=>$direct),JSON_PRETTY_PRINT)."\n";
+          ' --path=/tmp/wordpress
