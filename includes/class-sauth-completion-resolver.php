@@ -19,11 +19,19 @@ final class SAUTH_Completion_Resolver {
 			return self::result( 'deny', 'subject_invalid', array(), '', $requested_destination );
 		}
 
-		if ( empty( $state ) ) {
+		$fetched_state = empty( $state );
+		if ( $fetched_state ) {
 			$state = SAUTH_Account_Contract::completion_state(
 				$user_id,
 				array( 'purpose' => 'post_authentication_completion' )
 			);
+			/* Reconciliation is allowed only for provider state fetched by this
+			 * resolver. Callers that inject an explicit state remain side-effect-free. */
+			if ( is_array( $state )
+				&& class_exists( 'SAUTH_Email_Verification_Reconciler' )
+				&& is_callable( array( 'SAUTH_Email_Verification_Reconciler', 'reconcile_if_needed' ) ) ) {
+				$state = SAUTH_Email_Verification_Reconciler::reconcile_if_needed( $user_id, $state );
+			}
 		}
 		if ( ! is_array( $state ) || 'allow' !== ( $state['result'] ?? '' ) ) {
 			return self::result( 'unknown', sanitize_key( (string) ( $state['reason_code'] ?? 'provider_unavailable' ) ), array(), '', $requested_destination );
