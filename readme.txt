@@ -4,14 +4,14 @@ Tags: authentication, passkeys, webauthn, google login, registration, accounts, 
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.3.3
+Stable tag: 1.3.4
 License: GPLv2 or later
 
 Complete authentication and account-entry orchestration for the Sabri Social Homeopathy Platform. File 00 — Sabri Membership Core remains the exclusive identity, membership, account-class, guardian, role, verification and MFA-policy authority; File 02 owns password, Google OAuth and WebAuthn/passkey authentication ceremonies.
 
 == Truthful release status ==
 
-Version 1.3.3 is the live-root-cause passkey-assurance cycle correction built on 1.3.2. Runtime identity is 1.3.3; DB identity remains 1.3.0 and passkey schema identity remains 1.0.1 because no database schema changes. The correction makes `SAUTH_Passkey_Runtime::current_assurance()` a pure session-bound authentication-evidence projection and removes its circular re-entry into File 00 membership authorization. File 00 and every native action owner continue to apply authorization at their own boundaries; Google linking still checks current approved membership before requiring a fresh File 02 passkey. Repository/CI/package success does not claim live resolution until controlled deployment and a live passkey → Google-link → callback re-test complete.
+Version 1.3.4 is the bounded legacy email-verification reconciliation correction built on the live-verified 1.3.3 runtime. Runtime identity advances to 1.3.4; DB identity remains 1.3.0 and passkey schema identity remains 1.0.1 because no database schema changes. The correction addresses the live-proven upgrade edge where File 02 retained durable signed-link verification evidence created while File 00 1.2.43 was deployed, but corrected File 00 1.2.44 still reported email missing because the old File 00 row lacked receipt-bearing delivery evidence. Reconciliation is allowed only when File 00 itself reports email missing and File 02 has the exact durable signed-link success shape; it then uses only the public File 00 account contract and re-reads File 00 completion truth. Repository/CI/package success does not claim live resolution until controlled deployment, exact deployed parity and the live completion/login redirect re-test pass.
 
 == Canonical constitution ==
 
@@ -40,6 +40,7 @@ If a required contract is missing, malformed or circuit-open, protected mutation
 * Male 15/female 12 platform baselines, every legal minor guardian requirement and adult-only professional/institutional declarations.
 * File 00-owned account-class truth and verification; declared doctor/teacher/staff status never grants privilege.
 * Signed one-time email verification with expiry, HMAC-only token storage, canonical-email binding, resend throttle, replay/concurrency protection and audit/event evidence.
+* Bounded legacy verified-email reconciliation: only a File 00 `email` completion miss plus File 02's matching canonical email hash, `verified` state, non-empty verification timestamp, consumed-attempt evidence and 64-zero consumed-token tombstone can trigger a public-contract re-handoff; File 02 never reads or writes File 00 private contact storage.
 * Password authentication using WordPress APIs, dummy hashing for unknown accounts, generic errors, rate controls and File 00 eligibility/completion rechecks.
 * Google OAuth state, nonce, PKCE, issuer/audience/authorized-party/time validation, explicit same-email linking and collision protection.
 * WebAuthn/passkey usernameless sign-in and passkey enrollment/revocation with required user verification, discoverable credentials, RP-ID/origin binding, one-time challenge replay claims, server-side CBOR/COSE parsing, ES256/RS256 verification, signature-counter checks and privacy-minimized metadata.
@@ -71,8 +72,11 @@ If a required contract is missing, malformed or circuit-open, protected mutation
 == External acceptance gates ==
 
 * Owner-level GitHub repository rename to the canonical repository name.
-* Hostinger staging/live exact-deployed recovery verification against the proven stale passkey-index incident.
-* Deploy File 02 1.3.3 and live-retest fresh passkey assurance persistence through File 00 capability evaluation, Google Link start and Google callback completion.
+* Exact-head File 02 1.3.4 CI and deterministic packaging against current File 00 1.2.44.
+* Deploy File 02 1.3.4 and prove the legacy verified-email row reconciles through the public File 00 contract without manual DB edits.
+* Live re-run File 00 completion state and prove `email` is no longer missing and `/verify-email/` is no longer selected merely because of the historical incomplete File 00 receipt.
+* Re-test password login completion routing after reconciliation.
+* Reconfirm fresh passkey assurance persistence through File 00 capability evaluation and Google Link callback after the File 02 replacement.
 * Reconfirm the 1.3.2 canonical Membership Profile, Membership Security and Verification Status route correction against the exact deployed File 00 page map.
 * Hostinger fresh install and supported upgrades with real MySQL/dbDelta, SMTP, Google OAuth and real WebAuthn authenticators on the production RP ID/origin.
 * File 00 Advanced Trust, File 01, File 20, File 03, File 24, theme and LiteSpeed integration.
@@ -86,10 +90,17 @@ Passwords, reset keys, verification tokens, OAuth tokens, TOTP/recovery codes, p
 
 == Changelog ==
 
+= 1.3.4 =
+* Fixes the live-proven legacy upgrade reconciliation gap where File 02 already held durable signed-link email-verification success evidence but corrected File 00 1.2.44 still reported email missing because the historical File 00 1.2.43 row lacked delivery receipt fields.
+* Reconciles only when File 00 itself reports email missing and File 02 proves the exact durable success shape: canonical email hash, verified status, verification timestamp, consumed attempt and 64-zero consumed-token tombstone.
+* Uses only `smc.authentication-account` `mark_email_verified`; File 02 never accesses File 00 private contact tables, and File 00 completion truth is re-read before reconciliation is accepted.
+* Keeps explicit caller-supplied completion states side-effect-free; automatic reconciliation occurs only for provider state fetched by the completion resolver.
+* Adds permanent R341 regression coverage. DB remains 1.3.0 and passkey schema remains 1.0.1. Live resolution remains unclaimed until deployment and live completion/login re-verification.
+
 = 1.3.3 =
 * Fixes the live-proven circular File 00 ↔ File 02 authentication-assurance dependency that deleted an otherwise valid session-bound passkey receipt while File 00 evaluated membership/capabilities.
 * Makes `SAUTH_Passkey_Runtime::current_assurance()` a pure File 02 authentication-evidence projection: current user, current WordPress session token and a valid session-bound receipt; it no longer calls File 00 membership authorization.
-* Preserves authorization at consumer boundaries: Google linking still requires `SA_Membership_Adapter::can_use_google()` before fresh passkey assurance, while File 00 keeps independent membership/capability/revalidation authority.
+* Preserves authorization at consumer boundaries: Google linking still requires `SAUTH_Membership_Adapter::can_use_google()` before fresh passkey assurance, while File 00 keeps independent membership/capability/revalidation authority.
 * Adds permanent R340 regression coverage and extends cumulative CI through the R34x line.
 * Keeps DB schema 1.3.0 and passkey schema 1.0.1 unchanged; live resolution remains unclaimed until controlled deployment and live Google callback re-verification.
 
