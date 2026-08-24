@@ -1,0 +1,4 @@
+File 02 1.2.1 -> 1.2.3 twenty-round local source-review patch
+SHA-256: c4054bcf920a36354444efe144c2c9e6ad9264ffd2fce11a217d46f822a39c6e
+Bytes: 135822
+Status: local review artifact only; not an installable package and not a substitute for the missing exact approved 1.3.8 source lineage.
