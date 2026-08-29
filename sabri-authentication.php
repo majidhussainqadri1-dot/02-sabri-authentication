@@ -40,6 +40,7 @@ require_once SAUTH_DIR . 'includes/class-sa-security.php';
 require_once SAUTH_DIR . 'includes/class-sauth-provider-health.php';
 require_once SAUTH_DIR . 'includes/class-sauth-account-contract.php';
 require_once SAUTH_DIR . 'includes/class-sauth-event-outbox.php';
+require_once SAUTH_DIR . 'includes/class-sauth-user-error-messages.php';
 require_once SAUTH_DIR . 'includes/class-sauth-email-verification.php';
 require_once SAUTH_DIR . 'includes/class-sauth-email-verification-reconciler.php';
 require_once SAUTH_DIR . 'includes/class-sa-authentication-assurance.php';
@@ -158,6 +159,7 @@ function sauth_start_plugin() {
 	SAUTH_Provider_Health::init();
 	SAUTH_Provider_HTTP_Guard::init();
 	SAUTH_Event_Outbox::init();
+	SAUTH_User_Error_Messages::init();
 	SAUTH_Email_Verification::init();
 	SAUTH_Authentication_Assurance::init();
 	SAUTH_Login_Risk::init();
