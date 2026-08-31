@@ -1,6 +1,7 @@
 <?php
 $root = dirname( __DIR__ );
 $registration = file_get_contents( $root . '/includes/class-sa-registration.php' );
+$adapter = file_get_contents( $root . '/includes/class-sa-membership-adapter.php' );
 $email = file_get_contents( $root . '/includes/class-sauth-email-verification.php' );
 $forgot = file_get_contents( $root . '/templates/forgot-password.php' );
 $signup = file_get_contents( $root . '/templates/signup.php' );
@@ -9,7 +10,10 @@ $fail = array();
 $checks = array(
     array( $registration, 'wp_check_password( $password, (string) $fresh_user->user_pass, $user_id )', 'reset persistence postcondition missing' ),
     array( $registration, 'password_reset_postcondition_failed', 'uncertain reset state is not contained' ),
-    array( $registration, 'true === ( $assertion[\'membership\'][\'active\'] ?? false )', 'completion-only login does not require active membership' ),
+    array( $registration, 'SA_Membership_Adapter::sign_in_allowed( $assertion, $completion )', 'password sign-in does not delegate to canonical membership/completion admission' ),
+    array( $adapter, "'membership_prerequisite_denied'", 'completion-only admission can override an arbitrary membership denial' ),
+    array( $adapter, "! empty( \$completion['missing_steps'] )", 'completion-only admission does not require unfinished completion steps' ),
+    array( $adapter, "! empty( \$completion['next_route'] )", 'completion-only admission does not require a canonical completion route' ),
     array( $forgot, "get_option( 'sauth_page_map', get_option( 'sa_page_map', array() ) )", 'forgot-password template is not canonical-map first' ),
     array( $signup, 'maxlength="200" required', 'identity-reference client bound is stale' ),
     array( $signup, 'maxlength="1000" required', 'address client bound is stale' ),

@@ -252,13 +252,15 @@ final class SA_Google_OAuth {
 			if ( ! self::link_locks_owned( $lock, (string) $claims['sub'], $user->ID )
 				|| ! ( $locked_user instanceof WP_User )
 				|| $locked_user->ID !== $user->ID
-				|| 0 !== strcasecmp( (string) $locked_user->user_email, (string) $claims['email'] )
-				|| ! SA_Membership_Adapter::can_use_google( $locked_user->ID ) ) {
-				$login_error = 'The linked membership is not eligible for Google sign-in.';
+				|| 0 !== strcasecmp( (string) $locked_user->user_email, (string) $claims['email'] ) ) {
+				$login_error = 'The linked Google account could not be verified safely.';
 			} else {
 				$completion = SAUTH_Account_Contract::completion_state( $locked_user->ID, array( 'purpose' => 'google_sign_in' ) );
+				$membership = SA_Membership_Adapter::membership_assertion( $locked_user->ID, 'clinical_identity_link', 'google_sign_in' );
 				if ( ! is_array( $completion ) || 'allow' !== ( $completion['result'] ?? '' ) ) {
 					$login_error = 'Account completion status could not be verified for Google sign-in.';
+				} elseif ( ! SA_Membership_Adapter::sign_in_allowed( $membership, $completion ) ) {
+					$login_error = 'The linked membership is not eligible for Google sign-in.';
 				} else {
 					$risk = SAUTH_Login_Risk::evaluate( $locked_user->ID, $completion );
 					if ( 'challenge' === ( $risk['action'] ?? '' ) || 'deny' === ( $risk['action'] ?? '' ) ) {

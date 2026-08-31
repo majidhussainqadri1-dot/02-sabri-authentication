@@ -27,6 +27,7 @@ function sauth_registration_assert( $condition, $message ) {
 	}
 }
 
+require_once dirname( __DIR__ ) . '/includes/class-sa-membership-adapter.php';
 require_once dirname( __DIR__ ) . '/includes/class-sa-registration.php';
 require_once dirname( __DIR__ ) . '/includes/class-sauth-email-verification.php';
 
@@ -134,14 +135,18 @@ sauth_registration_assert( ! hash_equals( $hash1, $hash3 ), 'different verificat
 
 $policy = new ReflectionMethod( 'SA_Registration', 'sign_in_allowed' );
 $policy->setAccessible( true );
-$allow_assertion = array( 'result' => 'allow', 'membership' => array( 'suspended' => false ) );
-$deny_assertion = array( 'result' => 'deny', 'membership' => array( 'active' => true, 'suspended' => false ) );
-$inactive_deny_assertion = array( 'result' => 'deny', 'membership' => array( 'active' => false, 'suspended' => false ) );
-$suspended_assertion = array( 'result' => 'allow', 'membership' => array( 'suspended' => true ) );
+$allow_assertion = array( 'result' => 'allow', 'membership' => array( 'active' => true, 'suspended' => false ) );
+$draft_completion_assertion = array( 'result' => 'deny', 'reason_code' => 'membership_prerequisite_denied', 'membership' => array( 'active' => false, 'suspended' => false ) );
+$arbitrary_deny_assertion = array( 'result' => 'deny', 'reason_code' => 'jurisdiction_mismatch', 'membership' => array( 'active' => false, 'suspended' => false ) );
+$suspended_assertion = array( 'result' => 'allow', 'membership' => array( 'active' => true, 'suspended' => true ) );
 $completion = array( 'result' => 'allow', 'missing_steps' => array( 'email' ), 'next_route' => 'https://example.test/verify-email/' );
+$completion_without_route = array( 'result' => 'allow', 'missing_steps' => array( 'email' ), 'next_route' => '' );
+$completion_done = array( 'result' => 'allow', 'missing_steps' => array(), 'next_route' => '' );
 sauth_registration_assert( true === $policy->invoke( null, $allow_assertion, array() ), 'active membership assertion was denied' );
-sauth_registration_assert( true === $policy->invoke( null, $deny_assertion, $completion ), 'active completion-only sign-in was denied' );
-sauth_registration_assert( false === $policy->invoke( null, $inactive_deny_assertion, $completion ), 'inactive membership denial was overridden by completion routing' );
+sauth_registration_assert( true === $policy->invoke( null, $draft_completion_assertion, $completion ), 'draft/incomplete account could not enter canonical completion routing' );
+sauth_registration_assert( false === $policy->invoke( null, $draft_completion_assertion, $completion_without_route ), 'draft account bypassed missing canonical completion route' );
+sauth_registration_assert( false === $policy->invoke( null, $draft_completion_assertion, $completion_done ), 'membership denial was overridden without unfinished completion steps' );
+sauth_registration_assert( false === $policy->invoke( null, $arbitrary_deny_assertion, $completion ), 'arbitrary membership denial was overridden by completion routing' );
 sauth_registration_assert( false === $policy->invoke( null, $suspended_assertion, $completion ), 'suspended membership was allowed to sign in' );
 sauth_registration_assert( false === $policy->invoke( null, array( 'result' => 'unknown' ), $completion ), 'unknown membership provider was allowed to sign in' );
 

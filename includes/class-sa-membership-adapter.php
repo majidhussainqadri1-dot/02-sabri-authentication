@@ -132,6 +132,29 @@ final class SA_Membership_Adapter {
 		);
 	}
 
+	/**
+	 * Admit a successfully authenticated subject either to normal membership
+	 * access or to File 00's canonical completion workflow. A draft/incomplete
+	 * membership is not an authentication failure when File 00 provides an
+	 * explicit completion route. Suspended or ambiguous membership remains
+	 * fail-closed.
+	 */
+	public static function sign_in_allowed( array $assertion, array $completion ) {
+		$result = (string) ( $assertion['result'] ?? 'unknown' );
+		if ( 'unknown' === $result || ! empty( $assertion['membership']['suspended'] ) ) {
+			return false;
+		}
+		if ( 'allow' === $result ) {
+			return true;
+		}
+		if ( 'deny' !== $result || 'membership_prerequisite_denied' !== (string) ( $assertion['reason_code'] ?? '' ) ) {
+			return false;
+		}
+		return 'allow' === ( $completion['result'] ?? '' )
+			&& ! empty( $completion['missing_steps'] )
+			&& ! empty( $completion['next_route'] );
+	}
+
 	public static function approved( $user_id ) {
 		$assertion = self::membership_assertion( $user_id );
 		return 'allow' === ( $assertion['result'] ?? '' )
