@@ -425,13 +425,7 @@ final class SA_Registration {
 	}
 
 	private static function sign_in_allowed( array $assertion, array $completion ) {
-		if ( 'unknown' === ( $assertion['result'] ?? 'unknown' ) || ! empty( $assertion['membership']['suspended'] ) ) { return false; }
-		if ( 'allow' === ( $assertion['result'] ?? '' ) ) { return true; }
-		$active = true === ( $assertion['membership']['active'] ?? false );
-		return $active
-			&& 'allow' === ( $completion['result'] ?? '' )
-			&& ! empty( $completion['missing_steps'] )
-			&& ! empty( $completion['next_route'] );
+		return SA_Membership_Adapter::sign_in_allowed( $assertion, $completion );
 	}
 
 	private static function registration_subject_matches( $user_id, $expected_uuid ) {
