@@ -2,11 +2,18 @@
 $root = dirname( __DIR__ );
 $passkeys = file_get_contents( $root . '/includes/class-sauth-passkeys.php' );
 $runtime = file_get_contents( $root . '/includes/class-sauth-passkey-runtime.php' );
+$adapter = file_get_contents( $root . '/includes/class-sa-membership-adapter.php' );
 $fail = array();
 $checks = array(
     array( $passkeys, 'maxlength="4096"', 'passkey manager truncates server-accepted password length' ),
-    array( $passkeys, 'true === ( $assertion[\'membership\'][\'active\'] ?? false )', 'legacy passkey sign-in can override inactive membership denial' ),
-    array( $runtime, 'true === ( $assertion[\'membership\'][\'active\'] ?? false )', 'runtime passkey sign-in can override inactive membership denial' ),
+    array( $passkeys, 'SA_Membership_Adapter::sign_in_allowed( $assertion, $completion )', 'legacy passkey sign-in bypasses canonical membership/completion admission' ),
+    array( $runtime, 'SA_Membership_Adapter::sign_in_allowed( $assertion, $completion )', 'runtime passkey sign-in bypasses canonical membership/completion admission' ),
+    array( $adapter, "'unknown' === $result", 'canonical sign-in admission no longer fails closed on unknown membership' ),
+    array( $adapter, "membership']['suspended']", 'canonical sign-in admission can override suspended membership denial' ),
+    array( $adapter, "'membership_prerequisite_denied'", 'canonical sign-in admission can override arbitrary membership denial' ),
+    array( $adapter, "'allow' === ( $completion['result'] ?? '' )", 'canonical sign-in admission does not require File 00 completion allow' ),
+    array( $adapter, "! empty( $completion['missing_steps'] )", 'canonical sign-in admission does not require unfinished completion steps' ),
+    array( $adapter, "! empty( $completion['next_route'] )", 'canonical sign-in admission does not require a canonical completion route' ),
     array( $runtime, 'SAUTH_Passkeys::CONTRACT_VERSION === (string) ( $receipt[\'contract_version\'] ?? \'\' )', 'passkey assurance does not bind current contract version' ),
     array( $passkeys, '$schema_ready', 'passkey availability ignores schema marker' ),
     array( $passkeys, '$table_ready', 'passkey availability ignores physical table state' ),
