@@ -1,0 +1,4 @@
+File 02 prior reviewed 1.2.3 -> review-only 1.2.4 fresh R21-R40 source patch
+SHA-256: 86dd918948681a541ca4c20526ac0c98694b01b17388b8ccc97635e2142f0397
+Source-tree SHA-256: f365bfb34be2af060567025838f3370b3e766dbf3ce6ab16ce8733ac6e720c00
+Status: local review artifact only; runtime source intentionally not applied to this GitHub review branch or main because exact approved File 02 1.3.8-or-later source recovery/reconciliation is still required.
