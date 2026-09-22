@@ -1,3 +1,21 @@
+# File 02 Status — Version 1.4.0 Modern Authentication 24 Candidate
+
+- Candidate branch: `codex/file02-modern-auth-24-1.4.0`
+- Baseline main: `224c39bcb8c28f77504c7348dbad41226753c7e8`
+- Runtime / DB / passkey schema: `1.4.0 / 1.4.0 / 1.1.0`
+- 24-feature registry: `F02-X-24-001..024`, source implementation present.
+- New File 02 storage: `sauth_security_timeline`, `sauth_recovery_changes`, `sauth_shared_signals`.
+- New routes: `/account-security/`, `/resolve-account/`, `/.well-known/webauthn`; private passkey manager remains `/account-passkeys/`.
+- DPoP signature verification, FIDO metadata, FedCM server verification and credential exchange are fail-closed adapter boundaries until configured/accepted in staging.
+- Source coding: **candidate implemented**.
+- Automated QA / deterministic package: **pending exact-head workflow evidence**.
+- Staging-Accepted: **No**.
+- Live-Deployed: **No claim for 1.4.0**.
+- Operational: **No**.
+
+> **Current authoritative candidate — File 02 1.4.0 / DB 1.4.0 / passkey schema 1.1.0.**  
+> This repository candidate carries the Founder-approved **Modern Authentication 24** amendment (F02-X-24-001..024) forward onto the post-R343 source line. It preserves passkey assurance v1 `1.0.0` and adds Modern Auth `1.0.0`, Authentication Assurance Receipt v2 `2.0.0`, and Shared Signals `1.0.0`. Repository coding/CI/package/staging/live/operational gates remain separate. Any lower-version “current candidate” wording below is retained only as historical provenance unless explicitly restated here.
+
 # File 02 Status — Version 1.3.0
 
 ## Current candidate
