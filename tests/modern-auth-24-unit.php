@@ -88,8 +88,8 @@ sauth_x24_assert( false !== strpos( $modern, "'emergency_lockdown_active'" ), 'X
 
 /* X-QA-24-05 — downgrade protection on strong method/provider removal. */
 sauth_x24_has_all( $security, array( 'allow_method_removal', "'remove_'", "'phishing_resistant'=>true" ), 'X-QA-24-05 downgrade' );
-sauth_x24_assert( false !== strpos( $runtime, "allow_method_removal( $user_id, 'passkey' )" ), 'X-QA-24-05 passkey revoke gate' );
-sauth_x24_assert( false !== strpos( $google, "allow_method_removal( $user_id, 'google' )" ), 'X-QA-24-05 Google unlink gate' );
+sauth_x24_assert( false !== strpos( $runtime, 'allow_method_removal( $user_id, \'passkey\' )' ), 'X-QA-24-05 passkey revoke gate' );
+sauth_x24_assert( false !== strpos( $google, 'allow_method_removal( $user_id, \'google\' )' ), 'X-QA-24-05 Google unlink gate' );
 
 /* X-QA-24-06 — recovery cooling-off, bounded window, protected owner token, no silent apply. */
 sauth_x24_has_all( $security, array(
@@ -110,7 +110,7 @@ sauth_x24_assert( false !== strpos( $risk, 'SAUTH_Security_Orchestrator::risk_v2
 sauth_x24_has_all( $signals, array(
 	"'caep'", "'risc'",
 	'sauth_shared_signal_authorize_v1',
-	"false, $request",
+	'false, $request',
 	"WHERE event_id=%s",
 	"'session_revoked','credential_compromise','account_disabled'",
 ), 'X-QA-24-08 shared signals' );
@@ -126,15 +126,15 @@ sauth_x24_has_all( $security, array(
 sauth_x24_assert( false !== strpos( $bootstrap, "SAUTH_PASSKEY_CONTRACT_VERSION', '1.0.0" ), 'X-QA-24-09 assurance v1 preserved' );
 
 /* X-QA-24-10 — only 5-hex prefix crosses breach adapter boundary. */
-sauth_x24_has_all( $password, array( "substr( $sha1, 0, 5 )", 'sauth_breached_password_prefix_lookup_v1', 'null, $prefix' ), 'X-QA-24-10 password privacy' );
-sauth_x24_assert( false === strpos( $password, "sauth_breached_password_prefix_lookup_v1', null, $password" ), 'X-QA-24-10 raw password not passed' );
-sauth_x24_assert( false === strpos( $password, "sauth_breached_password_prefix_lookup_v1', null, $sha1" ), 'X-QA-24-10 full SHA1 not passed' );
+sauth_x24_has_all( $password, array( 'substr( $sha1, 0, 5 )', 'sauth_breached_password_prefix_lookup_v1', 'null, $prefix' ), 'X-QA-24-10 password privacy' );
+sauth_x24_assert( false === strpos( $password, 'sauth_breached_password_prefix_lookup_v1\', null, $password' ), 'X-QA-24-10 raw password not passed' );
+sauth_x24_assert( false === strpos( $password, 'sauth_breached_password_prefix_lookup_v1\', null, $sha1' ), 'X-QA-24-10 full SHA1 not passed' );
 sauth_x24_assert( false !== strpos( $reg, 'SAUTH_Password_Safety::check' ), 'X-QA-24-10 registration/reset integration' );
 
 /* X-QA-24-11 — DPoP claim/JWK/replay/signature fail-closed constraints. */
 sauth_x24_has_all( $dpop, array(
 	"'htm'", "'htu'", "'iat'", "'jti'", "'ath'",
-	"isset( $jwk['d'] )",
+	'isset( $jwk[\'d\'] )',
 	'sauth_dpop_replay',
 	'sauth_dpop_verify_signature_v1',
 	'false, $parts[0]',
@@ -145,14 +145,14 @@ sauth_x24_has_all( $fido, array( "'none' ===", "'hardware_backed'=>false", 'saut
 sauth_x24_assert( false !== strpos( $passkeys, 'SAUTH_FIDO_Trust::assess' ) && false !== strpos( $runtime, 'SAUTH_FIDO_Trust::assess' ), 'X-QA-24-12 FIDO integrated' );
 
 /* X-QA-24-13 — exact HTTPS Related-Origin manifest, no wildcard/path. */
-sauth_x24_has_all( $modern, array( "false !== strpos( $origin, '*' )", "'https' !==", "! empty( $parts['path'] ) && '/' !== $parts['path']" ), 'X-QA-24-13 related origins' );
+sauth_x24_has_all( $modern, array( 'false !== strpos( $origin, \'*\' )', "'https' !==", "! empty( $parts['path'] ) && '/' !== $parts['path']" ), 'X-QA-24-13 related origins' );
 sauth_x24_has_all( $routes, array( "'^\\\\.well-known/webauthn/?$'", '/.well-known/webauthn', 'related_origin_manifest' ), 'X-QA-24-13 well-known route' );
 
 /* X-QA-24-14 — FedCM browser token cannot authenticate without server verifier. */
 sauth_x24_has_all( $modern, array(
 	'sauth_fedcm_verify_token_v1',
 	"'fedcm_server_verification_unavailable'",
-	"empty( $verified['verified'] )",
+	'empty( $verified[\'verified\'] )',
 ), 'X-QA-24-14 FedCM verifier' );
 sauth_x24_assert( false !== strpos( $js, 'identity: { providers: [provider] }' ), 'X-QA-24-14 progressive FedCM browser path' );
 
