@@ -16,7 +16,7 @@ $req( false !== strpos( $main, "SAUTH_DB_VERSION', '1.4.0" ), 'DB identity not 1
 $req( is_array( $lock ) && '1.4.0' === ( $lock['release_version'] ?? '' ), 'release lock not 1.4.0' );
 $req( '1.4.0' === ( $lock['database_version'] ?? '' ) && '1.1.0' === ( $lock['passkey_schema_version'] ?? '' ), 'schema identities stale' );
 $req( 'codex/file02-modern-auth-24-1.4.0' === ( $lock['candidate_branch'] ?? '' ), 'candidate branch identity stale' );
-$req( 'R341-email-verification-legacy-reconciliation' === ( $lock['review_line'] ?? '' ), 'current review line identity stale' );
+$req( 'X24-modern-authentication-24' === ( $lock['review_line'] ?? '' ), 'current review line identity stale' );
 $req( false === ( $lock['status']['staging_accepted'] ?? true ) && false === ( $lock['status']['live_deployed'] ?? true ) && false === ( $lock['status']['operational'] ?? true ), 'external completion falsely advanced' );
 $req( false !== strpos( $readme, 'Stable tag: 1.4.0' ) && false !== strpos( $readme, '= 1.4.0 =' ) && false !== strpos( $readme, '= 1.3.3 =' ) && false !== strpos( $readme, '= 1.3.2 =' ) && false !== strpos( $readme, '= 1.3.1 =' ) && false !== strpos( $readme, '= 1.3.0 =' ) && false !== strpos( $readme, '= 1.2.3 =' ), 'WordPress readme identity/history invalid' );
 $req( false !== strpos( $status, 'Version 1.3.0' ), 'status no longer preserves R337 base identity' );
