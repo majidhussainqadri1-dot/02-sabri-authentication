@@ -176,6 +176,7 @@ function sauth_start_plugin() {
 	SAUTH_Passkeys::init();
 	SAUTH_Passkey_Runtime::init();
 	SAUTH_Shared_Signals::init();
+	SAUTH_DPoP::init();
 	SAUTH_Security_Orchestrator::init();
 	SAUTH_Modern_Auth::init();
 	SAUTH_Professional_Reauthentication::init();
