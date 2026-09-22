@@ -61,6 +61,12 @@ final class SAUTH_Modern_Auth {
 	public static function localize_assets() {
 		if ( ! class_exists( 'SA_Access_Control' ) || ! SA_Access_Control::is_file02_page() ) { return; }
 		if ( ! wp_script_is( 'sauth-authentication', 'enqueued' ) ) { return; }
+		$fedcm = apply_filters( 'sauth_fedcm_browser_config_v1', array() );
+		$fedcm = is_array( $fedcm ) ? $fedcm : array();
+		if ( ! empty( $fedcm['configURL'] ) && 0 !== strpos( (string) $fedcm['configURL'], 'https://' ) ) { $fedcm = array(); }
+		$signals = is_user_logged_in() && class_exists( 'SAUTH_Passkeys' ) && is_callable( array( 'SAUTH_Passkeys', 'browser_signal_payload' ) )
+			? SAUTH_Passkeys::browser_signal_payload( get_current_user_id() )
+			: array();
 		wp_localize_script(
 			'sauth-authentication',
 			'SabriAuthModern',
@@ -70,8 +76,11 @@ final class SAUTH_Modern_Auth {
 				'conditional'     => true,
 				'hybridHints'     => true,
 				'credentialSignals' => true,
-				'fedcmProgressive'  => true,
+				'credentialSignalPayload' => $signals,
+				'fedcmProgressive'  => ! empty( $fedcm ),
+				'fedcmProvider'     => $fedcm,
 				'upgradeWindow'   => is_user_logged_in() ? self::upgrade_window( get_current_user_id() ) : array(),
+				'passkeyManagerUrl' => class_exists( 'SAUTH_Passkeys' ) ? SAUTH_Passkeys::manager_url() : home_url( '/account-passkeys/' ),
 				'ajaxUrl'         => admin_url( 'admin-ajax.php' ),
 				'nonce'           => is_user_logged_in() ? wp_create_nonce( 'sauth_modern_auth' ) : '',
 				'cryptoRegistry'  => self::crypto_registry(),
