@@ -2,8 +2,8 @@
   "SPDXID": "SPDXRef-DOCUMENT",
   "spdxVersion": "SPDX-2.3",
   "dataLicense": "CC0-1.0",
-  "name": "Sabri Authentication and Accounts 1.3.2 SBOM",
-  "documentNamespace": "https://sabrihomeopathy.com/spdx/file02-authentication-and-accounts/1.3.2/2026-08-16",
+  "name": "Sabri Authentication and Accounts 1.4.0 SBOM",
+  "documentNamespace": "https://sabrihomeopathy.com/spdx/file02-authentication-and-accounts/1.4.0/2026-09-22",
   "creationInfo": {
     "created": "2026-08-16T00:00:00Z",
     "creators": [
@@ -20,7 +20,7 @@
     {
       "SPDXID": "SPDXRef-Package-File02",
       "name": "Sabri Authentication and Accounts",
-      "versionInfo": "1.3.2",
+      "versionInfo": "1.4.0",
       "downloadLocation": "NOASSERTION",
       "filesAnalyzed": false,
       "licenseConcluded": "GPL-2.0-or-later",
@@ -31,10 +31,10 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:wordpress/sabri-authentication@1.3.2"
+          "referenceLocator": "pkg:wordpress/sabri-authentication@1.4.0"
         }
       ],
-      "comment": "R339 File 00 canonical-route hotfix candidate. Runtime 1.3.2 / DB 1.3.0 / passkey schema 1.0.1. It replaces invented File 02 membership page-map keys with File 00's exact application, security and status routes while preserving the R338 bounded live passkey-index reconciliation. Repository CI is not a live-deployment claim; staging/live resolution remains unclaimed until deployment and live route re-verification."
+      "comment": "Modern Authentication 24 repository candidate. Runtime/DB/passkey schema 1.4.0 / 1.4.0 / 1.1.0; passkey assurance v1 1.0.0 preserved; Modern Auth 1.0.0, Authentication Assurance v2 2.0.0 and Shared Signals 1.0.0 added. DPoP/FIDO/FedCM/credential exchange external adapters remain fail-closed until configured and staging-accepted. Repository evidence is not live-deployment evidence."
     },
     {
       "SPDXID": "SPDXRef-Package-WordPress",
