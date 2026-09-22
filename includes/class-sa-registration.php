@@ -321,6 +321,13 @@ final class SA_Registration {
 			wp_safe_redirect( $url );
 			exit;
 		}
+		$password_safety = SAUTH_Password_Safety::check( $password );
+		if ( is_wp_error( $password_safety ) ) {
+			$password = ''; $confirm = '';
+			$url = add_query_arg( array( 'key' => $key, 'login' => $login ), SA_Security::message_url( 'reset', 'error', $password_safety->get_error_message() ) );
+			wp_safe_redirect( $url );
+			exit;
+		}
 		$user_id = (int) $user->ID;
 		reset_password( $user, $password );
 		$fresh_user = get_userdata( $user_id );
@@ -396,6 +403,10 @@ final class SA_Registration {
 		$phone_digits = preg_replace( '/\D+/', '', (string) $payload['phone'] );
 		if ( strlen( $phone_digits ) < 8 || strlen( $phone_digits ) > 18 ) { return new WP_Error( 'sauth_registration_phone', 'Enter a valid phone number with country code.' ); }
 		if ( 'password' === $payload['authentication_method'] && ( strlen( (string) $payload['password'] ) < self::MIN_PASSWORD_LENGTH || strlen( (string) $payload['password'] ) > self::MAX_PASSWORD_BYTES || strlen( (string) $payload['password_confirm'] ) > self::MAX_PASSWORD_BYTES || $payload['password'] !== $payload['password_confirm'] ) ) { return new WP_Error( 'sauth_registration_password', 'Use matching passwords of at least 12 characters.' ); }
+		if ( 'password' === $payload['authentication_method'] ) {
+			$password_safety = SAUTH_Password_Safety::check( (string) $payload['password'] );
+			if ( is_wp_error( $password_safety ) ) { return $password_safety; }
+		}
 		if ( 'google' === $payload['authentication_method'] && ( empty( $payload['google_email_verified'] ) || '' === trim( (string) $payload['google_subject'] ) || strlen( (string) $payload['google_subject'] ) > 255 ) ) { return new WP_Error( 'sauth_registration_google', 'The Google email-ownership proof is invalid or expired.' ); }
 		if ( ! in_array( $payload['sex'], array( 'male', 'female' ), true ) ) { return new WP_Error( 'sauth_registration_sex', 'Select the applicable sex for the platform age rule.' ); }
 		$age = self::age_from_date( (string) $payload['date_of_birth'] );
