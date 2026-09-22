@@ -71,8 +71,14 @@ final class SAUTH_Shared_Signals {
 		);
 		if ( 1 !== (int) $inserted ) { return new WP_Error( 'sauth_signal_store_failed', 'Signal could not be stored.' ); }
 		do_action( 'sauth_shared_security_signal_v1', array( 'event_id'=>$event_id,'family'=>$family,'type'=>$type,'user_id'=>$user_id,'claims'=>$claims ) );
+		$contain = in_array( $type, array( 'session_revoked','credential_compromise','account_disabled' ), true );
+		if ( $contain ) {
+			SAUTH_Session_Manager::revoke_user_sessions( $user_id, 'shared_security_' . $type );
+			if ( class_exists( 'SAUTH_Passkey_Runtime' ) && is_callable( array( 'SAUTH_Passkey_Runtime', 'invalidate_user_assurance' ) ) ) { SAUTH_Passkey_Runtime::invalidate_user_assurance( $user_id ); }
+		}
 		if ( class_exists( 'SAUTH_Security_Orchestrator' ) ) {
-			SAUTH_Security_Orchestrator::timeline_event( $user_id, 'shared_' . $family . '_' . $type, 'medium', array( 'source'=>sanitize_key( (string) ( $context['source'] ?? 'adapter' ) ) ) );
+			if ( 'credential_compromise' === $type ) { update_user_meta( $user_id, SAUTH_Security_Orchestrator::COMPROMISE_META, array( 'started_at'=>time(), 'expires_at'=>time()+7*DAY_IN_SECONDS, 'reason'=>'risc_credential_compromise' ) ); }
+			SAUTH_Security_Orchestrator::timeline_event( $user_id, 'shared_' . $family . '_' . $type, $contain ? 'high' : 'medium', array( 'source'=>sanitize_key( (string) ( $context['source'] ?? 'adapter' ) ) ) );
 		}
 		return $event_id;
 	}
