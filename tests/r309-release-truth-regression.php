@@ -11,7 +11,7 @@ $sbom = file_get_contents( $root . '/SBOM.spdx.json' );
 $adapter = file_get_contents( $root . '/includes/class-sa-membership-adapter.php' );
 $fail = array();
 $checks = array(
-  array($baseline, "lock.get('release_version')=='1.3.4'", 'release CI does not enforce current release-lock runtime identity'),
+  array($baseline, "lock.get('release_version')=='1.4.0'", 'release CI does not enforce current release-lock runtime identity'),
   array($baseline, 'tests/r33*-regression.php', 'release CI omits prior corrective regressions'),
   array($baseline, 'tests/r34*-regression.php', 'release CI omits current R341 corrective regression family'),
   array($baseline, 'tests/r339-file00-canonical-route-contract-regression.php', 'release CI does not require the R339 route-contract regression'),
@@ -21,7 +21,7 @@ $checks = array(
   array($docs, 'tests/r33*-regression.php', 'storage/docs gate omits prior corrective regressions'),
   array($integration, '738aa2ab4b8be3d6cfdb3ecd46c88aa8d9ece3a0', 'integration gate is not pinned to exact current File00 1.2.44 main'),
   array($integration, "FILE00_VERSION: '1.2.44'", 'integration gate does not assert File00 1.2.44 runtime'),
-  array($integration, "FILE02_VERSION: '1.3.4'", 'integration gate does not assert File02 1.3.4 runtime'),
+  array($integration, "FILE02_VERSION: '1.4.0'", 'integration gate does not assert File02 1.3.4 runtime'),
   array($integration, 'c4ab298b3ba2b870d507d32b36b1b4afd2771621', 'integration gate does not retain the exact File00 1.2.43 route baseline'),
   array($integration, 'Prove R341 legacy verified-email reconciliation against current File 00', 'integration gate lacks the real R341 legacy email reconciliation proof'),
   array($integration, 'Prove File 02 resolves exact File 00 canonical membership routes', 'integration gate lacks canonical File00 membership-route proof'),
