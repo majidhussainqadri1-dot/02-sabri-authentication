@@ -229,6 +229,9 @@ final class SAUTH_Passkey_Runtime {
 			self::authentication_failure( 0, 'credential_unknown' );
 		}
 		$user_id = absint( $credential['user_id'] );
+		if ( class_exists( 'SAUTH_Security_Orchestrator' ) && SAUTH_Security_Orchestrator::authentication_blocked( $user_id ) ) {
+			self::authentication_failure( $user_id, 'emergency_lockdown_active' );
+		}
 		if ( absint( $credential['backup_eligible'] ?? 0 ) !== ( ! empty( $parsed['backup_eligible'] ) ? 1 : 0 ) ) {
 			self::quarantine_credential( $credential, $user_id, 'backup_eligibility_changed' );
 			self::authentication_failure( $user_id, 'backup_eligibility_changed' );
