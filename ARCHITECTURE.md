@@ -1,3 +1,10 @@
+# File 02 Architecture — 1.4.0 Modern Authentication 24 Addendum
+
+The 1.4.0 layer is additive. `SAUTH_Modern_Auth` owns browser capability/progressive standards surfaces; `SAUTH_Security_Orchestrator` owns File 02 account-security orchestration; `SAUTH_Shared_Signals` owns CAEP/RISC-style signal projection; `SAUTH_Password_Safety`, `SAUTH_DPoP` and `SAUTH_FIDO_Trust` are bounded security adapters. File 00 remains the sole canonical membership/identity/guardian/role/verification/MFA-policy owner; File 24 remains the cross-cutting security-policy/assurance plane. Authentication success still never grants native domain authorization.
+
+> **Current authoritative candidate — File 02 1.4.0 / DB 1.4.0 / passkey schema 1.1.0.**  
+> This repository candidate carries the Founder-approved **Modern Authentication 24** amendment (F02-X-24-001..024) forward onto the post-R343 source line. It preserves passkey assurance v1 `1.0.0` and adds Modern Auth `1.0.0`, Authentication Assurance Receipt v2 `2.0.0`, and Shared Signals `1.0.0`. Repository coding/CI/package/staging/live/operational gates remain separate. Any lower-version “current candidate” wording below is retained only as historical provenance unless explicitly restated here.
+
 # File 02 Architecture — Authentication and Accounts 1.3.0
 
 ## Governing boundary
