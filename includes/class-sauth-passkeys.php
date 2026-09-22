@@ -237,6 +237,33 @@ final class SAUTH_Passkeys {
 	private static function mark_manager_page( $page_id ) { $page_id=absint($page_id); if(!$page_id){return;} update_post_meta($page_id,'_sauth_managed_page','1'); update_post_meta($page_id,'_sauth_private_page','1'); delete_post_meta($page_id,'_sa_private_page'); }
 	private static function manager_page_ready() { $map=(array)get_option('sauth_page_map',array()); $page_id=isset($map['passkeys'])?absint($map['passkeys']):0; return $page_id>0 && self::is_manager_page(get_post($page_id)); }
 
+
+	/**
+	 * Server-authoritative, browser-local reconciliation projection. Credential
+	 * IDs are opaque WebAuthn identifiers; no public/private key material,
+	 * biometric information, or session secrets are exposed.
+	 */
+	public static function browser_signal_payload( $user_id ) {
+		$user_id = absint( $user_id );
+		if ( ! $user_id || get_current_user_id() !== $user_id ) { return array(); }
+		$user = get_userdata( $user_id );
+		if ( ! $user instanceof WP_User ) { return array(); }
+		$ids = array();
+		foreach ( self::credentials_for_user( $user_id ) as $credential ) {
+			$encoded = SA_Security::decrypt( (string) ( $credential['credential_id_ciphertext'] ?? '' ) );
+			if ( is_string( $encoded ) && false !== self::base64url_decode( $encoded ) ) { $ids[] = $encoded; }
+		}
+		$handle = self::user_handle( $user_id, false );
+		$ctx = self::rp_context();
+		return array(
+			'rpId' => (string) $ctx['rp_id'],
+			'userId' => (string) $handle,
+			'name' => (string) $user->user_email,
+			'displayName' => (string) ( $user->display_name ? $user->display_name : $user->user_login ),
+			'allAcceptedCredentialIds' => array_values( array_unique( $ids ) ),
+		);
+	}
+
 	public static function manager_url() {
 		$map = (array) get_option( 'sauth_page_map', array() );
 		$page_id = isset( $map['passkeys'] ) ? absint( $map['passkeys'] ) : 0;
