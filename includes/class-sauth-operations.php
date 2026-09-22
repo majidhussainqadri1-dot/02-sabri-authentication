@@ -70,6 +70,10 @@ final class SAUTH_Operations {
 			'sauth_verify_email',
 			'sauth_resend_email_verification',
 			'sa_google_unlink',
+			'sauth_modern_fedcm_begin',
+			'sauth_modern_fedcm_finish',
+			'sauth_recovery_change_request',
+			'sauth_recovery_change_cancel',
 		);
 		if ( ! in_array( $action, $blocked, true ) ) { return; }
 		if ( function_exists( 'wp_doing_ajax' ) && wp_doing_ajax() ) {
@@ -174,6 +178,15 @@ final class SAUTH_Operations {
 		$checks[] = self::check( 'Account orchestration contract', SAUTH_Account_Contract::provider_available(), SAUTH_Account_Contract::provider_available() ? 'smc.authentication-account 1.1.0 provider is callable.' : 'Account provider unavailable or incompatible.' );
 		$passkey_ready = class_exists( 'SAUTH_Passkey_Runtime' ) && class_exists( 'SAUTH_Passkeys' ) && SAUTH_Passkeys::authentication_ready();
 		$checks[] = self::check( 'File 02 passkey authentication assurance', $passkey_ready, $passkey_ready ? 'File 02 passkey runtime, schema, table, HTTPS/origin and dependencies are ready.' : 'File 02 passkey authentication readiness is incomplete.' );
+		$feature_ids = class_exists( 'SAUTH_Modern_Auth' ) ? SAUTH_Modern_Auth::feature_ids() : array();
+		$expected_ids = array(); for ( $i = 1; $i <= 24; $i++ ) { $expected_ids[] = 'F02-X-24-' . str_pad( (string) $i, 3, '0', STR_PAD_LEFT ); }
+		$checks[] = self::check( 'Modern Authentication 24 registry', $feature_ids === $expected_ids, $feature_ids === $expected_ids ? 'Exact F02-X-24-001..024 registry is present without gaps or duplicates.' : 'Modern Authentication feature registry is incomplete or out of order.' );
+		$passkey_schema_ok = class_exists( 'SAUTH_Passkeys' ) && '1.1.0' === SAUTH_Passkeys::SCHEMA_VERSION;
+		$checks[] = self::check( 'Passkey schema 1.1.0', $passkey_schema_ok, $passkey_schema_ok ? 'AAGUID/trust metadata schema identity is 1.1.0.' : 'Passkey schema identity is not 1.1.0.' );
+		$assurance_v2_ok = class_exists( 'SAUTH_Security_Orchestrator' ) && '2.0.0' === SAUTH_Security_Orchestrator::ASSURANCE_V2_VERSION;
+		$checks[] = self::check( 'Authentication Assurance Receipt v2', $assurance_v2_ok, $assurance_v2_ok ? 'Additive v2 contract 2.0.0 is registered; passkey assurance v1 remains preserved.' : 'Assurance v2 contract is unavailable.' );
+		$related = class_exists( 'SAUTH_Modern_Auth' ) ? SAUTH_Modern_Auth::related_origins() : array();
+		$checks[] = self::check( 'Related-origin passkeys configuration', count( $related ) <= 5, count( $related ) . ' exact HTTPS related origins configured.' );
 		$checks[] = self::check( 'Runtime version marker', SAUTH_VERSION === (string) get_option( 'sauth_version', '' ), 'Runtime=' . SAUTH_VERSION . '; stored=' . (string) get_option( 'sauth_version', '' ) );
 		$checks[] = self::check( 'Database schema marker', SAUTH_DB_VERSION === (string) get_option( 'sauth_db_version', '' ), 'Expected=' . SAUTH_DB_VERSION . '; stored=' . (string) get_option( 'sauth_db_version', '' ) );
 		$core_storage_ready = SAUTH_Activator::storage_ready();
