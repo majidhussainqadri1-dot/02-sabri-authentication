@@ -16,7 +16,7 @@ foreach ( array(
 ) as $line ) { $req( false !== strpos( $passkeys, $line ), 'dbDelta-compatible passkey index line missing: ' . trim( $line ) ); }
 $req( false !== strpos( $main, 'Version: 1.4.0' ) && false !== strpos( $main, "SAUTH_VERSION', '1.4.0" ), 'runtime identity not 1.3.4' );
 $req( false !== strpos( $main, "SAUTH_DB_VERSION', '1.4.0" ), 'current DB identity is stale' );
-$req( false !== strpos( $passkeys, "const SCHEMA_VERSION        = '1.0.1'" ), 'passkey schema identity changed during later runtime hotfix' );
+$req( false !== strpos( $passkeys, "const SCHEMA_VERSION        = '1.1.0'" ), 'passkey schema identity does not match Modern Authentication 24 trust schema' );
 $req( false !== strpos( $main, "SAUTH_PASSKEY_CONTRACT_VERSION', '1.0.0" ), 'passkey assurance contract changed during later runtime hotfix' );
 $req( is_array( $lock ) && '1.4.0' === ( $lock['release_version'] ?? '' ), 'release lock runtime stale' );
 $req( 'codex/file02-modern-auth-24-1.4.0' === ( $lock['candidate_branch'] ?? '' ), 'release lock branch stale' );
