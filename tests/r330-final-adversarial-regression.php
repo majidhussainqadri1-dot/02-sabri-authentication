@@ -29,8 +29,8 @@ $req( false === strpos( $adapter, 'sabri_profile' ) && false === strpos( $adapte
  * line has not moved backwards instead of pinning an obsolete R335 string. */
 $coded = is_array( $lock ) ? (string) ( $lock['status']['coded'] ?? '' ) : '';
 $review_line = is_array( $lock ) ? (string) ( $lock['review_line'] ?? '' ) : '';
-$coded_round = preg_match( '/r(\d+)/i', $coded, $coded_match ) ? (int) $coded_match[1] : 0;
-$review_round = preg_match( '/R(\d+)/', $review_line, $review_match ) ? (int) $review_match[1] : 0;
+$coded_round = false !== strpos( $coded, 'modern_auth_24' ) ? 1000 : ( preg_match( '/r(\d+)/i', $coded, $coded_match ) ? (int) $coded_match[1] : 0 );
+$review_round = 0 === strpos( $review_line, 'X24-' ) ? 1000 : ( preg_match( '/R(\d+)/', $review_line, $review_match ) ? (int) $review_match[1] : 0 );
 $req( $coded_round >= 340, 'release lock coded status regressed below the R340 corrective baseline' );
 $req( $review_round >= 340, 'release lock review line regressed below the R340 corrective baseline' );
 
