@@ -78,6 +78,30 @@ final class SA_Privacy {
 			$data[] = array( 'group_id' => 'sabri-authentication-events', 'group_label' => __( 'Authentication event evidence', 'sabri-authentication' ), 'item_id' => 'event-' . sanitize_key( (string) $row['event_id'] ), 'data' => $this->export_pairs( $row ) );
 		}
 
+		$timeline = $wpdb->get_results( $wpdb->prepare( 'SELECT public_id,event_type,severity,details_json,created_at FROM ' . SAUTH_Activator::table( 'security_timeline' ) . ' WHERE user_id=%d ORDER BY id DESC LIMIT %d OFFSET %d', $user_id, self::EXPORT_LIMIT, $offset ), ARRAY_A );
+		if ( ! is_array( $timeline ) || '' !== (string) $wpdb->last_error ) { return array( 'data'=>$data, 'done'=>false ); }
+		$done = $done && count( $timeline ) < self::EXPORT_LIMIT;
+		foreach ( $timeline as $row ) {
+			$details = json_decode( (string) ( $row['details_json'] ?? '' ), true );
+			unset( $row['details_json'] );
+			$row['details'] = is_array( $details ) ? $details : array();
+			$data[] = array( 'group_id'=>'sabri-authentication-security-timeline', 'group_label'=>__( 'Account security timeline', 'sabri-authentication' ), 'item_id'=>'security-' . sanitize_key( (string) $row['public_id'] ), 'data'=>$this->export_pairs( $row ) );
+		}
+
+		$recovery = $wpdb->get_results( $wpdb->prepare( 'SELECT public_id,change_kind,status,apply_after,created_at,updated_at FROM ' . SAUTH_Activator::table( 'recovery_changes' ) . ' WHERE user_id=%d ORDER BY id DESC LIMIT %d OFFSET %d', $user_id, self::EXPORT_LIMIT, $offset ), ARRAY_A );
+		if ( ! is_array( $recovery ) || '' !== (string) $wpdb->last_error ) { return array( 'data'=>$data, 'done'=>false ); }
+		$done = $done && count( $recovery ) < self::EXPORT_LIMIT;
+		foreach ( $recovery as $row ) {
+			$data[] = array( 'group_id'=>'sabri-authentication-recovery-changes', 'group_label'=>__( 'Protected recovery changes', 'sabri-authentication' ), 'item_id'=>'recovery-' . sanitize_key( (string) $row['public_id'] ), 'data'=>$this->export_pairs( $row ) );
+		}
+
+		$signals = $wpdb->get_results( $wpdb->prepare( 'SELECT event_id,family,signal_type,source,status,issued_at,created_at FROM ' . SAUTH_Activator::table( 'shared_signals' ) . ' WHERE user_id=%d ORDER BY id DESC LIMIT %d OFFSET %d', $user_id, self::EXPORT_LIMIT, $offset ), ARRAY_A );
+		if ( ! is_array( $signals ) || '' !== (string) $wpdb->last_error ) { return array( 'data'=>$data, 'done'=>false ); }
+		$done = $done && count( $signals ) < self::EXPORT_LIMIT;
+		foreach ( $signals as $row ) {
+			$data[] = array( 'group_id'=>'sabri-authentication-shared-signals', 'group_label'=>__( 'Authentication security signals', 'sabri-authentication' ), 'item_id'=>'signal-' . sanitize_key( (string) $row['event_id'] ), 'data'=>$this->export_pairs( $row ) );
+		}
+
 		if ( class_exists( 'SAUTH_Passkeys' ) && is_callable( array( 'SAUTH_Passkeys', 'privacy_export' ) ) ) {
 			$passkeys = SAUTH_Passkeys::privacy_export( sanitize_email( $email_address ), $page );
 			if ( is_array( $passkeys ) && ! empty( $passkeys['data'] ) && is_array( $passkeys['data'] ) ) { $data = array_merge( $data, $passkeys['data'] ); }
@@ -159,6 +183,9 @@ final class SA_Privacy {
 				array( SAUTH_Activator::table( 'auth_devices' ), SAUTH_Activator::legacy_table( 'auth_devices' ) ),
 				array( SAUTH_Activator::table( 'risk_challenges' ), SAUTH_Activator::legacy_table( 'risk_challenges' ) ),
 				array( SAUTH_Activator::table( 'auth_attempts' ), SAUTH_Activator::legacy_table( 'auth_attempts' ) ),
+				array( SAUTH_Activator::table( 'security_timeline' ), '' ),
+				array( SAUTH_Activator::table( 'recovery_changes' ), '' ),
+				array( SAUTH_Activator::table( 'shared_signals' ), '' ),
 			);
 			foreach ( $table_pairs as $pair ) {
 				foreach ( array_unique( array_filter( $pair ) ) as $table ) {
@@ -241,8 +268,8 @@ final class SA_Privacy {
 
 	public function privacy_policy() {
 		if ( ! function_exists( 'wp_add_privacy_policy_content' ) ) { return; }
-		$content = '<p>' . esc_html__( 'File 02 processes password authentication state, verified Google-link projections, signed email-verification evidence, privacy-minimized session/device/risk projections, WebAuthn/passkey public-key credentials and short-lived asynchronous recovery/resend job state. Passwords, reset keys, verification tokens, OAuth tokens, passkey private keys and raw WordPress session tokens are not stored by File 02.', 'sabri-authentication' ) . '</p>';
-		$content .= '<p>' . esc_html__( 'File 00 remains the canonical owner of membership, identity, account class, guardian, role and verification truth. File 02 does not erase those records. Privacy erasure revokes File 02 sessions and authentication assurance, deletes File 02-owned Google/passkey/session/verification/risk records, anonymizes direct user identifiers in authentication event evidence and invalidates queued recovery work before deletion.', 'sabri-authentication' ) . '</p>';
+		$content = '<p>' . esc_html__( 'File 02 processes password authentication state, verified Google-link projections, signed email-verification evidence, privacy-minimized session/device/risk projections, WebAuthn/passkey public-key credentials, account-security timeline entries, protected recovery-change state, bounded shared-security signals, and short-lived asynchronous recovery/resend job state. Passwords, reset keys, verification tokens, OAuth tokens, passkey private keys and raw WordPress session tokens are not stored by File 02.', 'sabri-authentication' ) . '</p>';
+		$content .= '<p>' . esc_html__( 'File 00 remains the canonical owner of membership, identity, account class, guardian, role and verification truth. File 02 does not erase those records. Privacy erasure revokes File 02 sessions and authentication assurance, deletes File 02-owned Google/passkey/session/verification/risk/timeline/recovery/signal records, anonymizes direct user identifiers in authentication event evidence and invalidates queued recovery work before deletion.', 'sabri-authentication' ) . '</p>';
 		wp_add_privacy_policy_content( __( 'Sabri Authentication and Accounts', 'sabri-authentication' ), wp_kses_post( wpautop( $content ) ) );
 	}
 
