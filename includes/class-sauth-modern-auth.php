@@ -206,6 +206,9 @@ final class SAUTH_Modern_Auth {
 		/* FedCM browser mediation is never sufficient by itself: the verifier
 		 * must return a server-validated local user subject. */
 		$user_id = absint( $verified['user_id'] );
+		if ( class_exists( 'SAUTH_Security_Orchestrator' ) && SAUTH_Security_Orchestrator::authentication_blocked( $user_id ) ) {
+			wp_send_json_error( array( 'code'=>'emergency_lockdown_active' ), 403 );
+		}
 		$user = get_userdata( $user_id );
 		if ( ! $user instanceof WP_User ) { wp_send_json_error( array( 'code'=>'fedcm_subject_invalid' ), 400 ); }
 		$completion = SAUTH_Account_Contract::completion_state( $user_id, array( 'purpose'=>'fedcm_sign_in' ) );
