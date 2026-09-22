@@ -6,6 +6,11 @@ defined( 'ABSPATH' ) || exit;
 final class SAUTH_DPoP {
 	const CONTRACT_VERSION = '1.0.0';
 	const MAX_AGE = 300;
+	const REPLAY_EXPIRE_HOOK = 'sauth_dpop_replay_expire';
+
+	public static function init() {
+		add_action( self::REPLAY_EXPIRE_HOOK, array( __CLASS__, 'expire_replay' ), 10, 1 );
+	}
 
 	public static function validate( $jwt, $method, $url, $access_token = '' ) {
 		$jwt = trim( (string) $jwt );
@@ -37,6 +42,7 @@ final class SAUTH_DPoP {
 		if ( '' === $thumbprint ) { return new WP_Error( 'sauth_dpop_jwk_invalid', 'DPoP public JWK is invalid.' ); }
 		$replay_key = 'sauth_dpop_' . hash( 'sha256', $thumbprint . '|' . $jti );
 		if ( ! add_option( $replay_key, time(), '', false ) ) { return new WP_Error( 'sauth_dpop_replay', 'DPoP proof replayed.' ); }
+		if ( function_exists( 'wp_schedule_single_event' ) ) { wp_schedule_single_event( time() + self::MAX_AGE + 60, self::REPLAY_EXPIRE_HOOK, array( $replay_key ) ); }
 		$verified = true === apply_filters( 'sauth_dpop_verify_signature_v1', false, $parts[0] . '.' . $parts[1], $parts[2], $jwk, $alg );
 		if ( ! $verified ) { delete_option( $replay_key ); return new WP_Error( 'sauth_dpop_signature_unverified', 'DPoP signature verifier unavailable or rejected the proof.' ); }
 		return array( 'result'=>'allow','jkt'=>$thumbprint,'jti'=>$jti,'iat'=>$iat,'alg'=>$alg );
@@ -50,6 +56,11 @@ final class SAUTH_DPoP {
 			$data = array( 'e'=>(string)$jwk['e'],'kty'=>'RSA','n'=>(string)$jwk['n'] );
 		} else { return ''; }
 		return self::b64url( hash( 'sha256', wp_json_encode( $data, JSON_UNESCAPED_SLASHES ), true ) );
+	}
+
+	public static function expire_replay( $key ) {
+		$key = sanitize_key( (string) $key );
+		if ( 0 === strpos( $key, 'sauth_dpop_' ) ) { delete_option( $key ); }
 	}
 
 	private static function canonical_htu( $url ) {
