@@ -18,7 +18,7 @@ $checks = array(
     array( $main, "SAUTH_DB_VERSION', '1.4.0", 'DB identity unexpectedly changed' ),
     array( $lock, '"release_version": "1.4.0"', 'release lock runtime stale' ),
     array( $lock, 'codex/file02-modern-auth-24-1.4.0', 'release lock branch stale' ),
-    array( $lock, 'R341-email-verification-legacy-reconciliation', 'release lock review line stale' ),
+    array( $lock, 'X24-modern-authentication-24', 'release lock review line stale' ),
     array( $lock, 'live_1_3_3_legacy_email_verification_reconciliation_incident', 'release lock omits current live-proven legacy email incident' ),
     array( $readme, 'Stable tag: 1.4.0', 'WordPress stable tag stale' ),
     array( $readme, '= 1.4.0 =', 'WordPress changelog omits current R341 correction' ),
