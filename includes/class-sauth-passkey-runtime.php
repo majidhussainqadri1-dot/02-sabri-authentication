@@ -108,6 +108,7 @@ final class SAUTH_Passkey_Runtime {
 		if ( is_wp_error( $key ) ) {
 			self::json_error( 'credential_public_key_invalid' );
 		}
+		$trust = class_exists( 'SAUTH_FIDO_Trust' ) ? SAUTH_FIDO_Trust::assess( (string) ( $parsed['aaguid'] ?? '' ), (string) $attestation['fmt'] ) : array( 'status'=>'unavailable','trust_level'=>'unverified','hardware_backed'=>false );
 
 		$lock = self::acquire_user_lock( $user_id, 'register' );
 		if ( empty( $lock ) ) {
@@ -150,16 +151,19 @@ final class SAUTH_Passkey_Runtime {
 								'discoverable' => 1,
 								'backup_eligible' => ! empty( $parsed['backup_eligible'] ) ? 1 : 0,
 								'backup_state' => ! empty( $parsed['backup_state'] ) ? 1 : 0,
-								'hardware_backed' => 0,
+								'hardware_backed' => ! empty( $trust['hardware_backed'] ) ? 1 : 0,
+								'aaguid' => sanitize_key( (string) ( $parsed['aaguid'] ?? '' ) ),
+								'metadata_status' => sanitize_key( (string) ( $trust['status'] ?? 'unverified' ) ),
+								'trust_level' => sanitize_key( (string) ( $trust['trust_level'] ?? 'unverified' ) ),
 								'sign_count' => absint( $parsed['sign_count'] ?? 0 ),
 								'nickname' => $nickname,
 								'status' => 'active',
 								'created_at' => $now,
 								'updated_at' => $now,
 							),
-							array( '%s','%d','%s','%s','%s','%d','%s','%s','%d','%d','%d','%d','%s','%s','%s','%s' )
+							array( '%s','%d','%s','%s','%s','%d','%s','%s','%d','%d','%d','%d','%s','%s','%s','%d','%s','%s','%s','%s' )
 						);
-						$check = $wpdb->get_row( $wpdb->prepare( 'SELECT user_id,credential_lookup_hash,public_key_pem,algorithm,backup_eligible,backup_state,sign_count,status FROM ' . self::table() . ' WHERE public_id=%s', $public_id ), ARRAY_A );
+						$check = $wpdb->get_row( $wpdb->prepare( 'SELECT user_id,credential_lookup_hash,public_key_pem,algorithm,backup_eligible,backup_state,hardware_backed,aaguid,metadata_status,trust_level,sign_count,status FROM ' . self::table() . ' WHERE public_id=%s', $public_id ), ARRAY_A );
 						if ( 1 !== (int) $inserted
 							|| ! is_array( $check )
 							|| '' !== (string) $wpdb->last_error
@@ -170,6 +174,10 @@ final class SAUTH_Passkey_Runtime {
 							|| intval( $check['algorithm'] ?? 0 ) !== intval( $key['algorithm'] )
 							|| absint( $check['backup_eligible'] ?? 0 ) !== ( ! empty( $parsed['backup_eligible'] ) ? 1 : 0 )
 							|| absint( $check['backup_state'] ?? 0 ) !== ( ! empty( $parsed['backup_state'] ) ? 1 : 0 )
+							|| absint( $check['hardware_backed'] ?? 0 ) !== ( ! empty( $trust['hardware_backed'] ) ? 1 : 0 )
+							|| ! hash_equals( sanitize_key( (string) ( $parsed['aaguid'] ?? '' ) ), (string) ( $check['aaguid'] ?? '' ) )
+							|| ! hash_equals( sanitize_key( (string) ( $trust['status'] ?? 'unverified' ) ), (string) ( $check['metadata_status'] ?? '' ) )
+							|| ! hash_equals( sanitize_key( (string) ( $trust['trust_level'] ?? 'unverified' ) ), (string) ( $check['trust_level'] ?? '' ) )
 							|| absint( $check['sign_count'] ?? 0 ) !== absint( $parsed['sign_count'] ?? 0 ) ) {
 							$deleted = $wpdb->delete( self::table(), array( 'public_id' => $public_id, 'user_id' => $user_id ), array( '%s', '%d' ) );
 							$remaining = $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . self::table() . ' WHERE public_id=%s AND user_id=%d', $public_id, $user_id ) );
@@ -221,6 +229,9 @@ final class SAUTH_Passkey_Runtime {
 			self::authentication_failure( 0, 'credential_unknown' );
 		}
 		$user_id = absint( $credential['user_id'] );
+		if ( class_exists( 'SAUTH_Security_Orchestrator' ) && SAUTH_Security_Orchestrator::authentication_blocked( $user_id ) ) {
+			self::authentication_failure( $user_id, 'emergency_lockdown_active' );
+		}
 		if ( absint( $credential['backup_eligible'] ?? 0 ) !== ( ! empty( $parsed['backup_eligible'] ) ? 1 : 0 ) ) {
 			self::quarantine_credential( $credential, $user_id, 'backup_eligibility_changed' );
 			self::authentication_failure( $user_id, 'backup_eligibility_changed' );
@@ -331,6 +342,9 @@ final class SAUTH_Passkey_Runtime {
 		unset( $_POST['current_password'], $_POST['step_up_code'] );
 		global $wpdb;
 		$row = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . self::table() . ' WHERE public_id=%s AND user_id=%d', $public_id, $user_id ), ARRAY_A );
+		if ( is_array( $row ) && class_exists( 'SAUTH_Security_Orchestrator' ) && ! SAUTH_Security_Orchestrator::allow_method_removal( $user_id, 'passkey' ) ) {
+			self::json_error( 'fresh_strong_step_up_required' );
+		}
 		if ( ! is_array( $row ) ) { self::json_error( 'credential_not_found' ); }
 		if ( 'active' !== (string) $row['status'] ) { wp_send_json_success( array( 'message' => 'This passkey was already inactive.', 'reload' => true ) ); }
 		$changed = $wpdb->update( self::table(), array( 'status' => 'revoked', 'revoked_at' => current_time( 'mysql', true ), 'updated_at' => current_time( 'mysql', true ) ), array( 'id' => absint( $row['id'] ), 'user_id' => $user_id, 'status' => 'active' ), array( '%s','%s','%s' ), array( '%d','%d','%s' ) );

@@ -1,3 +1,10 @@
+# File 02 Staging Acceptance — Version 1.4.0 Modern Authentication 24
+
+Staging must prove fresh-install and supported 1.3.x upgrade to runtime/DB/passkey `1.4.0 / 1.4.0 / 1.1.0`; all prior R343 behavior; the three new tables; all F02-X-24-001..024 source-to-runtime paths; conditional/hybrid passkeys on real browsers; browser credential signals; security timeline/not-me/lockdown; recovery cooling/collision flow; CAEP/RISC replay/authorization; Assurance v2; password privacy; DPoP/FIDO adapters where configured; exact related-origin manifest; FedCM only with real server verifier; privacy export/erasure; accessibility/RTL/performance; backup/restore/rollback. **Modern Authentication 24** is not production-accepted merely because repository CI passes.
+
+> **Current authoritative candidate — File 02 1.4.0 / DB 1.4.0 / passkey schema 1.1.0.**  
+> This repository candidate carries the Founder-approved **Modern Authentication 24** amendment (F02-X-24-001..024) forward onto the post-R343 source line. It preserves passkey assurance v1 `1.0.0` and adds Modern Auth `1.0.0`, Authentication Assurance Receipt v2 `2.0.0`, and Shared Signals `1.0.0`. Repository coding/CI/package/staging/live/operational gates remain separate. Any lower-version “current candidate” wording below is retained only as historical provenance unless explicitly restated here.
+
 # File 02 Staging Acceptance — Version 1.3.0
 
 This checklist proves real-environment acceptance; repository CI alone cannot complete it.

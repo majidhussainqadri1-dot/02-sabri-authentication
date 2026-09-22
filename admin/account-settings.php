@@ -24,6 +24,7 @@
 				'settings_store_failed' => 'The complete Google settings unit could not be stored; the previous values were restored and verified.',
 				'settings_rollback_failed' => 'The Google settings write failed and the previous values could not be restored reliably. File 02 entered Safe Mode; inspect stored options before resuming authentication changes.',
 				'safe_mode_active' => 'File 02 Safe Mode is active. Authentication-provider settings were not changed.',
+				'invalid_related_origins' => 'Related-origin passkeys accept at most five exact HTTPS origins. Wildcards, paths, credentials, query strings, fragments, and HTTP origins are rejected.',
 				'settings_receipt_failed' => 'Settings may have been written, but the success receipt could not be verified. Reload and inspect the stored values before relying on them.',
 			);
 			echo esc_html( isset( $messages[ $error ] ) ? $messages[ $error ] : 'The settings could not be saved.' );
@@ -36,6 +37,7 @@
 		<div class="card"><h2><?php echo $dependency_ready ? 'Ready' : 'Missing'; ?></h2><p>Membership Core dependency</p></div>
 		<div class="card"><h2><?php echo ! SAUTH_Operations::safe_mode() && SA_Google_OAuth::configured() ? 'Ready' : 'Disabled'; ?></h2><p>Google sign-in status</p></div>
 		<div class="card"><h2><?php echo esc_html( number_format_i18n( $legacy_roles ) ); ?></h2><p>Legacy doctor-pending roles requiring review</p></div>
+		<div class="card"><h2><?php echo class_exists( 'SAUTH_Modern_Auth' ) && 24 === count( SAUTH_Modern_Auth::feature_ids() ) ? '24 / 24' : 'Incomplete'; ?></h2><p>Modern Authentication feature registry</p></div>
 	</div>
 
 	<div class="notice notice-info inline"><p><strong>Architecture:</strong> File 00 owns membership, verified identity, guardian status, roles/capabilities, verification and eligibility. File 02 owns registration orchestration, password authentication, Google OIDC/linking, passkeys, authentication assurance, recovery, risk and sessions. Retired File 00 authenticator/recovery codes are not File 02 authentication factors.</p></div>
@@ -49,6 +51,11 @@
 			<tr><th scope="row"><label for="sa-client-secret">Google Client Secret</label></th><td><input id="sa-client-secret" class="regular-text" type="password" name="google_client_secret" value="" autocomplete="new-password" placeholder="Leave blank to keep the saved secret"><p class="description">Stored with authenticated AES-256-GCM encryption only when a strong dedicated <code>SA_MASTER_KEY</code> (32+ characters) is defined in <code>wp-config.php</code>. WordPress authentication salts are not accepted as the current secret-encryption authority.</p><label><input type="checkbox" name="clear_google_client_secret" value="1"> Remove the saved Client Secret and disable Google sign-in</label></td></tr>
 			<tr><th scope="row">Authorized redirect URI</th><td><code style="user-select:all"><?php echo esc_html( SA_Google_OAuth::callback_url() ); ?></code><p class="description">Copy this exact HTTPS address into the Google Cloud Web OAuth client.</p></td></tr>
 			<tr><th scope="row">Requested scopes</th><td><code>openid email profile</code><p class="description">Access and refresh tokens are not retained. A linked eligible Membership Core account is required; sensitive Google link/unlink changes require a fresh File 02 passkey assurance.</p></td></tr>
+			<tr><th scope="row"><label for="sa-related-origins">Related-origin passkeys</label></th><td>
+				<textarea id="sa-related-origins" class="large-text code" rows="5" name="related_origins" placeholder="https://clinic.example.com"><?php echo esc_textarea( implode( "\n", class_exists( 'SAUTH_Modern_Auth' ) ? SAUTH_Modern_Auth::related_origins() : array() ) ); ?></textarea>
+				<p class="description">Up to five exact HTTPS origins, one per line. No wildcard, path, query, fragment, embedded credentials, or HTTP origin is accepted. The public manifest is <code><?php echo esc_html( home_url( '/.well-known/webauthn' ) ); ?></code>.</p>
+			</td></tr>
+			<tr><th scope="row">Modern Authentication contracts</th><td><code>Modern Auth 1.0.0</code> · <code>Authentication Assurance v2 2.0.0</code> · <code>Shared Signals 1.0.0</code> · <code>Passkey schema 1.1.0</code><p class="description">DPoP, FIDO metadata, FedCM and credential portability remain fail-closed adapter boundaries until their external providers/verifiers are explicitly configured and accepted in staging.</p></td></tr>
 		</table>
 		<?php submit_button( 'Save Authentication Settings' ); ?>
 	</form>

@@ -255,6 +255,9 @@ final class SA_Google_OAuth {
 				|| 0 !== strcasecmp( (string) $locked_user->user_email, (string) $claims['email'] ) ) {
 				$login_error = 'The linked Google account could not be verified safely.';
 			} else {
+				if ( class_exists( 'SAUTH_Security_Orchestrator' ) && SAUTH_Security_Orchestrator::authentication_blocked( $locked_user->ID ) ) {
+					$login_error = 'This account is in emergency security lockdown. Use the protected recovery process.';
+				} else {
 				$completion = SAUTH_Account_Contract::completion_state( $locked_user->ID, array( 'purpose' => 'google_sign_in' ) );
 				$membership = SA_Membership_Adapter::membership_assertion( $locked_user->ID, 'clinical_identity_link', 'google_sign_in' );
 				if ( ! is_array( $completion ) || 'allow' !== ( $completion['result'] ?? '' ) ) {
@@ -296,6 +299,7 @@ final class SA_Google_OAuth {
 							}
 						}
 					}
+				}
 				}
 			}
 		} finally {
@@ -353,7 +357,9 @@ final class SA_Google_OAuth {
 		}
 		check_admin_referer( 'sa_google_unlink', 'sa_nonce' );
 		$user_id = get_current_user_id();
-		if ( SA_Security::rate_limited( 'google_unlink', 5, 900, (string) $user_id ) || ! self::fresh_passkey( $user_id ) ) {
+		if ( SA_Security::rate_limited( 'google_unlink', 5, 900, (string) $user_id )
+			|| ! self::fresh_passkey( $user_id )
+			|| ( class_exists( 'SAUTH_Security_Orchestrator' ) && ! SAUTH_Security_Orchestrator::allow_method_removal( $user_id, 'google' ) ) ) {
 			wp_safe_redirect( SA_Security::message_url( 'google_account', 'error', 'Verify a passkey in this session before unlinking Google.' ) );
 			exit;
 		}

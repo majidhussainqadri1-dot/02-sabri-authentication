@@ -2,12 +2,13 @@
 
 defined( 'ABSPATH' ) || exit;
 
-/**
- * Canonical route constitution and compatibility migration.
- */
+/** Canonical File 02 routes and compatibility migration. */
 final class SAUTH_Canonical_Routes {
-	const QUERY_VAR = 'sauth_canonical_route';
-	const SESSIONS  = 'account_sessions';
+	const QUERY_VAR      = 'sauth_canonical_route';
+	const SESSIONS       = 'account_sessions';
+	const SECURITY       = 'account_security';
+	const RESOLVE        = 'resolve_account';
+	const RELATED_ORIGIN = 'related_origin_webauthn';
 
 	public static function init() {
 		add_action( 'init', array( __CLASS__, 'register' ), 1 );
@@ -22,6 +23,9 @@ final class SAUTH_Canonical_Routes {
 
 	public static function register() {
 		add_rewrite_rule( '^account/sessions/?$', 'index.php?' . self::QUERY_VAR . '=' . self::SESSIONS, 'top' );
+		add_rewrite_rule( '^account-security/?$', 'index.php?' . self::QUERY_VAR . '=' . self::SECURITY, 'top' );
+		add_rewrite_rule( '^resolve-account/?$', 'index.php?' . self::QUERY_VAR . '=' . self::RESOLVE, 'top' );
+		add_rewrite_rule( '^\\.well-known/webauthn/?$', 'index.php?' . self::QUERY_VAR . '=' . self::RELATED_ORIGIN, 'top' );
 		if ( SAUTH_VERSION !== (string) get_option( 'sauth_rewrite_version', '' ) ) {
 			flush_rewrite_rules( false );
 			update_option( 'sauth_rewrite_version', SAUTH_VERSION, false );
@@ -29,19 +33,26 @@ final class SAUTH_Canonical_Routes {
 	}
 
 	public static function query_vars( $vars ) {
-		$vars   = is_array( $vars ) ? $vars : array();
+		$vars = is_array( $vars ) ? $vars : array();
 		$vars[] = self::QUERY_VAR;
 		return array_values( array_unique( $vars ) );
 	}
 
 	public static function route_url( $url, $key ) {
-		return 'sessions' === (string) $key ? home_url( '/account/sessions/' ) : $url;
+		$routes = array(
+			'sessions' => '/account/sessions/',
+			'security' => '/account-security/',
+			'resolve_account' => '/resolve-account/',
+			'related_origin_webauthn' => '/.well-known/webauthn',
+		);
+		$key = sanitize_key( (string) $key );
+		return isset( $routes[ $key ] ) ? home_url( $routes[ $key ] ) : $url;
 	}
 
 	public static function redirect_legacy_route() {
 		if ( is_page() && function_exists( 'get_queried_object_id' ) ) {
 			$page_map = (array) get_option( 'sauth_page_map', get_option( 'sa_page_map', array() ) );
-			$page_id  = absint( $page_map['sessions'] ?? 0 );
+			$page_id = absint( $page_map['sessions'] ?? 0 );
 			if ( $page_id && get_queried_object_id() === $page_id ) {
 				wp_safe_redirect( home_url( '/account/sessions/' ), 301 );
 				exit;
@@ -50,26 +61,36 @@ final class SAUTH_Canonical_Routes {
 	}
 
 	public static function render() {
-		if ( self::SESSIONS !== (string) get_query_var( self::QUERY_VAR ) ) {
+		$route = (string) get_query_var( self::QUERY_VAR );
+		if ( ! in_array( $route, array( self::SESSIONS, self::SECURITY, self::RESOLVE, self::RELATED_ORIGIN ), true ) ) {
 			return;
 		}
 		status_header( 200 );
 		nocache_headers();
-		header( 'X-Robots-Tag: noindex, noarchive, nosnippet', true );
 		header( 'Referrer-Policy: no-referrer', true );
 		header( 'Cross-Origin-Opener-Policy: same-origin', true );
-		if ( ! is_user_logged_in() ) {
-			wp_safe_redirect(
-				add_query_arg(
-					'redirect_to',
-					home_url( '/account/sessions/' ),
-					SA_Security::page_url( 'login', wp_login_url() )
-				)
-			);
+
+		if ( self::RELATED_ORIGIN === $route ) {
+			header( 'Content-Type: application/json; charset=utf-8', true );
+			header( 'Cache-Control: no-store, max-age=0', true );
+			$manifest = class_exists( 'SAUTH_Modern_Auth' ) ? SAUTH_Modern_Auth::related_origin_manifest() : array( 'origins' => array() );
+			echo wp_json_encode( $manifest, JSON_UNESCAPED_SLASHES );
 			exit;
 		}
+
+		header( 'X-Robots-Tag: noindex, noarchive, nosnippet', true );
+		$requires_auth = in_array( $route, array( self::SESSIONS, self::SECURITY ), true );
+		if ( $requires_auth && ! is_user_logged_in() ) {
+			$destination = self::SESSIONS === $route ? home_url( '/account/sessions/' ) : home_url( '/account-security/' );
+			wp_safe_redirect( add_query_arg( 'redirect_to', $destination, SA_Security::page_url( 'login', wp_login_url() ) ) );
+			exit;
+		}
+
+		$shortcode = self::SESSIONS === $route
+			? '[sabri_auth_sessions]'
+			: ( self::SECURITY === $route ? '[sabri_auth_security_center]' : '[sabri_auth_collision_resolution]' );
 		get_header();
-		echo '<main id="main" class="sauth-canonical-route">' . do_shortcode( '[sabri_auth_sessions]' ) . '</main>';
+		echo '<main id="main" class="sauth-canonical-route">' . do_shortcode( $shortcode ) . '</main>';
 		get_footer();
 		exit;
 	}
@@ -86,13 +107,19 @@ final class SAUTH_Canonical_Routes {
 		$manifest['cache']   = 'private-no-store';
 		$routes = isset( $manifest['routes'] ) && is_array( $manifest['routes'] ) ? $manifest['routes'] : array();
 		$routes['sessions'] = array(
-			'owner'     => 'File 02',
-			'route'     => '/account/sessions/',
-			'access'    => 'authenticated',
-			'index'     => 'noindex',
-			'cache'     => 'no-store',
-			'layout'    => 'single-column-account',
-			'shortcode' => '[sabri_auth_sessions]',
+			'owner'=>'File 02','route'=>'/account/sessions/','access'=>'authenticated','index'=>'noindex','cache'=>'no-store','layout'=>'single-column-account','shortcode'=>'[sabri_auth_sessions]',
+		);
+		$routes['security'] = array(
+			'owner'=>'File 02','route'=>'/account-security/','access'=>'authenticated','index'=>'noindex','cache'=>'no-store','layout'=>'single-column-account','shortcode'=>'[sabri_auth_security_center]',
+		);
+		$routes['resolve_account'] = array(
+			'owner'=>'File 02','route'=>'/resolve-account/','access'=>'public-case-token','index'=>'noindex','cache'=>'no-store','layout'=>'single-column-account','shortcode'=>'[sabri_auth_collision_resolution]',
+		);
+		$routes['passkeys'] = array(
+			'owner'=>'File 02','route'=>'/account-passkeys/','access'=>'authenticated','index'=>'noindex','cache'=>'no-store','layout'=>'single-column-account','shortcode'=>'[sabri_auth_passkeys]',
+		);
+		$routes['related_origin_webauthn'] = array(
+			'owner'=>'File 02','route'=>'/.well-known/webauthn','access'=>'public-json','index'=>'noindex','cache'=>'no-store','layout'=>'none',
 		);
 		$manifest['routes'] = $routes;
 		$manifests['file02-authentication'] = $manifest;
@@ -105,10 +132,13 @@ final class SAUTH_Canonical_Routes {
 			$manifests['file02-authentication'] = array();
 		}
 		$manifests['file02-authentication']['canonical_repository'] = '02-sabri-authentication-and-accounts';
-		$manifests['file02-authentication']['package_folder']       = '02-sabri-authentication';
-		$manifests['file02-authentication']['php_prefix']            = 'SAUTH_';
-		$manifests['file02-authentication']['version']               = SAUTH_VERSION;
+		$manifests['file02-authentication']['package_folder'] = '02-sabri-authentication';
+		$manifests['file02-authentication']['php_prefix'] = 'SAUTH_';
+		$manifests['file02-authentication']['version'] = SAUTH_VERSION;
 		$manifests['file02-authentication']['canonical_sessions_route'] = '/account/sessions/';
+		$manifests['file02-authentication']['canonical_security_route'] = '/account-security/';
+		$manifests['file02-authentication']['canonical_collision_route'] = '/resolve-account/';
+		$manifests['file02-authentication']['related_origin_manifest'] = '/.well-known/webauthn';
 		return $manifests;
 	}
 
@@ -134,6 +164,6 @@ final class SAUTH_Canonical_Routes {
 			delete_transient( 'sa_activation_notice' );
 		}
 		/* Runtime/schema version markers are intentionally not written here.
-		 * SAUTH_Activator::repair() publishes them only after storage postconditions. */
+		 * SAUTH_Activator publishes them only after material storage postconditions pass. */
 	}
 }

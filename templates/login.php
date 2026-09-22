@@ -12,7 +12,7 @@
 				<?php wp_nonce_field( 'sa_login', 'sa_nonce' ); ?>
 				<div class="sa-honeypot" aria-hidden="true"><label>Website<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
 				<label for="sa-user-login">Email or username</label>
-				<input id="sa-user-login" type="text" name="user_login" autocomplete="username" autocapitalize="none" maxlength="320" required>
+				<input id="sa-user-login" type="text" name="user_login" autocomplete="username webauthn" autocapitalize="none" maxlength="320" required>
 				<label for="sa-user-password">Password</label>
 				<div class="sa-password-wrap">
 					<input id="sa-user-password" type="password" name="password" autocomplete="current-password" minlength="12" maxlength="4096" required>
