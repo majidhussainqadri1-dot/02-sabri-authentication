@@ -205,6 +205,19 @@ final class SA_Plugin {
 			exit;
 		}
 		$client_id = isset( $_POST['google_client_id'] ) ? sanitize_text_field( wp_unslash( $_POST['google_client_id'] ) ) : '';
+		$related_raw = isset( $_POST['related_origins'] ) ? (string) wp_unslash( $_POST['related_origins'] ) : '';
+		$related_origins = array();
+		foreach ( preg_split( '/\\r?\\n/', $related_raw ) as $origin ) {
+			$origin = trim( (string) $origin );
+			if ( '' === $origin ) { continue; }
+			$normalized = class_exists( 'SAUTH_Modern_Auth' ) ? SAUTH_Modern_Auth::normalize_origin( $origin ) : '';
+			if ( '' === $normalized || count( $related_origins ) >= 5 ) {
+				wp_safe_redirect( add_query_arg( 'error', 'invalid_related_origins', self::settings_url() ) );
+				exit;
+			}
+			$related_origins[ $normalized ] = $normalized;
+		}
+		$related_origins = array_values( $related_origins );
 		if ( '' !== $client_id && ! preg_match( '/^[0-9A-Za-z._-]+\.apps\.googleusercontent\.com$/', $client_id ) ) {
 			wp_safe_redirect( add_query_arg( 'error', 'invalid_client_id', self::settings_url() ) );
 			exit;
