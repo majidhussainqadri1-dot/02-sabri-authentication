@@ -22,6 +22,9 @@ final class SAUTH_Security_Orchestrator {
 		add_action( 'wp_ajax_sauth_security_lockdown', array( __CLASS__, 'lockdown_ajax' ) );
 		add_action( 'wp_ajax_sauth_recovery_change_request', array( __CLASS__, 'recovery_change_ajax' ) );
 		add_action( 'wp_ajax_sauth_recovery_change_cancel', array( __CLASS__, 'recovery_cancel_ajax' ) );
+		add_action( 'admin_post_nopriv_sauth_resolve_collision', array( __CLASS__, 'resolve_collision_post' ) );
+		add_action( 'admin_post_sauth_resolve_collision', array( __CLASS__, 'resolve_collision_post' ) );
+		add_filter( 'sauth_authentication_assurance_v2', array( __CLASS__, 'assurance_filter' ), 20, 2 );
 		add_action( 'sauth_security_cleanup', array( __CLASS__, 'cleanup' ) );
 		if ( function_exists( 'wp_next_scheduled' ) && ! wp_next_scheduled( 'sauth_security_cleanup' ) ) {
 			wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', 'sauth_security_cleanup' );
@@ -153,6 +156,12 @@ final class SAUTH_Security_Orchestrator {
 		);
 	}
 
+
+	public static function assurance_filter( $baseline, $user_id ) {
+		$receipt = self::assurance_v2( absint( $user_id ) );
+		return 'allow' === ( $receipt['result'] ?? '' ) ? $receipt : ( is_array( $baseline ) ? $baseline : array() );
+	}
+
 	public static function smart_step_up( $user_id, $action, array $policy=array() ) {
 		$receipt=self::assurance_v2($user_id);
 		if('allow'!==($receipt['result']??'')){return false;}
@@ -168,17 +177,98 @@ final class SAUTH_Security_Orchestrator {
 		return true;
 	}
 
+
+	/**
+	 * Create an opaque one-time collision case. The submitted identifier remains
+	 * encrypted inside File 02 and the public route receives only random values.
+	 */
+	public static function create_collision_case( $identifier, $reason='possible_existing_account' ) {
+		global $wpdb;
+		$identifier = trim( strtolower( (string) $identifier ) );
+		if ( '' === $identifier || strlen( $identifier ) > 320 ) { return new WP_Error( 'sauth_collision_identifier_invalid', 'Account resolution could not be started.' ); }
+		$public_id = strtolower( wp_generate_uuid4() );
+		$token = SA_Security::random_token( 32 );
+		$token_cipher = SA_Security::encrypt( $token );
+		$payload_cipher = SA_Security::encrypt( wp_json_encode( array( 'identifier'=>$identifier, 'reason'=>sanitize_key( $reason ) ) ) );
+		if ( '' === $token || '' === $token_cipher || '' === $payload_cipher ) { return new WP_Error( 'sauth_collision_protection_failed', 'Account resolution could not be protected.' ); }
+		$now = current_time( 'mysql', true );
+		$stored = $wpdb->insert(
+			SAUTH_Activator::table( 'recovery_changes' ),
+			array(
+				'public_id'=>$public_id, 'user_id'=>0, 'change_kind'=>'collision_resolution',
+				'payload_ciphertext'=>$payload_cipher, 'owner_token_ciphertext'=>$token_cipher,
+				'fingerprint_hash'=>SA_Security::client_fingerprint(), 'status'=>'pending',
+				'apply_after'=>$now, 'created_at'=>$now, 'updated_at'=>$now,
+			),
+			array( '%s','%d','%s','%s','%s','%s','%s','%s','%s','%s' )
+		);
+		if ( 1 !== (int) $stored ) { return new WP_Error( 'sauth_collision_store_failed', 'Account resolution could not be started.' ); }
+		return array(
+			'case'=>$public_id,
+			'proof'=>$token,
+			'url'=>add_query_arg( array( 'case'=>$public_id, 'proof'=>$token ), home_url( '/resolve-account/' ) ),
+		);
+	}
+
+	public static function resolve_collision_case( $public_id, $owner_token ) {
+		global $wpdb;
+		$public_id = strtolower( sanitize_text_field( (string) $public_id ) );
+		$owner_token = (string) $owner_token;
+		if ( ! preg_match( '/^[0-9a-f-]{36}$/', $public_id ) || strlen( $owner_token ) > 512 ) {
+			return new WP_Error( 'sauth_collision_case_invalid', 'Account-resolution case is invalid.' );
+		}
+		$row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM " . SAUTH_Activator::table( 'recovery_changes' ) . " WHERE public_id=%s AND change_kind='collision_resolution'", $public_id ), ARRAY_A );
+		if ( ! is_array( $row ) || 'pending' !== (string) ( $row['status'] ?? '' ) ) { return new WP_Error( 'sauth_collision_case_unavailable', 'Account-resolution case is unavailable.' ); }
+		if ( ! hash_equals( (string) ( $row['fingerprint_hash'] ?? '' ), SA_Security::client_fingerprint() ) ) {
+			return new WP_Error( 'sauth_collision_fingerprint_mismatch', 'Account-resolution context changed.' );
+		}
+		$expected = SA_Security::decrypt( (string) $row['owner_token_ciphertext'] );
+		if ( false === $expected || ! hash_equals( (string) $expected, $owner_token ) ) { return new WP_Error( 'sauth_collision_proof_invalid', 'Account-resolution proof is invalid.' ); }
+		$payload_json = SA_Security::decrypt( (string) $row['payload_ciphertext'] );
+		$payload = json_decode( (string) $payload_json, true );
+		if ( ! is_array( $payload ) ) { return new WP_Error( 'sauth_collision_payload_invalid', 'Account-resolution case is unreadable.' ); }
+		/* File 00/canonical identity owner must make the final decision. File 02
+		 * never performs an email-only merge. */
+		$result = apply_filters( 'sauth_resolve_collision_case_v1', null, $payload, array( 'case'=>$public_id, 'fingerprint'=>SA_Security::client_fingerprint() ) );
+		if ( ! is_array( $result ) || 'allow' !== (string) ( $result['result'] ?? '' ) || empty( $result['user_id'] ) ) {
+			return new WP_Error( 'sauth_collision_owner_verification_required', 'Canonical identity verification is required before an account can be resolved.' );
+		}
+		$changed = $wpdb->update(
+			SAUTH_Activator::table( 'recovery_changes' ),
+			array( 'user_id'=>absint( $result['user_id'] ), 'status'=>'applied', 'updated_at'=>current_time( 'mysql', true ) ),
+			array( 'public_id'=>$public_id, 'status'=>'pending' ),
+			array( '%d','%s','%s' ), array( '%s','%s' )
+		);
+		if ( 1 !== (int) $changed ) { return new WP_Error( 'sauth_collision_state_race', 'Account-resolution state changed. Retry safely.' ); }
+		self::timeline_event( absint( $result['user_id'] ), 'account_collision_resolved', 'high', array( 'method'=>'canonical_owner_verification' ) );
+		return array( 'result'=>'allow', 'user_id'=>absint( $result['user_id'] ) );
+	}
+
+	public static function resolve_collision_post() {
+		check_admin_referer( 'sauth_resolve_collision', 'sauth_nonce' );
+		$case = isset( $_POST['case'] ) ? sanitize_text_field( wp_unslash( $_POST['case'] ) ) : '';
+		$proof = isset( $_POST['proof'] ) ? (string) wp_unslash( $_POST['proof'] ) : '';
+		$result = self::resolve_collision_case( $case, $proof );
+		$proof = ''; unset( $_POST['proof'] );
+		if ( is_wp_error( $result ) ) {
+			wp_safe_redirect( add_query_arg( 'status', 'verification_required', home_url( '/resolve-account/' ) ) );
+			exit;
+		}
+		wp_safe_redirect( SA_Membership_Adapter::login_url( home_url( '/' ) ) );
+		exit;
+	}
+
 	public static function schedule_recovery_change( $user_id, $kind, array $payload, $delay=self::RECOVERY_DEFAULT ) {
 		global $wpdb;
 		$user_id=absint($user_id);$kind=sanitize_key((string)$kind);
 		$allowed=array('email_change','phone_change','provider_unlink','passkey_remove','recovery_contact','collision_resolution');
 		if(!$user_id || !in_array($kind,$allowed,true) || !self::smart_step_up($user_id,'recovery_change_'.$kind)){return new WP_Error('sauth_recovery_step_up_required','Fresh strong authentication is required.');}
 		$delay=max(self::RECOVERY_MIN,min(self::RECOVERY_MAX,absint($delay)));
-		$token=SA_Security::random_token(32);$cipher=SA_Security::encrypt($token);
-		if(''===$token||''===$cipher){return new WP_Error('sauth_recovery_token_failed','Recovery change could not be protected.');}
+		$token=SA_Security::random_token(32);$cipher=SA_Security::encrypt($token);$payload_cipher=SA_Security::encrypt(wp_json_encode($payload));
+		if(''===$token||''===$cipher||''===$payload_cipher){return new WP_Error('sauth_recovery_token_failed','Recovery change could not be protected.');}
 		$public_id=strtolower(wp_generate_uuid4());$now=time();
 		$stored=$wpdb->insert(SAUTH_Activator::table('recovery_changes'),array(
-			'public_id'=>$public_id,'user_id'=>$user_id,'change_kind'=>$kind,'payload_ciphertext'=>SA_Security::encrypt(wp_json_encode($payload)),
+			'public_id'=>$public_id,'user_id'=>$user_id,'change_kind'=>$kind,'payload_ciphertext'=>$payload_cipher,
 			'owner_token_ciphertext'=>$cipher,'fingerprint_hash'=>SA_Security::client_fingerprint(),'status'=>'pending',
 			'apply_after'=>gmdate('Y-m-d H:i:s',$now+$delay),'created_at'=>gmdate('Y-m-d H:i:s',$now),'updated_at'=>gmdate('Y-m-d H:i:s',$now)
 		),array('%s','%d','%s','%s','%s','%s','%s','%s','%s','%s'));
@@ -203,6 +293,7 @@ final class SAUTH_Security_Orchestrator {
 		if(!is_array($row)||'pending'!==(string)$row['status']||strtotime((string)$row['apply_after'])>time()){return new WP_Error('sauth_recovery_not_ready','Recovery change is not ready.');}
 		$expected=SA_Security::decrypt((string)$row['owner_token_ciphertext']);
 		if(false===$expected||!hash_equals((string)$expected,(string)$owner_token)){return new WP_Error('sauth_recovery_token_invalid','Recovery change token is invalid.');}
+		if ( 'collision_resolution' === (string) $row['change_kind'] && ! hash_equals( (string) ( $row['fingerprint_hash'] ?? '' ), SA_Security::client_fingerprint() ) ) { return new WP_Error('sauth_recovery_fingerprint_mismatch','Recovery context changed.'); }
 		$payload_json=SA_Security::decrypt((string)$row['payload_ciphertext']);$payload=json_decode((string)$payload_json,true);
 		$result=apply_filters('sauth_apply_recovery_change_v1',null,(string)$row['change_kind'],absint($row['user_id']),is_array($payload)?$payload:array());
 		if(true!==$result){return new WP_Error('sauth_recovery_handler_unavailable','Canonical owner did not approve or handle the recovery change.');}
@@ -234,7 +325,20 @@ final class SAUTH_Security_Orchestrator {
 		<?php foreach($rows as $row): ?><li><strong><?php echo esc_html(ucwords(str_replace('_',' ',(string)$row['event_type']))); ?></strong> — <?php echo esc_html((string)$row['created_at']); ?> <button type="button" data-sauth-not-me="<?php echo esc_attr((string)$row['public_id']); ?>">This was not me</button></li><?php endforeach; ?>
 		</ul></section></main><?php return (string)ob_get_clean();
 	}
-	public static function render_collision_resolution(){return '<main class="sa-auth-shell"><section class="sa-auth-card"><h1>Resolve Existing Account</h1><p>Account identities are never merged silently. Continue only through a one-time, fingerprint-bound File 02 resolution case and the canonical File 00 identity owner.</p></section></main>';}
+	public static function render_collision_resolution(){
+		$case = isset( $_GET['case'] ) ? sanitize_text_field( wp_unslash( $_GET['case'] ) ) : '';
+		$proof = isset( $_GET['proof'] ) ? sanitize_text_field( wp_unslash( $_GET['proof'] ) ) : '';
+		$status = isset( $_GET['status'] ) ? sanitize_key( wp_unslash( $_GET['status'] ) ) : '';
+		ob_start(); ?>
+		<section class="sa-auth-shell"><div class="sa-auth-card"><h1>Resolve Existing Account</h1>
+		<p>Accounts are never merged silently or from email alone. This flow uses an opaque, one-time, fingerprint-bound case and requires verification by the canonical File 00 identity owner.</p>
+		<?php if ( 'verification_required' === $status ) : ?><div class="sa-notice sa-notice-error" role="status">Additional canonical identity verification is required. No account was merged.</div><?php endif; ?>
+		<?php if ( $case && $proof ) : ?><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+		<input type="hidden" name="action" value="sauth_resolve_collision"><input type="hidden" name="case" value="<?php echo esc_attr( $case ); ?>"><input type="hidden" name="proof" value="<?php echo esc_attr( $proof ); ?>">
+		<?php wp_nonce_field( 'sauth_resolve_collision', 'sauth_nonce' ); ?><button class="sa-primary-button" type="submit">Verify and Continue Safely</button></form>
+		<?php else : ?><p>Start from the registration, sign-in, or account-recovery flow so a protected resolution case can be created without exposing whether an identifier exists.</p><?php endif; ?>
+		</div></section><?php return (string)ob_get_clean();
+	}
 
 	public static function cleanup() {
 		global $wpdb;
