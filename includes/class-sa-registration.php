@@ -80,6 +80,9 @@ final class SA_Registration {
 		if ( ! $valid || ! $user instanceof WP_User ) {
 			$this->login_failure( 0, $redirect, 'credentials_invalid' );
 		}
+		if ( class_exists( 'SAUTH_Security_Orchestrator' ) && SAUTH_Security_Orchestrator::authentication_blocked( $user->ID ) ) {
+			$this->login_failure( $user->ID, $redirect, 'emergency_lockdown_active' );
+		}
 		if ( ! SAUTH_Provider_Health::allow_request( 'membership' ) ) {
 			$this->login_failure( $user->ID, $redirect, 'membership_provider_circuit_open' );
 		}
@@ -158,8 +161,13 @@ final class SA_Registration {
 		unset( $_POST['password'], $_POST['password_confirm'] );
 		if ( 'allow' !== ( $result['result'] ?? '' ) || empty( $result['user_id'] ) ) {
 			self::release_google_registration_locks( $google_locks, 0, 'google_registration_provider_rejected_lock_release_failed' );
-			SAUTH_Provider_Health::record_failure( 'membership', sanitize_key( (string) ( $result['reason_code'] ?? 'provider_rejected' ) ), $latency );
-			SAUTH_Event_Outbox::emit( 'AccountAuthenticationFailed.v1', 0, 0, array( 'method' => 'registration', 'reason' => sanitize_key( (string) ( $result['reason_code'] ?? 'provider_rejected' ) ) ), 'security' );
+			$reason_code = sanitize_key( (string) ( $result['reason_code'] ?? 'provider_rejected' ) );
+			SAUTH_Provider_Health::record_failure( 'membership', $reason_code, $latency );
+			SAUTH_Event_Outbox::emit( 'AccountAuthenticationFailed.v1', 0, 0, array( 'method' => 'registration', 'reason' => $reason_code ), 'security' );
+			if ( class_exists( 'SAUTH_Security_Orchestrator' ) && in_array( $reason_code, array( 'account_exists','duplicate_account','identity_collision','email_in_use','provider_collision' ), true ) ) {
+				$case = SAUTH_Security_Orchestrator::create_collision_case( (string) $payload['email'], $reason_code );
+				if ( is_array( $case ) && ! empty( $case['url'] ) ) { wp_safe_redirect( SA_Security::safe_redirect( (string) $case['url'], SA_Security::page_url( 'login', wp_login_url() ) ) ); exit; }
+			}
 			$this->registration_redirect( 'error', 'Registration could not be completed. The details may already belong to an account, or the membership service may require review.' );
 		}
 		SAUTH_Provider_Health::record_success( 'membership', $latency );
