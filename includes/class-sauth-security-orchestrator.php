@@ -25,10 +25,37 @@ final class SAUTH_Security_Orchestrator {
 		add_action( 'admin_post_nopriv_sauth_resolve_collision', array( __CLASS__, 'resolve_collision_post' ) );
 		add_action( 'admin_post_sauth_resolve_collision', array( __CLASS__, 'resolve_collision_post' ) );
 		add_filter( 'sauth_authentication_assurance_v2', array( __CLASS__, 'assurance_filter' ), 20, 2 );
+		add_action( 'sauth_event_recorded', array( __CLASS__, 'observe_auth_event' ), 30, 1 );
 		add_action( 'sauth_security_cleanup', array( __CLASS__, 'cleanup' ) );
 		if ( function_exists( 'wp_next_scheduled' ) && ! wp_next_scheduled( 'sauth_security_cleanup' ) ) {
 			wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', 'sauth_security_cleanup' );
 		}
+	}
+
+	public static function observe_auth_event( $event ) {
+		if ( ! is_array( $event ) ) { return; }
+		$user_id = absint( $event['subject_user_id'] ?? 0 );
+		$name = (string) ( $event['event_name'] ?? '' );
+		if ( ! $user_id || '' === $name ) { return; }
+		$map = array(
+			'AccountAuthenticationSucceeded.v1' => array( 'authentication_succeeded','low' ),
+			'AccountAuthenticationFailed.v1'    => array( 'authentication_failed','medium' ),
+			'EmailVerified.v1'                  => array( 'email_verified','low' ),
+			'PasswordResetCompleted.v1'         => array( 'password_reset_completed','high' ),
+			'AuthSessionRevoked.v1'             => array( 'session_revoked','medium' ),
+			'GoogleAccountLinked.v1'            => array( 'google_linked','medium' ),
+			'GoogleAccountUnlinked.v1'          => array( 'google_unlinked','high' ),
+			'PasskeyRegistered.v1'              => array( 'passkey_registered','medium' ),
+			'PasskeyAuthenticated.v1'           => array( 'passkey_authenticated','low' ),
+			'PasskeyRevoked.v1'                 => array( 'passkey_revoked','high' ),
+		);
+		if ( ! isset( $map[ $name ] ) ) { return; }
+		$payload = isset( $event['payload'] ) && is_array( $event['payload'] ) ? $event['payload'] : array();
+		$safe = array();
+		foreach ( array( 'method','reason','risk','risk_score','step_up','completion_required' ) as $key ) {
+			if ( isset( $payload[ $key ] ) ) { $safe[ $key ] = $payload[ $key ]; }
+		}
+		self::timeline_event( $user_id, $map[ $name ][0], $map[ $name ][1], $safe );
 	}
 
 	public static function timeline_event( $user_id, $event_type, $severity='low', array $details=array() ) {
@@ -98,6 +125,17 @@ final class SAUTH_Security_Orchestrator {
 		return !self::authentication_blocked($user_id);
 	}
 
+	public static function clear_lockdown_by_canonical_recovery( $user_id, array $evidence=array() ) {
+		$user_id = absint( $user_id );
+		if ( ! $user_id || ! self::authentication_blocked( $user_id ) ) { return false; }
+		$authorized = true === apply_filters( 'sauth_lockdown_recovery_authorize_v1', false, $user_id, $evidence );
+		if ( ! $authorized ) { return false; }
+		delete_user_meta( $user_id, self::LOCKDOWN_META );
+		self::timeline_event( $user_id, 'emergency_lockdown_released', 'critical', array( 'method'=>'canonical_privileged_recovery' ) );
+		SA_Membership_Adapter::audit( 'authentication_emergency_lockdown_recovered', $user_id );
+		return ! self::authentication_blocked( $user_id );
+	}
+
 	public static function report_not_me( $user_id, $timeline_id ) {
 		global $wpdb;
 		$user_id=absint($user_id); $timeline_id=sanitize_text_field((string)$timeline_id);
@@ -121,7 +159,8 @@ final class SAUTH_Security_Orchestrator {
 		if((int)$devices>=4){$score+=20;$reasons[]='rapid_device_velocity';}
 		if((int)$networks>=3){$score+=20;$reasons[]='rapid_network_velocity';}
 		if(class_exists('SAUTH_Shared_Signals')){$shared=SAUTH_Shared_Signals::risk_score_for_user($user_id);if($shared){$score+=$shared;$reasons[]='shared_security_signal';}}
-		return array('score'=>min(100,$score),'reasons'=>$reasons);
+		$reasons = array_values( array_unique( $reasons ) );
+		return array('score'=>min(100,$score),'reasons'=>$reasons,'explanations'=>self::explain_reasons($reasons));
 	}
 
 	public static function explain_reasons( array $reasons ) {
