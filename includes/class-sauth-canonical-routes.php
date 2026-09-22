@@ -163,7 +163,7 @@ final class SAUTH_Canonical_Routes {
 			set_transient( 'sauth_activation_notice', '1', 120 );
 			delete_transient( 'sa_activation_notice' );
 		}
-		/* Runtime/schema version markers are published only by SAUTH_Activator
-		 * after material storage postconditions pass. */
+		/* Runtime/schema version markers are intentionally not written here.
+		 * SAUTH_Activator publishes them only after material storage postconditions pass. */
 	}
 }
