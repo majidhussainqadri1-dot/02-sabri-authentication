@@ -145,7 +145,7 @@ sauth_x24_has_all( $fido, array( "'none' ===", "'hardware_backed'=>false", 'saut
 sauth_x24_assert( false !== strpos( $passkeys, 'SAUTH_FIDO_Trust::assess' ) && false !== strpos( $runtime, 'SAUTH_FIDO_Trust::assess' ), 'X-QA-24-12 FIDO integrated' );
 
 /* X-QA-24-13 — exact HTTPS Related-Origin manifest, no wildcard/path. */
-sauth_x24_has_all( $modern, array( 'false !== strpos( $origin, \'*\' )', "'https' !==", "! empty( $parts['path'] ) && '/' !== $parts['path']" ), 'X-QA-24-13 related origins' );
+sauth_x24_has_all( $modern, array( 'false !== strpos( $origin, \'*\' )', "'https' !==", '! empty( $parts[\'path\'] ) && \'/\' !== $parts[\'path\']' ), 'X-QA-24-13 related origins' );
 sauth_x24_has_all( $routes, array( "'^\\\\.well-known/webauthn/?$'", '/.well-known/webauthn', 'related_origin_manifest' ), 'X-QA-24-13 well-known route' );
 
 /* X-QA-24-14 — FedCM browser token cannot authenticate without server verifier. */
