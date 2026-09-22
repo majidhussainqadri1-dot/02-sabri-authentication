@@ -1,14 +1,14 @@
 {
-  "schema": 8,
+  "schema": 9,
   "file_number": "02",
   "module": "Sabri Authentication and Accounts",
   "plan_id": "SSH-F02-PLAN-2026-v1.0",
-  "release_version": "1.3.4",
-  "database_version": "1.3.0",
-  "passkey_schema_version": "1.0.1",
-  "candidate_branch": "fix/file02-legacy-email-verification-reconciliation-1.3.4",
-  "candidate_base": "a714c23fea33ecdfe9110f69c0ee1f07c9f2bcbb",
-  "current_repository_main": "a714c23fea33ecdfe9110f69c0ee1f07c9f2bcbb",
+  "release_version": "1.4.0",
+  "database_version": "1.4.0",
+  "passkey_schema_version": "1.1.0",
+  "candidate_branch": "codex/file02-modern-auth-24-1.4.0",
+  "candidate_base": "224c39bcb8c28f77504c7348dbad41226753c7e8",
+  "current_repository_main": "224c39bcb8c28f77504c7348dbad41226753c7e8",
   "intended_canonical_repository": "02-sabri-authentication-and-accounts",
   "transport_repository": "02-sabri-authentication",
   "package_folder": "02-sabri-authentication",
@@ -21,8 +21,8 @@
   "minimum_account_contract_version": "1.1.0",
   "passkey_assurance_contract_version": "1.0.0",
   "passkey_assurance_owner": "file02",
-  "package_name": "02-sabri-authentication-1.3.4-SOURCE-CANDIDATE.zip",
-  "manifest_name": "02-sabri-authentication-1.3.4-MANIFEST.json",
+  "package_name": "02-sabri-authentication-1.4.0-SOURCE-CANDIDATE.zip",
+  "manifest_name": "02-sabri-authentication-1.4.0-MANIFEST.json",
   "checksums_name": "CHECKSUMS.sha256",
   "sbom_name": "SBOM.spdx.json",
   "historical_incident_baseline_main": "8192c45b595b34e13e09934e3b2d554aa2d8553f",
@@ -45,7 +45,12 @@
     "file02_runtime_before_fix": "1.3.1",
     "deployed_file00_runtime": "1.2.43",
     "deployed_file00_database": "1.4.5",
-    "deployed_file00_managed_page_keys": ["application", "status", "security", "guardian"],
+    "deployed_file00_managed_page_keys": [
+      "application",
+      "status",
+      "security",
+      "guardian"
+    ],
     "deployed_file00_exact_contract_verified": true,
     "exact_deployed_file02_source_parity_verified": false,
     "root_cause": "File 02 SA_Membership_Adapter invented sabri_profile, sabri_security_center and sabri_verification_status keys/slugs that do not exist in File 00's managed-page contract. File 00 canonically owns application, status, security and guardian pages.",
@@ -82,7 +87,7 @@
   "artifact_policy": "Exact-head CI may lint, regression-test and deterministically package this source candidate, but staging/live/operational claims remain separate gates and must not be inferred from repository success.",
   "status": {
     "specified": "complete",
-    "coded": "legacy_email_verification_reconciliation_candidate_r341",
+    "coded": "modern_auth_24_candidate",
     "packaged": "pending_exact_head",
     "automated_qa": "pending_exact_head",
     "staging_accepted": false,
@@ -90,46 +95,39 @@
     "operational": false
   },
   "external_gates": [
-    "Owner-level repository rename",
-    "Exact-head File 02 1.3.4 CI against current File 00 1.2.44 main",
-    "Deterministic File 02 1.3.4 package and clean-extract parity",
-    "Controlled deployment of the exact File 02 1.3.4 package",
-    "Exact deployed File 02 1.3.4 source/package parity",
-    "Live completion-state re-test proving the legacy verified-email evidence is reconciled through File 00 without manual DB edits",
-    "Live password-login completion routing proving /verify-email/ is no longer selected because of the historical incomplete File 00 receipt",
-    "Reconfirm passkey assurance and Google Link callback after File 02 replacement",
-    "Real production-domain WebAuthn authenticators and browser/device acceptance",
-    "Real Google/SMTP integration",
+    "Exact-head File 02 1.4.0 CI on PHP 7.4/8.3",
+    "Exact-head File 00 1.2.44 / File 02 1.4.0 WordPress/MariaDB integration",
+    "Deterministic File 02 1.4.0 package and clean-extract parity",
+    "Hostinger staging fresh-install and upgrade migration from deployed File 02 1.3.x",
+    "Real production-domain WebAuthn conditional mediation, hybrid authenticators and browser credential signals",
+    "Real Google OAuth and optional FedCM provider verification",
+    "Configured DPoP verifier and FIDO metadata provider acceptance where enabled",
     "Security/privacy/IDOR/replay/race/accessibility/performance acceptance",
     "Backup/restore and rollback rehearsal",
     "Founder staging and production authorization"
   ],
-  "review_line": "R341-email-verification-legacy-reconciliation",
+  "review_line": "X24-modern-authentication-24",
   "cross_file_blockers": [],
   "cross_file_integration_evidence": {
     "status": "pending_exact_head",
     "workflow_run_id": 0,
     "file02_sha": "",
-    "file02_runtime": "1.3.4",
-    "file02_database": "1.3.0",
-    "file02_passkey_schema": "1.0.1",
+    "file02_runtime": "1.4.0",
+    "file02_database": "1.4.0",
+    "file02_passkey_schema": "1.1.0",
     "file00_sha": "738aa2ab4b8be3d6cfdb3ecd46c88aa8d9ece3a0",
     "file00_runtime": "1.2.44",
     "wordpress": "7.0",
     "mariadb": "11.4",
-    "scope": "The 1.3.4 exact-head integration must prove the live-observed historical File 02 verified-email shape can reconcile into current File 00 receipt-bearing truth only through the public account contract, while preserving all prior File 00/File 02 boundaries. Repository evidence is not live-resolution evidence.",
+    "scope": "Exact-head integration must preserve all R343 and earlier File 00/File 02 boundaries while proving the additive Modern Authentication 24 schema, passkey 1.1.0 migration and canonical routes. Repository evidence is not live evidence.",
     "required_proofs": [
       "fresh activation and exact runtime/schema markers",
-      "R341 bounded legacy email reconciliation against current File 00 1.2.44",
-      "File 00 contact_verified false before reconciliation and true after public-contract handoff",
-      "File 00 completion email missing before reconciliation and absent after reconciliation",
-      "canonical account taxonomy parity",
-      "canonical File 00 page-key parity for application/status/security",
-      "legacy passkey column/index upgrade",
-      "exact deployed stale user_status index recovery",
-      "legacy logical-identity collision migration",
-      "active-router legacy-table migration",
-      "final paired runtime/schema boundaries"
+      "upgrade from prior 1.3.x / passkey 1.0.1 to DB 1.4.0 / passkey 1.1.0 without data loss",
+      "three Modern Auth tables and passkey trust columns materialize idempotently",
+      "all nine canonical account types and File 00 page-key parity remain intact",
+      "R341 legacy email reconciliation and R343 draft completion sign-in remain intact",
+      "related-origin manifest, security route and collision route are registered",
+      "final paired runtime/schema boundary verification"
     ]
   },
   "pre_route_fix_cross_file_integration_evidence": {
@@ -149,8 +147,11 @@
     "status": "pending_exact_head",
     "workflow_run_id": 0,
     "file02_sha": "",
-    "file02_runtime": "1.3.4",
-    "php": ["7.4", "8.3"],
+    "file02_runtime": "1.4.0",
+    "php": [
+      "7.4",
+      "8.3"
+    ],
     "deterministic_package": false,
     "clean_extract_parity": false
   },
@@ -177,5 +178,33 @@
     "mariadb": "11.4",
     "scope": "Historical evidence only; it does not prove the current File 02 1.3.4 head."
   },
-  "r320_review_baseline": "fe66788cb6c12e966bb198b361347cb74ec490b0"
+  "r320_review_baseline": "fe66788cb6c12e966bb198b361347cb74ec490b0",
+  "modern_auth_contract_version": "1.0.0",
+  "authentication_assurance_v2_version": "2.0.0",
+  "shared_signals_contract_version": "1.0.0",
+  "modern_auth_24": {
+    "status": "repository_coding_candidate_qa_pending",
+    "governing_amendment": "SSH-F02-AMD-2026-08-08-X24 / File 02 Master Plan v2.0",
+    "features": "F02-X-24-001..024",
+    "runtime_classes": [
+      "SAUTH_Modern_Auth",
+      "SAUTH_Security_Orchestrator",
+      "SAUTH_Shared_Signals",
+      "SAUTH_Password_Safety",
+      "SAUTH_DPoP",
+      "SAUTH_FIDO_Trust"
+    ],
+    "new_tables": [
+      "sauth_security_timeline",
+      "sauth_recovery_changes",
+      "sauth_shared_signals"
+    ],
+    "routes": [
+      "/account-security/",
+      "/resolve-account/",
+      "/.well-known/webauthn",
+      "/account-passkeys/"
+    ],
+    "external_adapters": "DPoP signature verification, FIDO metadata, FedCM IdP verification and credential exchange remain fail-closed until configured and staging-accepted"
+  }
 }
