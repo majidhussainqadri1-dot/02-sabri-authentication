@@ -140,6 +140,10 @@ final class SA_Membership_Adapter {
 	 * fail-closed.
 	 */
 	public static function sign_in_allowed( array $assertion, array $completion ) {
+		$user_id = absint( $assertion['subject']['user_id'] ?? $assertion['membership']['user_id'] ?? 0 );
+		if ( $user_id && class_exists( 'SAUTH_Security_Orchestrator' ) && SAUTH_Security_Orchestrator::authentication_blocked( $user_id ) ) {
+			return false;
+		}
 		$result = (string) ( $assertion['result'] ?? 'unknown' );
 		if ( 'unknown' === $result || ! empty( $assertion['membership']['suspended'] ) ) {
 			return false;
