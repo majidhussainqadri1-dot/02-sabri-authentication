@@ -575,6 +575,9 @@ final class SAUTH_Passkeys {
 			self::authentication_failure( 0, 'credential_unknown' );
 		}
 		$user_id = absint( $credential['user_id'] );
+		if ( class_exists( 'SAUTH_Security_Orchestrator' ) && SAUTH_Security_Orchestrator::authentication_blocked( $user_id ) ) {
+			self::authentication_failure( $user_id, 'emergency_lockdown_active' );
+		}
 		if ( absint( $credential['backup_eligible'] ?? 0 ) !== ( ! empty( $parsed['backup_eligible'] ) ? 1 : 0 ) ) {
 			self::mark_credential_compromised( $credential );
 			self::authentication_failure( $user_id, 'backup_eligibility_changed' );
