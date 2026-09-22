@@ -277,11 +277,13 @@ final class SAUTH_Passkeys {
 		if ( ! wp_script_is( 'sauth-authentication', 'enqueued' ) ) {
 			wp_enqueue_script( 'sauth-authentication', SAUTH_URL . 'assets/js/authentication.js', array(), SAUTH_VERSION, true );
 		}
+		$rp_context = self::rp_context();
 		wp_localize_script(
 			'sauth-authentication',
 			'SabriAuthPasskeys',
 			array(
 				'ajaxUrl'      => admin_url( 'admin-ajax.php' ),
+				'rpId'         => (string) $rp_context['rp_id'],
 				'nonce'        => is_user_logged_in() ? wp_create_nonce( 'sauth_passkeys' ) : '',
 				'loggedIn'     => is_user_logged_in(),
 				'managerUrl'   => self::manager_url(),
