@@ -34,7 +34,7 @@
           "referenceLocator": "pkg:wordpress/sabri-authentication@1.4.0"
         }
       ],
-      "comment": "Modern Authentication 24 repository candidate. Runtime/DB/passkey schema 1.4.0 / 1.4.0 / 1.1.0; passkey assurance v1 1.0.0 preserved; Modern Auth 1.0.0, Authentication Assurance v2 2.0.0 and Shared Signals 1.0.0 added. DPoP/FIDO/FedCM/credential exchange external adapters remain fail-closed until configured and staging-accepted. Repository evidence is not live-deployment evidence."
+      "comment": "Modern Authentication 24 repository candidate. Runtime/DB/passkey schema 1.4.0 / 1.4.0 / 1.1.0; passkey assurance v1 1.0.0 preserved; Modern Auth 1.0.0, Authentication Assurance v2 2.0.0 and Shared Signals 1.0.0 added. DPoP/FIDO/FedCM/credential exchange external adapters remain fail-closed until configured and staging-accepted. Repository evidence is not live-deployment evidence. Repository/package success is not a live-deployment claim and cannot substitute for deployed-package parity or live verification."
     },
     {
       "SPDXID": "SPDXRef-Package-WordPress",
