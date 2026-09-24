@@ -45,7 +45,9 @@ Provider: File 00. Supplies current membership, suspension, verification and eli
 
 ### `sa.cf01.authentication-assurance` 1.0.0
 
-Session-, purpose- and scope-bound authentication assurance for approved clinical/professional consumers. It never authorizes the consumer's native object or action.
+Session-, purpose- and scope-bound authentication assurance for approved clinical/professional and governed platform consumers. It never authorizes the consumer's native object or action.
+
+File 19 consumes `purpose=notification_governance` only for high-risk notification governance actions such as Founder-governed bulk sends and policy/synthetic controls. The receipt remains current-session, exact-scope, WebAuthn AAL2 and five-minute bounded; File 19 must still revalidate File 00 identity/capability and its own native authorization.
 
 Professional reauthentication accepts valid provider evidence only when contract/version, `purpose=clinical_sign_in`, local scope hash, subject UUID, trace ID, AAL2 method and bounded timestamps all match. Stored receipts retain that provider provenance and are invalidated by session, fingerprint, password-binding or underlying-assurance changes.
 
