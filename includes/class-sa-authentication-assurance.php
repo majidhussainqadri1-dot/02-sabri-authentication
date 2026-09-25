@@ -27,6 +27,7 @@ final class SA_Authentication_Assurance {
 		'break_glass',
 		'guardian_sensitive',
 		'key_recovery',
+		'notification_governance',
 	);
 
 	public static function init() {
@@ -348,6 +349,7 @@ final class SA_Authentication_Assurance {
 			'break_glass'            => 120,
 			'guardian_sensitive'     => 300,
 			'key_recovery'           => 120,
+			'notification_governance'=> 300,
 		);
 		return isset( $map[ $purpose ] ) ? (int) $map[ $purpose ] : 120;
 	}
