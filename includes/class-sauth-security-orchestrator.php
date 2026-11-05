@@ -342,12 +342,14 @@ final class SAUTH_Security_Orchestrator {
 		$expected=SA_Security::decrypt((string)$row['owner_token_ciphertext']);
 		if(false===$expected||!hash_equals((string)$expected,(string)$owner_token)){return new WP_Error('sauth_recovery_token_invalid','Recovery change token is invalid.');}
 		if ( 'collision_resolution' === (string) $row['change_kind'] && ! hash_equals( (string) ( $row['fingerprint_hash'] ?? '' ), SA_Security::client_fingerprint() ) ) { return new WP_Error('sauth_recovery_fingerprint_mismatch','Recovery context changed.'); }
-		$payload_json=SA_Security::decrypt((string)$row['payload_ciphertext']);$payload=json_decode((string)$payload_json,true);
+		$payload_json=SA_Security::decrypt((string)$row['payload_ciphertext']);
+		$payload=is_string($payload_json)?json_decode($payload_json,true):null;
+		if(!is_array($payload)){return new WP_Error('sauth_recovery_payload_invalid','Recovery change payload is unreadable.');}
 		// Atomic one-time claim: a competing worker must never reach the owner.
 		// Keep uncertain outcomes in processing for manual reconciliation.
 		$claim=$wpdb->update(SAUTH_Activator::table('recovery_changes'),array('status'=>'processing','updated_at'=>current_time('mysql',true)),array('public_id'=>$public_id,'status'=>'pending'),array('%s','%s'),array('%s','%s'));
 		if(1!==(int)$claim){return new WP_Error('sauth_recovery_state_race','Recovery change state changed.');}
-		$result=apply_filters('sauth_apply_recovery_change_v1',null,(string)$row['change_kind'],absint($row['user_id']),is_array($payload)?$payload:array());
+		$result=apply_filters('sauth_apply_recovery_change_v1',null,(string)$row['change_kind'],absint($row['user_id']),$payload);
 		if(true!==$result){return new WP_Error('sauth_recovery_handler_unavailable','Canonical owner did not approve or handle the recovery change.');}
 		$updated=$wpdb->update(SAUTH_Activator::table('recovery_changes'),array('status'=>'applied','updated_at'=>current_time('mysql',true)),array('public_id'=>$public_id,'status'=>'processing'),array('%s','%s'),array('%s','%s'));
 		return 1===(int)$updated;
