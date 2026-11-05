@@ -7,7 +7,7 @@ $GLOBALS['f02_fingerprint'] = 'device-A';
 $GLOBALS['f02_now'] = 1000;
 $GLOBALS['f02_transients'] = [];
 $GLOBALS['f02_uuid'] = 0;
-class WP_Error { public function __construct(public string $code, public string $message) {} }
+class WP_Error { public $code; public $message; public function __construct(string $code, string $message) { $this->code=$code; $this->message=$message; } }
 class SAUTH_Activator { public static function table($name) { return 'test_'.$name; } }
 class SA_Security {
     public static function client_fingerprint() { return $GLOBALS['f02_fingerprint']; }
@@ -39,22 +39,22 @@ function fail($message) { fwrite(STDERR,"FAIL: $message\n"); exit(1); }
 require __DIR__.'/../../includes/class-sauth-security-orchestrator.php';
 $created=SAUTH_Security_Orchestrator::create_collision_case('person@example.test');
 if ($created instanceof WP_Error) fail('case creation failed: '.$created->code);
-if (str_contains($created['url'], 'proof') || str_contains($created['url'], $created['proof'])) fail('secret appears in URL');
+if (strpos($created['url'], 'proof') !== false || strpos($created['url'], $created['proof']) !== false) fail('secret appears in URL');
 if (count($GLOBALS['f02_transients'])!==1) fail('expected one transient');
 $key=array_key_first($GLOBALS['f02_transients']);
 if ($GLOBALS['f02_transients'][$key][1]!==$GLOBALS['f02_now']+600) fail('handoff TTL must be 600 seconds');
 $_GET=['case'=>$created['case']];
 $html=SAUTH_Security_Orchestrator::render_collision_resolution();
-if (!str_contains($html, 'name="proof"') || !str_contains($html, $created['proof'])) fail('same fingerprint cannot retrieve proof');
+if (!strpos($html, 'name="proof"') !== false || !strpos($html, $created['proof']) !== false) fail('same fingerprint cannot retrieve proof');
 $GLOBALS['f02_fingerprint']='device-B';
 $html=SAUTH_Security_Orchestrator::render_collision_resolution();
-if (str_contains($html, 'name="proof"')) fail('different fingerprint retrieved proof');
+if (strpos($html, 'name="proof"') !== false) fail('different fingerprint retrieved proof');
 $GLOBALS['f02_fingerprint']='device-A';
 $GLOBALS['f02_now']+=601;
 $html=SAUTH_Security_Orchestrator::render_collision_resolution();
-if (str_contains($html, 'name="proof"')) fail('expired transient retrieved proof');
+if (strpos($html, 'name="proof"') !== false) fail('expired transient retrieved proof');
 $GLOBALS['f02_now']=1000;
 delete_transient($key);
 $html=SAUTH_Security_Orchestrator::render_collision_resolution();
-if (str_contains($html, 'name="proof"')) fail('deleted transient replayed');
+if (strpos($html, 'name="proof"') !== false) fail('deleted transient replayed');
 echo "PASS: URL secrecy, TTL, same/different fingerprint, expiry, deleted-handoff replay (mock-only)\n";
