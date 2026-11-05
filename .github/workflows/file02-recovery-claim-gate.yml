@@ -4,6 +4,7 @@ on:
     paths:
       - 'includes/class-sauth-security-orchestrator.php'
       - 'tests/recovery-once-claim-gate.php'
+      - 'tests/recovery-claim-reentrancy.php'
       - '.github/workflows/file02-recovery-claim-gate.yml'
   workflow_dispatch:
 permissions:
@@ -18,6 +19,8 @@ jobs:
           php-version: '8.3'
           coverage: none
       - name: PHP syntax validation
-        run: php -l tests/recovery-once-claim-gate.php && php -l includes/class-sauth-security-orchestrator.php
+        run: php -l tests/recovery-once-claim-gate.php && php -l tests/recovery-claim-reentrancy.php && php -l includes/class-sauth-security-orchestrator.php
       - name: Fail-first ordering regression (expected red until corrected)
         run: php tests/recovery-once-claim-gate.php
+      - name: Fail-first race-loser behavioral harness (mock only)
+        run: php tests/recovery-claim-reentrancy.php
