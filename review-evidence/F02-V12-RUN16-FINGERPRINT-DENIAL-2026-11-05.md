@@ -30,3 +30,6 @@ Retrieve CI on 114f5c281634b284dd724c8b49d2e7523361e287 and correct any red test
 
 ## Time and boundaries
 Target 40 actual minutes. Start: 2026-11-05 13:10:43 +0500 (automation-provided timestamp). End must be measured independently in report; this note does not assert 40 minutes. Execution constrained by tool/runtime and unavailable local GitHub DNS. Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔
+
+## Post-checkpoint CI observation
+For exact workflow commit 114f5c281634b284dd724c8b49d2e7523361e287, recovery regression run 41992607270 succeeded; canonical storage run 41992607314 succeeded. At observation, release integrity 41992607292, File 00 integration 41992607422 and review branch integrity 41992607198 were in progress. This does not prove WordPress/MariaDB integration or live acceptance. The first CI lookup returned no runs; the later lookup found these results.
