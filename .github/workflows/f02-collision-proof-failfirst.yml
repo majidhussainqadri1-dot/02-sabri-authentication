@@ -1,0 +1,30 @@
+name: File 02 collision proof fail-first evidence
+on:
+  pull_request:
+    paths:
+      - 'includes/class-sauth-security-orchestrator.php'
+      - 'tests/security/collision-url-proof-regression.php'
+      - '.github/workflows/f02-collision-proof-failfirst.yml'
+  workflow_dispatch:
+jobs:
+  failfirst-evidence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP lint
+        run: php -l tests/security/collision-url-proof-regression.php
+      - name: Capture expected RED before source fix
+        shell: bash
+        run: |
+          set +e
+          php tests/security/collision-url-proof-regression.php > /tmp/f02-failfirst.log 2>&1
+          status=$?
+          set -e
+          cat /tmp/f02-failfirst.log
+          if [ "$status" -ne 1 ]; then
+            echo "Expected fail-first exit 1; got $status. Review this workflow when source is fixed."
+            exit 1
+          fi
+          grep -F 'Collision creation passes bearer proof into a URL parameter map' /tmp/f02-failfirst.log
+          grep -F 'Collision resolution accepts bearer proof from GET' /tmp/f02-failfirst.log
+          echo 'Expected RED confirmed; this is NOT security acceptance.'
