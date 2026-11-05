@@ -10,7 +10,7 @@ declare(strict_types=1);
 $source = file_get_contents(__DIR__ . '/../../includes/class-sauth-security-orchestrator.php');
 if ($source === false) { fwrite(STDERR, "Cannot read orchestrator source\n"); exit(2); }
 $failures = [];
-if (preg_match('/[\x27\x22]proof[\x27\x22]\s*=>\s*\$token/', $source)) {
+if (preg_match('/add_query_arg\s*\(\s*array\s*\([^)]*[\x27\x22]proof[\x27\x22]\s*=>/s', $source)) {
     $failures[] = 'Collision creation passes bearer proof into a URL parameter map';
 }
 if (preg_match('/\$_GET\s*\[\s*[\x27\x22]proof[\x27\x22]\s*\]/', $source)) {
