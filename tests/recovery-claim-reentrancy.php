@@ -42,6 +42,8 @@ class ClaimRaceDB {
 }
 function absint($v) { return abs((int)$v); }
 function sanitize_text_field($v) { return (string)$v; }
+// WordPress time helper is required before the claim is attempted.
+function current_time($type, $gmt = false) { return gmdate('Y-m-d H:i:s'); }
 $ownerCalls = 0;
 function apply_filters($hook, ...$args) {
     global $ownerCalls;
