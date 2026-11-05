@@ -45,7 +45,7 @@ $key=array_key_first($GLOBALS['f02_transients']);
 if ($GLOBALS['f02_transients'][$key][1]!==$GLOBALS['f02_now']+600) fail('handoff TTL must be 600 seconds');
 $_GET=['case'=>$created['case']];
 $html=SAUTH_Security_Orchestrator::render_collision_resolution();
-if (!strpos($html, 'name="proof"') !== false || !strpos($html, $created['proof']) !== false) fail('same fingerprint cannot retrieve proof');
+if (strpos($html, 'name="proof"') === false || strpos($html, $created['proof']) === false) fail('same fingerprint cannot retrieve proof');
 $GLOBALS['f02_fingerprint']='device-B';
 $html=SAUTH_Security_Orchestrator::render_collision_resolution();
 if (strpos($html, 'name="proof"') !== false) fail('different fingerprint retrieved proof');
