@@ -242,10 +242,15 @@ final class SAUTH_Security_Orchestrator {
 			array( '%s','%d','%s','%s','%s','%s','%s','%s','%s','%s' )
 		);
 		if ( 1 !== (int) $stored ) { return new WP_Error( 'sauth_collision_store_failed', 'Account resolution could not be started.' ); }
+		// Short-lived, fingerprint-bound server handoff: bearer proof never enters a navigable URL.
+		$handoff_key = 'sauth_collision_' . hash_hmac( 'sha256', $public_id . '|' . SA_Security::client_fingerprint(), wp_salt( 'auth' ) );
+		if ( ! set_transient( $handoff_key, $token, 10 * MINUTE_IN_SECONDS ) ) {
+			return new WP_Error( 'sauth_collision_handoff_failed', 'Account resolution could not be protected.' );
+		}
 		return array(
 			'case'=>$public_id,
 			'proof'=>$token,
-			'url'=>add_query_arg( array( 'case'=>$public_id, 'proof'=>$token ), home_url( '/resolve-account/' ) ),
+			'url'=>add_query_arg( array( 'case'=>$public_id ), home_url( '/resolve-account/' ) ),
 		);
 	}
 
@@ -296,6 +301,8 @@ final class SAUTH_Security_Orchestrator {
 		check_admin_referer( 'sauth_resolve_collision', 'sauth_nonce' );
 		$case = isset( $_POST['case'] ) ? sanitize_text_field( wp_unslash( $_POST['case'] ) ) : '';
 		$proof = isset( $_POST['proof'] ) ? (string) wp_unslash( $_POST['proof'] ) : '';
+		$handoff_key = 'sauth_collision_' . hash_hmac( 'sha256', $case . '|' . SA_Security::client_fingerprint(), wp_salt( 'auth' ) );
+		delete_transient( $handoff_key );
 		$result = self::resolve_collision_case( $case, $proof );
 		$proof = ''; unset( $_POST['proof'] );
 		if ( is_wp_error( $result ) ) {
@@ -381,7 +388,11 @@ final class SAUTH_Security_Orchestrator {
 	}
 	public static function render_collision_resolution(){
 		$case = isset( $_GET['case'] ) ? sanitize_text_field( wp_unslash( $_GET['case'] ) ) : '';
-		$proof = isset( $_GET['proof'] ) ? sanitize_text_field( wp_unslash( $_GET['proof'] ) ) : '';
+		$proof = '';
+		if ( preg_match( '/^[0-9a-f-]{36}$/', $case ) ) {
+			$handoff_key = 'sauth_collision_' . hash_hmac( 'sha256', $case . '|' . SA_Security::client_fingerprint(), wp_salt( 'auth' ) );
+			$proof = (string) get_transient( $handoff_key );
+		}
 		$status = isset( $_GET['status'] ) ? sanitize_key( wp_unslash( $_GET['status'] ) ) : '';
 		ob_start(); ?>
 		<section class="sa-auth-shell"><div class="sa-auth-card"><h1>Resolve Existing Account</h1>
