@@ -7,6 +7,7 @@ on:
       - 'tests/recovery-claim-reentrancy.php'
       - 'tests/recovery-claim-owner-failure.php'
       - 'tests/recovery-claim-fingerprint-denial.php'
+      - 'tests/recovery-claim-invalid-payload.php'
       - '.github/workflows/file02-recovery-claim-gate.yml'
   workflow_dispatch:
 permissions:
@@ -21,7 +22,7 @@ jobs:
           php-version: '8.3'
           coverage: none
       - name: PHP syntax validation
-        run: php -l tests/recovery-once-claim-gate.php && php -l tests/recovery-claim-reentrancy.php && php -l tests/recovery-claim-owner-failure.php && php -l tests/recovery-claim-fingerprint-denial.php && php -l includes/class-sauth-security-orchestrator.php
+        run: php -l tests/recovery-once-claim-gate.php && php -l tests/recovery-claim-reentrancy.php && php -l tests/recovery-claim-owner-failure.php && php -l tests/recovery-claim-fingerprint-denial.php && php -l tests/recovery-claim-invalid-payload.php && php -l includes/class-sauth-security-orchestrator.php
       - name: Fail-first ordering regression (expected red until corrected)
         run: php tests/recovery-once-claim-gate.php
       - name: Fail-first race-loser behavioral harness (mock only)
@@ -31,3 +32,6 @@ jobs:
 
       - name: Collision fingerprint mismatch denial (mock only)
         run: php tests/recovery-claim-fingerprint-denial.php
+
+      - name: Malformed payload must fail closed before claim (mock only)
+        run: php tests/recovery-claim-invalid-payload.php
