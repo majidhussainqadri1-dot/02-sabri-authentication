@@ -29,7 +29,7 @@ function apply_filters($hook,$default,...$args) {
     return $default;
 }
 function fail_dpop($message) { fwrite(STDERR,"FAIL: ".$message."\n");exit(1); }
-function make_dpop($iat,$jti='0123456789abcdef','private=false') {
+function make_dpop($iat,$jti='0123456789abcdef',$private=false) {
     $jwk=array('kty'=>'EC','crv'=>'P-256','x'=>str_repeat('A',43),'y'=>str_repeat('B',43));
     if($private) $jwk['d']=str_repeat('C',43);
     $h=array('typ'=>'dpop+jwt','alg'=>'ES256','jwk'=>$jwk);
