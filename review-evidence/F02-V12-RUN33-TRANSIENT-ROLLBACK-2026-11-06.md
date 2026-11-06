@@ -17,3 +17,6 @@ Collect CI RED on test-only SHA and GREEN on fix SHA, inspect job logs; run PHP 
 
 ## Timing
 40-minute target; automation start reference 2026-11-06 06:16:59 PKT, local command at 06:17:49 PKT. Final timestamp/duration not fully captured; 40 minutes NOT complete/verified. Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔
+
+## CI follow-up (same run)
+Test-only SHA `8e27e589fd3221896e3f1c3784c5ffabb8416100`: collision workflow run `42142853697` completed FAILURE (expected RED); review integrity, recovery, canonical storage completed SUCCESS; other workflows pending at check. Fix SHA `6caba670dcdd2b2d063077357d14c9dab4d013d4`: collision workflow run `42142863965` completed SUCCESS (GREEN), recovery run `42142863995` SUCCESS; four other workflows still IN_PROGRESS. This is workflow-level evidence, not full integration acceptance. The fail-first RED and subsequent GREEN now have distinct immutable SHAs.
