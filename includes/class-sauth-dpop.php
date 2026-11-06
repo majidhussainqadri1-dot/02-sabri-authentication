@@ -22,7 +22,7 @@ final class SAUTH_DPoP {
 		$typ = strtolower( (string) ( $header['typ'] ?? '' ) );
 		$alg = (string) ( $header['alg'] ?? '' );
 		$jwk = isset( $header['jwk'] ) && is_array( $header['jwk'] ) ? $header['jwk'] : array();
-		if ( 'dpop+jwt' !== $typ || ! in_array( $alg, array( 'ES256','RS256' ), true ) || empty( $jwk ) || isset( $jwk['d'] ) ) {
+		if ( 'dpop+jwt' !== $typ || ! in_array( $alg, array( 'ES256','RS256' ), true ) || empty( $jwk ) || array_intersect( array( 'd','p','q','dp','dq','qi','oth','k' ), array_keys( $jwk ) ) ) {
 			return new WP_Error( 'sauth_dpop_header_invalid', 'DPoP header is invalid.' );
 		}
 		$htm = strtoupper( (string) ( $claims['htm'] ?? '' ) );
