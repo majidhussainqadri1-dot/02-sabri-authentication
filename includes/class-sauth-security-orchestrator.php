@@ -246,7 +246,12 @@ final class SAUTH_Security_Orchestrator {
 		$handoff_key = 'sauth_collision_' . hash_hmac( 'sha256', $public_id . '|' . SA_Security::client_fingerprint(), wp_salt( 'auth' ) );
 		if ( ! set_transient( $handoff_key, $token, 10 * MINUTE_IN_SECONDS ) ) {
 			// Do not strand a pending collision case without its one-time proof.
-			$wpdb->delete( SAUTH_Activator::table( 'recovery_changes' ), array( 'public_id'=>$public_id, 'status'=>'pending' ), array( '%s','%s' ) );
+			$deleted = $wpdb->delete( SAUTH_Activator::table( 'recovery_changes' ), array( 'public_id'=>$public_id, 'status'=>'pending' ), array( '%s','%s' ) );
+			if ( 1 !== (int) $deleted ) {
+				// If compensation cannot delete, make the case ineligible for resolution.
+				// A failed UPDATE is still an operational reconciliation incident; never return a proof.
+				$wpdb->update( SAUTH_Activator::table( 'recovery_changes' ), array( 'status'=>'cancelled', 'updated_at'=>$now ), array( 'public_id'=>$public_id, 'status'=>'pending' ), array( '%s','%s' ), array( '%s','%s' ) );
+			}
 			return new WP_Error( 'sauth_collision_handoff_failed', 'Account resolution could not be protected.' );
 		}
 		return array(
