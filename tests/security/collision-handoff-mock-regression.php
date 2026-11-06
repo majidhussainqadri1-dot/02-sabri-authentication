@@ -16,9 +16,12 @@ class SA_Security {
     public static function client_fingerprint() { return $GLOBALS['f02_fingerprint']; }
     public static function random_token($length) { return str_repeat('X', $length); }
     public static function encrypt($data) { return base64_encode($data); }
+    public static function decrypt($data) { return base64_decode($data, true); }
 }
 class FakeF02Db {
     public $rows=[];
+    public function prepare($sql, ...$args) { return vsprintf(str_replace(['%s','%d'], ["'%s'",'%d'], $sql), $args); }
+    public function get_row($query, $output=null) { if (preg_match("/public_id='([^']+)'/", $query, $m)) return $this->rows[$m[1]]??null; return null; }
     public function insert($table, $data, $formats) { $this->rows[$data['public_id']]=$data; return 1; }
     public function delete($table, $where, $formats=null) { if ($GLOBALS['f02_force_delete_failure']) return false; $id=$where['public_id']??''; if (!isset($this->rows[$id])) return 0; unset($this->rows[$id]); return 1; }
     public function update($table, $data, $where, $formats=null, $where_formats=null) { if ($GLOBALS['f02_force_update_failure']) return false; $id=$where['public_id']??''; if (!isset($this->rows[$id]) || ($this->rows[$id]['status']??'')!==($where['status']??'')) return 0; $this->rows[$id]=array_merge($this->rows[$id],$data); return 1; }
@@ -27,7 +30,7 @@ $GLOBALS['wpdb'] = new FakeF02Db();
 function wp_generate_uuid4() { return sprintf('00000000-0000-4000-8000-%012d', ++$GLOBALS['f02_uuid']); }
 function wp_json_encode($x) { return json_encode($x); }
 function sanitize_key($x) { return preg_replace('/[^a-z0-9_\\-]/', '', strtolower($x)); }
-function current_time($kind, $gmt=false) { return '2026-11-06 00:00:00'; }
+function current_time($kind, $gmt=false) { return gmdate('Y-m-d H:i:s'); }
 function wp_salt($x) { return 'test-secret-salt'; }
 function set_transient($key, $value, $ttl) { if ($GLOBALS['f02_force_transient_failure']) return false; $GLOBALS['f02_transients'][$key]=[$value,$GLOBALS['f02_now']+$ttl]; return true; }
 function get_transient($key) { $entry=$GLOBALS['f02_transients'][$key]??null; return $entry && $entry[1]>$GLOBALS['f02_now'] ? $entry[0] : false; }
@@ -40,6 +43,8 @@ function esc_url($x) { return htmlspecialchars($x, ENT_QUOTES); }
 function esc_attr($x) { return htmlspecialchars($x, ENT_QUOTES); }
 function admin_url($path) { return 'https://example.test/wp-admin/'.$path; }
 function wp_nonce_field($action, $name) { echo '<input type="hidden" name="'.$name.'" value="mock">'; }
+function absint($value) { return abs((int)$value); }
+function apply_filters($name, $value, ...$args) { return $value; }
 function fail($message) { fwrite(STDERR,"FAIL: $message\n"); exit(1); }
 require __DIR__.'/../../includes/class-sauth-security-orchestrator.php';
 $created=SAUTH_Security_Orchestrator::create_collision_case('person@example.test');
@@ -93,4 +98,10 @@ if (!($double_failed instanceof WP_Error) || $double_failed->code !== 'sauth_col
 if (count($GLOBALS['f02_transients']) !== 0) fail('double DB failure must not create a bearer handoff');
 // Both DB writes were deliberately rejected: the mock cannot truthfully demand a row mutation.
 // The explicit incident code is the fail-closed signal for operator reconciliation.
+// Fail-first: retaining the returned proof must not bypass the 600-second case lifetime.
+$expired_case=SAUTH_Security_Orchestrator::create_collision_case('expired-proof@example.test');
+if ($expired_case instanceof WP_Error) fail('expiry case creation failed');
+$GLOBALS['wpdb']->rows[$expired_case['case']]['created_at']=gmdate('Y-m-d H:i:s',time()-7200);
+$expired_result=SAUTH_Security_Orchestrator::resolve_collision_case($expired_case['case'],$expired_case['proof']);
+if (!($expired_result instanceof WP_Error) || $expired_result->code !== 'sauth_collision_case_expired') fail('retained bearer proof bypasses 600-second expiry');
 echo "PASS: URL secrecy, TTL, fingerprint isolation, expiry, replay and failed-handoff rollback (mock-only)\\n";
