@@ -1,3 +1,16 @@
+# File 02 Master Plan v12 — Corrective Draft Status (2026-11-06)
+
+**Current governor:** original `Sabri-Website-Master-Plan-v12.docx`, File02 48 IDs (12 FR, 10 NFR, 2 CEN, 24 X24). The historical File02 v1.x status entries below do NOT replace v12 requirements or prove deployed parity.
+
+- Full traceability, five root-cause-proven RED/GREEN source remediations and their exact run IDs: `review-evidence/F02-V12-MANUAL-40MIN-TRACEABILITY-AND-FIXES-2026-11-06.md`.
+- Exact source and test head **before documentation commits**: `47090db085f449b541f7bb1566fdce9c3a1cd583`; GitHub Actions **11/11 success, 0 fail**. Combined GitHub evidence note head: `2c03a8af35f68c89b4161d5bb82067c8584d303a` also had **11/11 success, 0 fail** before this status update.
+- Real disposable WordPress **7.0.1**, PHP **8.3**, MariaDB **11.4** and exact File00 PR55 integration are tested. Real two-process recovery/collision *database claims* succeeded with **test-only** canonical-owner callbacks. FedCM nonce mock PHP 7.4/8.3 and actual WordPress replay-option retention/cleanup passed.
+- Five **source defects corrected in this bounded run**: generic collision scheduler misroute; stale collision retention; FedCM invalid nonce destructive consumption; non-atomic FedCM callback replay; invisible owner-processing reconciliation backlog. Test fixture global-scope correction counted separately. The review log is NOT a claim of five live-site incidents or of zero other bugs.
+- **Still NOT accepted:** all 48 independent end-to-end receipts; canonical File00 owner-side mutation/idempotency after uncertain outcomes; durable handling of double DB compensation failure; actual provider verifier/IdP browser; staging upgrade/rollback; cross-file File26 projection; a11y/RTL; Founder approval; exact deployed artifact parity and live retest.
+- **Release truth**: Source candidate `1.4.0 / DB 1.4.0 / passkey 1.1.0`, still Draft PR #23 unmerged. No `main` modification, staging deployment, live deployment, or live migration. **Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔**
+
+---
+
 # File 02 Status — Version 1.4.0 Modern Authentication 24 Candidate
 
 - Candidate branch: `codex/file02-modern-auth-24-1.4.0`
