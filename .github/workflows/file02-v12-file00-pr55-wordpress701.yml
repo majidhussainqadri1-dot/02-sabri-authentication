@@ -261,3 +261,9 @@ jobs:
           grep -q '^WIN:' /tmp/f02-collision-a.log
           grep -q '^LOSE:' /tmp/f02-collision-b.log
           /tmp/wp eval-file "$fixture" verify --path=/tmp/wordpress
+
+      - name: Real WordPress DPoP option replay and bounded expiry
+        run: |
+          set -euo pipefail
+          php -l file02/tests/integration/dpop-replay-mariadb.php
+          /tmp/wp eval-file file02/tests/integration/dpop-replay-mariadb.php --path=/tmp/wordpress
