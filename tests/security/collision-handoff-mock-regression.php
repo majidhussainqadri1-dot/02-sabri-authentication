@@ -20,6 +20,7 @@ class FakeF02Db {
     public $rows=[];
     public function insert($table, $data, $formats) { $this->rows[$data['public_id']]=$data; return 1; }
     public function delete($table, $where, $formats=null) { if ($GLOBALS['f02_force_delete_failure']) return false; $id=$where['public_id']??''; if (!isset($this->rows[$id])) return 0; unset($this->rows[$id]); return 1; }
+    public function update($table, $data, $where, $formats=null, $where_formats=null) { $id=$where['public_id']??''; if (!isset($this->rows[$id]) || ($this->rows[$id]['status']??'')!==($where['status']??'')) return 0; $this->rows[$id]=array_merge($this->rows[$id],$data); return 1; }
 }
 $GLOBALS['wpdb'] = new FakeF02Db();
 function wp_generate_uuid4() { return sprintf('00000000-0000-4000-8000-%012d', ++$GLOBALS['f02_uuid']); }
