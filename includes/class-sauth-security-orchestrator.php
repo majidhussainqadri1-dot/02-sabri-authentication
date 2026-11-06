@@ -245,6 +245,8 @@ final class SAUTH_Security_Orchestrator {
 		// Short-lived, fingerprint-bound server handoff: bearer proof never enters a navigable URL.
 		$handoff_key = 'sauth_collision_' . hash_hmac( 'sha256', $public_id . '|' . SA_Security::client_fingerprint(), wp_salt( 'auth' ) );
 		if ( ! set_transient( $handoff_key, $token, 10 * MINUTE_IN_SECONDS ) ) {
+			// Do not strand a pending collision case without its one-time proof.
+			$wpdb->delete( SAUTH_Activator::table( 'recovery_changes' ), array( 'public_id'=>$public_id, 'status'=>'pending' ), array( '%s','%s' ) );
 			return new WP_Error( 'sauth_collision_handoff_failed', 'Account resolution could not be protected.' );
 		}
 		return array(
