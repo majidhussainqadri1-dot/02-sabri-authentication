@@ -55,9 +55,16 @@ final class SAUTH_Shared_Signals {
 		$claims = self::safe_claims( isset( $envelope['claims'] ) && is_array( $envelope['claims'] ) ? $envelope['claims'] : array() );
 		global $wpdb;
 		$table = SAUTH_Activator::table( 'shared_signals' );
-		$existing = $wpdb->get_var( $wpdb->prepare( "SELECT event_id FROM {$table} WHERE event_id=%s", $event_id ) );
+		$existing = $wpdb->get_row( $wpdb->prepare(
+			"SELECT event_id,family,signal_type,user_id FROM {$table} WHERE event_id=%s",
+			$event_id
+		), ARRAY_A );
 		if ( '' !== (string) $wpdb->last_error ) { return new WP_Error( 'sauth_signal_store_unavailable', 'Signal storage unavailable.' ); }
-		if ( $existing ) { return (string) $existing; }
+		if ( is_array( $existing ) ) {
+			return self::same_signal_identity( $existing, $event_id, $family, $type, $user_id )
+				? $event_id
+				: new WP_Error( 'sauth_signal_event_id_conflict', 'An event identifier was already bound to another security signal.' );
+		}
 		$now = current_time( 'mysql', true );
 		$inserted = $wpdb->insert(
 			$table,
@@ -69,7 +76,21 @@ final class SAUTH_Shared_Signals {
 			),
 			array( '%s','%s','%s','%d','%s','%s','%s','%s','%s' )
 		);
-		if ( 1 !== (int) $inserted ) { return new WP_Error( 'sauth_signal_store_failed', 'Signal could not be stored.' ); }
+		if ( 1 !== (int) $inserted ) {
+			/* A competing verified worker may have won the UNIQUE event_id
+			 * insertion. Re-read immutable identity rather than falsely
+			 * acknowledging an unrelated subject or signal type. */
+			$winner = $wpdb->get_row( $wpdb->prepare(
+				"SELECT event_id,family,signal_type,user_id FROM {$table} WHERE event_id=%s",
+				$event_id
+			), ARRAY_A );
+			if ( is_array( $winner ) ) {
+				return self::same_signal_identity( $winner, $event_id, $family, $type, $user_id )
+					? $event_id
+					: new WP_Error( 'sauth_signal_event_id_conflict', 'An event identifier was already bound to another security signal.' );
+			}
+			return new WP_Error( 'sauth_signal_store_failed', 'Signal could not be stored.' );
+		}
 		do_action( 'sauth_shared_security_signal_v1', array( 'event_id'=>$event_id,'family'=>$family,'type'=>$type,'user_id'=>$user_id,'claims'=>$claims ) );
 		$contain = in_array( $type, array( 'session_revoked','credential_compromise','account_disabled' ), true );
 		if ( $contain ) {
@@ -118,6 +139,14 @@ final class SAUTH_Shared_Signals {
 		global $wpdb;
 		$table = SAUTH_Activator::table( 'shared_signals' );
 		$wpdb->query( $wpdb->prepare( "DELETE FROM {$table} WHERE created_at<%s", gmdate( 'Y-m-d H:i:s', time() - self::RETENTION ) ) );
+	}
+
+	/** Event identity is immutable across retries and concurrent issuers. */
+	private static function same_signal_identity( array $row, $event_id, $family, $type, $user_id ) {
+		return hash_equals( (string) ( $row['event_id'] ?? '' ), (string) $event_id )
+			&& hash_equals( (string) ( $row['family'] ?? '' ), (string) $family )
+			&& hash_equals( (string) ( $row['signal_type'] ?? '' ), (string) $type )
+			&& absint( $row['user_id'] ?? 0 ) === absint( $user_id );
 	}
 
 	private static function allowed_type( $family, $type ) {
