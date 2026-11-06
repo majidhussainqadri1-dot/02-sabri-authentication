@@ -164,11 +164,26 @@ final class SAUTH_Shared_Signals {
 
 	private static function safe_claims( array $claims ) {
 		$out = array();
+		/* CAEP/RISC family, type, source and subject already occupy typed
+		 * columns. Never persist arbitrary provider free text: a harmless
+		 * claim key can conceal names, email, bearer proof or patient data. */
+		$coded_fields = array( 'reason','reason_code','risk_level','method',
+			'status','session_state','credential_state','auth_context','source_code' );
 		foreach ( array_slice( $claims, 0, 20, true ) as $key=>$value ) {
 			$key = sanitize_key( (string) $key );
-			if ( '' === $key || preg_match( '/password|token|secret|cookie|ip|email|phone|address/', $key ) ) { continue; }
-			if ( is_bool( $value ) || is_int( $value ) || is_float( $value ) ) { $out[$key]=$value; }
-			elseif ( is_string( $value ) ) { $out[$key]=substr( sanitize_text_field( $value ), 0, 200 ); }
+			if ( '' === $key || preg_match(
+				'/password|token|secret|cookie|ip|email|phone|address|contact|identity|subject|user|person|member|account|birth|card|bank|name/',
+				$key
+			) ) { continue; }
+			if ( is_bool( $value ) || is_int( $value ) || is_float( $value ) ) {
+				$out[ $key ] = $value;
+			} elseif ( is_string( $value ) && in_array( $key, $coded_fields, true ) ) {
+				// Codes only, not descriptive provider prose or arbitrary IDs.
+				$code = trim( $value );
+				if ( preg_match( '/^[a-z][a-z0-9_-]{0,63}$/D', $code ) ) {
+					$out[ $key ] = $code;
+				}
+			}
 		}
 		return $out;
 	}
