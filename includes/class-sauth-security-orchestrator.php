@@ -430,7 +430,17 @@ final class SAUTH_Security_Orchestrator {
 
 	public static function cleanup() {
 		global $wpdb;
+		$table = SAUTH_Activator::table( 'recovery_changes' );
 		$wpdb->query($wpdb->prepare('DELETE FROM '.SAUTH_Activator::table('security_timeline').' WHERE created_at<%s',gmdate('Y-m-d H:i:s',time()-self::TIMELINE_RETENTION)));
-		$wpdb->query($wpdb->prepare("DELETE FROM ".SAUTH_Activator::table('recovery_changes')." WHERE status IN ('applied','cancelled','expired') AND updated_at<%s",gmdate('Y-m-d H:i:s',time()-30*DAY_IN_SECONDS)));
+		/* A failed handoff or abandoned browser can leave a pending collision
+		 * row whose one-time proof expires after 600 seconds. Expire those
+		 * rows atomically; never change a processing owner claim or an
+		 * unrelated 1h–7d recovery change. Retention purge follows later. */
+		$wpdb->query( $wpdb->prepare(
+			"UPDATE {$table} SET status='expired', updated_at=%s WHERE change_kind='collision_resolution' AND status='pending' AND created_at<=%s",
+			current_time( 'mysql', true ),
+			gmdate( 'Y-m-d H:i:s', time() - 600 )
+		) );
+		$wpdb->query($wpdb->prepare("DELETE FROM {$table} WHERE status IN ('applied','cancelled','expired') AND updated_at<%s",gmdate('Y-m-d H:i:s',time()-30*DAY_IN_SECONDS)));
 	}
 }
