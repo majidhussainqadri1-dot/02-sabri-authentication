@@ -13,3 +13,6 @@ Run36: 2 requirements examined; 1 newly identified unverified failure mode, 0 pr
 Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔
 
 Time target 40 min; run began at 2026-11-06 09:17:09 Asia/Karachi; end/elapsed not independently recorded. Forty minutes not verified.
+
+## Follow-up coding in same run
+Fail-first mock regression committed at **63ac375b02d0461dc71bfe8abe7e50e7478cdb16**: FakeF02Db can force DELETE failure; test asserts that the affected collision row is not left in `pending` after transient creation fails. The current implementation ignores DELETE failure, so RED is expected; CI execution has not yet been observed. This is a test-only commit, not a production fix or accepted security control. The prior risk is now represented by an executable regression assertion, pending CI evidence and remediation design. The row's exploitability is not claimed. Source/schema versions unchanged. Draft PR branch remains unmerged.
