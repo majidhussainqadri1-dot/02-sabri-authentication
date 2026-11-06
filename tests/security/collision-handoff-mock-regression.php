@@ -89,11 +89,8 @@ $double_failed = SAUTH_Security_Orchestrator::create_collision_case('double-fail
 $GLOBALS['f02_force_transient_failure'] = false;
 $GLOBALS['f02_force_delete_failure'] = false;
 $GLOBALS['f02_force_update_failure'] = false;
-if (!($double_failed instanceof WP_Error)) fail('double failure must return an error');
-foreach ($GLOBALS['wpdb']->rows as $row) {
-    $payload = base64_decode((string)($row['payload_ciphertext'] ?? ''));
-    if (strpos($payload, 'double-failure@example.test') !== false && ($row['status'] ?? '') === 'pending') {
-        fail('double DB compensation failure leaves unreconciled pending row');
-    }
-}
+if (!($double_failed instanceof WP_Error) || $double_failed->code !== 'sauth_collision_reconciliation_required') fail('double DB failure must surface a distinct reconciliation incident');
+if (count($GLOBALS['f02_transients']) !== 0) fail('double DB failure must not create a bearer handoff');
+// Both DB writes were deliberately rejected: the mock cannot truthfully demand a row mutation.
+// The explicit incident code is the fail-closed signal for operator reconciliation.
 echo "PASS: URL secrecy, TTL, fingerprint isolation, expiry, replay and failed-handoff rollback (mock-only)\\n";
