@@ -4,11 +4,13 @@ on:
     paths:
       - 'includes/class-sauth-security-orchestrator.php'
       - 'tests/security/collision-generic-recovery-isolation-regression.php'
+      - 'tests/security/collision-generic-schedule-denial-regression.php'
       - '.github/workflows/f02-collision-generic-isolation.yml'
   pull_request:
     paths:
       - 'includes/class-sauth-security-orchestrator.php'
       - 'tests/security/collision-generic-recovery-isolation-regression.php'
+      - 'tests/security/collision-generic-schedule-denial-regression.php'
       - '.github/workflows/f02-collision-generic-isolation.yml'
 jobs:
   source-gate:
@@ -16,6 +18,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: PHP syntax
-        run: php -l includes/class-sauth-security-orchestrator.php && php -l tests/security/collision-generic-recovery-isolation-regression.php
+        run: php -l includes/class-sauth-security-orchestrator.php && php -l tests/security/collision-generic-recovery-isolation-regression.php && php -l tests/security/collision-generic-schedule-denial-regression.php
       - name: Generic recovery collision isolation
         run: php tests/security/collision-generic-recovery-isolation-regression.php
+      - name: Runtime deny generic collision scheduling
+        run: php tests/security/collision-generic-schedule-denial-regression.php
