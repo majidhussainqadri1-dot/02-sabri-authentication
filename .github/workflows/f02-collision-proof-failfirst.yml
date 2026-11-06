@@ -1,0 +1,26 @@
+name: File 02 collision proof fail-first evidence
+on:
+  pull_request:
+    paths:
+      - 'includes/class-sauth-security-orchestrator.php'
+      - 'tests/security/collision-url-proof-regression.php'
+      - 'tests/security/collision-handoff-mock-regression.php'
+      - '.github/workflows/f02-collision-proof-failfirst.yml'
+  workflow_dispatch:
+jobs:
+  failfirst-evidence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP lint
+        run: |
+          php -l tests/security/collision-url-proof-regression.php
+          php -l tests/security/collision-handoff-mock-regression.php
+          php -l includes/class-sauth-security-orchestrator.php
+      - name: Confirm collision URL transport regression is GREEN
+        run: php tests/security/collision-url-proof-regression.php
+      - name: Exercise transient handoff with isolated WP mocks
+        run: php tests/security/collision-handoff-mock-regression.php
+      - name: Verify server-side handoff source guards
+        run: |
+          php -r '$s=file_get_contents("includes/class-sauth-security-orchestrator.php"); foreach(["set_transient(", "get_transient(", "delete_transient(", "hash_hmac("] as $required) { if(strpos($s,$required)===false) { fwrite(STDERR,"Missing handoff guard: ".$required."\\n"); exit(1); }} echo "Handoff source guards present\\n";'

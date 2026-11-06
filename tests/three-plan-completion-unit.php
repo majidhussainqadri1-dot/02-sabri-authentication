@@ -29,9 +29,9 @@ $main = sauth_three_plan_read( $root, 'sabri-authentication.php' );
 sauth_three_plan_require(
 	$main,
 	array(
-		'Version: 1.3.4',
-		"define( 'SAUTH_VERSION', '1.3.4' );",
-		"define( 'SAUTH_DB_VERSION', '1.3.0' );",
+		'Version: 1.4.0',
+		"define( 'SAUTH_VERSION', '1.4.0' );",
+		"define( 'SAUTH_DB_VERSION', '1.4.0' );",
 		"define( 'SAUTH_ACCOUNT_CONTRACT_VERSION', '1.1.0' );",
 		'class-sauth-storage-router.php',
 		'class-sauth-google-registration.php',
@@ -90,15 +90,15 @@ foreach ( array( 'sabri_profile', 'sabri_security_center', 'sabri_verification_s
 }
 
 $passkeys = sauth_three_plan_read( $root, 'includes/class-sauth-passkeys.php' );
-sauth_three_plan_require( $passkeys, array("const SCHEMA_VERSION        = '1.0.1';",'smc_file02_authentication_assurance_v1','webauthn.create','webauthn.get','parse_attestation_object','cose_public_key_to_pem','challenge_claim_key'), 'fourth-plan passkey extension' );
+sauth_three_plan_require( $passkeys, array("const SCHEMA_VERSION        = '1.1.0';",'smc_file02_authentication_assurance_v1','webauthn.create','webauthn.get','parse_attestation_object','cose_public_key_to_pem','challenge_claim_key'), 'fourth-plan passkey extension' );
 
 $readme = sauth_three_plan_read( $root, 'readme.txt' );
-sauth_three_plan_require( $readme, array( 'Stable tag: 1.3.4', '= 1.3.4 =', '/account/sessions/', 'Google-first registration', 'Passkey', 'city', 'ethical', '/membership-application/', '/membership-security/', '/membership-status/' ), 'readme' );
+sauth_three_plan_require( $readme, array( 'Stable tag: 1.4.0', '= 1.4.0 =', '/account/sessions/', 'Google-first registration', 'Passkey', 'city', 'ethical', '/membership-application/', '/membership-security/', '/membership-status/' ), 'readme' );
 
 $status = sauth_three_plan_read( $root, 'STATUS.md' );
 sauth_three_plan_require( $status, array( 'Version 1.3.0', 'Source coding', 'Automated-QA', 'Staging-Accepted', 'Operational', 'Passkey' ), 'status truth' );
 
 $workflow = sauth_three_plan_read( $root, '.github/workflows/baseline-integrity.yml' );
-sauth_three_plan_require( $workflow, array( 'three-plan-completion-unit.php', 'passkey-webauthn-unit.php', 'tests/r32*-regression.php', 'tests/r33*-regression.php', 'tests/r34*-regression.php', 'tests/r339-file00-canonical-route-contract-regression.php', 'tests/r340-passkey-assurance-cycle-regression.php', 'tests/r341-email-verification-legacy-reconciliation-regression.php', 'deterministic-package', 'upload-artifact', "RELEASE_VERSION: '1.3.4'" ), 'release workflow' );
+sauth_three_plan_require( $workflow, array( 'three-plan-completion-unit.php', 'modern-auth-24-unit.php', 'passkey-webauthn-unit.php', 'tests/r32*-regression.php', 'tests/r33*-regression.php', 'tests/r34*-regression.php', 'tests/r339-file00-canonical-route-contract-regression.php', 'tests/r340-passkey-assurance-cycle-regression.php', 'tests/r341-email-verification-legacy-reconciliation-regression.php', 'deterministic-package', 'upload-artifact', "RELEASE_VERSION: '1.4.0'" ), 'release workflow' );
 
-echo "File 02 prior three-plan requirements preserved inside the 1.3.4 R341 legacy email reconciliation candidate.\n";
+echo "File 02 prior three-plan requirements preserved inside the 1.4.0 Modern Authentication 24 candidate.\n";

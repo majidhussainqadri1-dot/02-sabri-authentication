@@ -4,14 +4,14 @@ Tags: authentication, passkeys, webauthn, google login, registration, accounts, 
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.3.4
+Stable tag: 1.4.0
 License: GPLv2 or later
 
 Complete authentication and account-entry orchestration for the Sabri Social Homeopathy Platform. File 00 — Sabri Membership Core remains the exclusive identity, membership, account-class, guardian, role, verification and MFA-policy authority; File 02 owns password, Google OAuth and WebAuthn/passkey authentication ceremonies.
 
 == Truthful release status ==
 
-Version 1.3.4 is the bounded legacy email-verification reconciliation correction built on the live-verified 1.3.3 runtime. Runtime identity advances to 1.3.4; DB identity remains 1.3.0 and passkey schema identity remains 1.0.1 because no database schema changes. The correction addresses the live-proven upgrade edge where File 02 retained durable signed-link verification evidence created while File 00 1.2.43 was deployed, but corrected File 00 1.2.44 still reported email missing because the old File 00 row lacked receipt-bearing delivery evidence. Reconciliation is allowed only when File 00 itself reports email missing and File 02 has the exact durable signed-link success shape; it then uses only the public File 00 account contract and re-reads File 00 completion truth. Repository/CI/package success does not claim live resolution until controlled deployment, exact deployed parity and the live completion/login redirect re-test pass.
+Version 1.4.0 is the repository coding candidate that carries the Founder-approved 24 Modern Authentication Enhancements forward onto the post-R343 source line. It is additive over all 1.3.x corrections: DB identity advances to 1.4.0 for three new governed security tables, passkey schema advances to 1.1.0 for AAGUID/metadata/trust fields, passkey assurance v1 1.0.0 remains preserved, and additive Modern Auth 1.0.0, Authentication Assurance v2 2.0.0 and Shared Signals 1.0.0 contracts are introduced. Exact-head CI/package/staging/live status remains separate and is not inferred from source coding. Historical 1.3.4 live-incident wording below remains provenance only. Runtime identity advances to 1.3.4; DB identity remains 1.3.0 and passkey schema identity remains 1.0.1 because no database schema changes. The correction addresses the live-proven upgrade edge where File 02 retained durable signed-link verification evidence created while File 00 1.2.43 was deployed, but corrected File 00 1.2.44 still reported email missing because the old File 00 row lacked receipt-bearing delivery evidence. Reconciliation is allowed only when File 00 itself reports email missing and File 02 has the exact durable signed-link success shape; it then uses only the public File 00 account contract and re-reads File 00 completion truth. Repository/CI/package success does not claim live resolution until controlled deployment, exact deployed parity and the live completion/login redirect re-test pass.
 
 == Canonical constitution ==
 
@@ -69,11 +69,22 @@ If a required contract is missing, malformed or circuit-open, protected mutation
 * Synchronized passkeys may legitimately remain at a zero signature counter; once a non-zero stored counter exists, any non-increase including a reset to zero is treated as compromise and the credential is disabled.
 * Authentication is not authorization. Every post-authentication protected action remains subject to File 00 claims and the native domain owner's object/state checks.
 
+
+== Modern Authentication 24 ==
+
+* F02-X-24-001..006: conditional passkey autofill, 180-second fingerprint-bound upgrade offer, capability-adaptive login, hybrid/cross-device hints, browser credential reconciliation and credential-label synchronization.
+* F02-X-24-007..014: privacy-minimized security timeline, “This Was Not Me”, emergency lockdown, downgrade protection, protected recovery cooling-off, collision-resolution cases, adaptive risk v2 and human-safe explanations.
+* F02-X-24-015..018: fail-closed CAEP/RISC signal intake, active-session containment, additive Authentication Assurance Receipt v2 2.0.0 and per-action smart step-up.
+* F02-X-24-019..024: local + k-anonymous password breach-prefix adapter, fail-closed DPoP verifier boundary, FIDO metadata trust adapter, Related-Origin Passkeys manifest, progressive FedCM with mandatory server verification, and metadata-only credential portability/crypto registry.
+* New private tables: sauth_security_timeline, sauth_recovery_changes, sauth_shared_signals. Passkey schema 1.1.0 adds AAGUID, metadata status and trust level without storing biometric/private-key material.
+* New routes: /account-security/, /resolve-account/, /.well-known/webauthn; /account-passkeys/ remains private/no-store.
+* DPoP signature verification, FIDO metadata, FedCM IdP verification and credential exchange are adapter-ready and fail closed until an approved external verifier/provider is configured and staging-accepted.
+
 == External acceptance gates ==
 
 * Owner-level GitHub repository rename to the canonical repository name.
-* Exact-head File 02 1.3.4 CI and deterministic packaging against current File 00 1.2.44.
-* Deploy File 02 1.3.4 and prove the legacy verified-email row reconciles through the public File 00 contract without manual DB edits.
+* Exact-head File 02 1.4.0 CI and deterministic packaging against current File 00 1.2.44.
+* Deploy the reviewed File 02 1.4.0 package only after staging acceptance; separately re-prove the legacy verified-email row reconciles through the public File 00 contract without manual DB edits.
 * Live re-run File 00 completion state and prove `email` is no longer missing and `/verify-email/` is no longer selected merely because of the historical incomplete File 00 receipt.
 * Re-test password login completion routing after reconciliation.
 * Reconfirm fresh passkey assurance persistence through File 00 capability evaluation and Google Link callback after the File 02 replacement.
@@ -89,6 +100,12 @@ If a required contract is missing, malformed or circuit-open, protected mutation
 Passwords, reset keys, verification tokens, OAuth tokens, TOTP/recovery codes, passkey private keys, biometric templates, raw session tokens, full IP addresses and provider secrets are excluded from events and public diagnostics. Authentication success is never authorization.
 
 == Changelog ==
+
+= 1.4.0 =
+* Implements Founder-approved F02-X-24-001..024 as one additive Modern Authentication batch on top of the R343 source line.
+* Adds conditional/hybrid passkey UX, browser capability/signals, account security timeline, “This Was Not Me”, emergency lockdown, downgrade protection, 24-hour default recovery cooling-off, collision-resolution cases, adaptive/explainable risk, CAEP/RISC, Assurance v2, smart step-up, password breach-prefix privacy, DPoP, FIDO trust, Related-Origin Passkeys, progressive FedCM and credential-portability/crypto-agility adapters.
+* Advances DB identity to 1.4.0, passkey schema to 1.1.0 and adds three File 02-owned security tables. Existing passkey assurance v1 1.0.0 remains backward-compatible.
+* Adds X-QA-24-01..16 permanent source/security acceptance coverage. External provider/browser/staging/live acceptance remains separate.
 
 = 1.3.4 =
 * Fixes the live-proven legacy upgrade reconciliation gap where File 02 already held durable signed-link email-verification success evidence but corrected File 00 1.2.44 still reported email missing because the historical File 00 1.2.43 row lacked delivery receipt fields.

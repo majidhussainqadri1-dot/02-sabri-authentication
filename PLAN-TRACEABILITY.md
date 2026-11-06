@@ -1,3 +1,23 @@
+> **Current authoritative candidate — File 02 1.4.0 / DB 1.4.0 / passkey schema 1.1.0.**  
+> This repository candidate carries the Founder-approved **Modern Authentication 24** amendment (F02-X-24-001..024) forward onto the post-R343 source line. It preserves passkey assurance v1 `1.0.0` and adds Modern Auth `1.0.0`, Authentication Assurance Receipt v2 `2.0.0`, and Shared Signals `1.0.0`. Repository coding/CI/package/staging/live/operational gates remain separate. Any lower-version “current candidate” wording below is retained only as historical provenance unless explicitly restated here.
+
+## Modern Authentication 24 — current plan-to-code traceability
+
+| IDs | Governing implementation |
+|---|---|
+| F02-X-24-001..006 | `SAUTH_Modern_Auth`, `SAUTH_Passkeys`, `assets/js/authentication.js`: conditional mediation, recent-login upgrade window, capability-adaptive/hybrid UX, browser credential reconciliation and user-detail signals |
+| F02-X-24-007..014 | `SAUTH_Security_Orchestrator` + `SAUTH_Login_Risk`: security timeline, not-me containment, lockdown, downgrade protection, recovery cooling, collision resolution, adaptive/explainable risk |
+| F02-X-24-015..016 | `SAUTH_Shared_Signals`: fail-closed CAEP/RISC intake, replay-safe IDs, bounded claims and session containment |
+| F02-X-24-017..018 | `SAUTH_Security_Orchestrator`: additive Assurance v2 2.0.0 and per-action smart step-up |
+| F02-X-24-019 | `SAUTH_Password_Safety`: local blocklist + 5-hex SHA-1 prefix adapter; no raw/full hash provider handoff |
+| F02-X-24-020 | `SAUTH_DPoP`: htm/htu/iat/jti/ath, public JWK thumbprint, replay guard, external signature verifier fail-closed |
+| F02-X-24-021 | `SAUTH_FIDO_Trust` + passkey schema 1.1.0: AAGUID/trust metadata; attestation=none cannot create hardware trust |
+| F02-X-24-022 | `SAUTH_Modern_Auth` + canonical routes: up to five exact HTTPS related origins and `/.well-known/webauthn` |
+| F02-X-24-023 | `SAUTH_Modern_Auth` + JS: progressive FedCM with RP nonce and mandatory server-side IdP verification |
+| F02-X-24-024 | `SAUTH_Modern_Auth`: metadata-only credential portability projection and crypto registry; private-key export prohibited |
+
+Permanent source/security acceptance gate: `tests/modern-auth-24-unit.php` covers X-QA-24-01..16. Real browser/provider/staging acceptance remains external.
+
 # File 02 — Four-Plan Plan-to-Code Traceability
 
 **Governing sources used for this candidate**

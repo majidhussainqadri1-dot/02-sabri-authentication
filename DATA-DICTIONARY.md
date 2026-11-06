@@ -1,3 +1,13 @@
+# File 02 Data Dictionary — 1.4.0 Addendum
+
+- `sauth_security_timeline`: private 180-day default authentication/security event projection; no raw IP, password, token or secret.
+- `sauth_recovery_changes`: restricted owner-mediated pending changes with encrypted payload/owner proof, fingerprint binding, status and apply-after time.
+- `sauth_shared_signals`: replay-safe CAEP/RISC-style security projection with event ID, family/type, user, source, minimized claims/status and issued/created times.
+- `sauth_passkeys 1.1.0`: adds `aaguid`, `metadata_status`, `trust_level`; private keys/biometrics remain prohibited.
+
+> **Current authoritative candidate — File 02 1.4.0 / DB 1.4.0 / passkey schema 1.1.0.**  
+> This repository candidate carries the Founder-approved **Modern Authentication 24** amendment (F02-X-24-001..024) forward onto the post-R343 source line. It preserves passkey assurance v1 `1.0.0` and adds Modern Auth `1.0.0`, Authentication Assurance Receipt v2 `2.0.0`, and Shared Signals `1.0.0`. Repository coding/CI/package/staging/live/operational gates remain separate. Any lower-version “current candidate” wording below is retained only as historical provenance unless explicitly restated here.
+
 # File 02 Data Dictionary — Version 1.3.0
 
 ## Classification legend

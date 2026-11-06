@@ -1,3 +1,9 @@
+## 1.4.0 — Modern Authentication 24 candidate
+
+- Implemented F02-X-24-001..024 as the Founder-approved additive batch over the R343 line.
+- Added six bounded runtime owners/adapters, three governed tables, three canonical/public standards routes, passkey schema 1.1.0 trust fields, conditional/hybrid browser UX, security containment, Shared Signals, Assurance v2, password-prefix privacy, DPoP/FIDO/FedCM/portability boundaries, privacy lifecycle and X-QA-24-01..16.
+- Current status remains repository source candidate until exact-head CI/package evidence is green; staging/live/operational are separate.
+
 # Changelog
 
 All notable changes to Sabri Authentication and Accounts are recorded here.

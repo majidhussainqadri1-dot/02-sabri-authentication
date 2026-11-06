@@ -161,7 +161,7 @@ final class SA_Plugin {
 	private function signed_in_card() {
 		$user       = wp_get_current_user();
 		$logout_url = wp_logout_url( home_url( '/' ) );
-		return '<div class="sa-auth-shell"><div class="sa-auth-card sa-signed-in"><h2>' . esc_html__( 'You are signed in', 'sabri-authentication' ) . '</h2><p>' . esc_html( $user->display_name ) . '</p><a class="sa-primary-button" href="' . esc_url( SA_Membership_Adapter::profile_url() ) . '">Membership Profile</a><a class="sa-secondary-button" href="' . esc_url( SA_Security::page_url( 'sessions' ) ) . '">Active Sessions</a><a class="sa-secondary-button" href="' . esc_url( SA_Security::page_url( 'google_account', SA_Membership_Adapter::profile_url() ) ) . '">Google Account Security</a><a class="sa-text-link" href="' . esc_url( $logout_url ) . '">Log Out</a></div></div>';
+		return '<div class="sa-auth-shell"><div class="sa-auth-card sa-signed-in"><h2>' . esc_html__( 'You are signed in', 'sabri-authentication' ) . '</h2><p>' . esc_html( $user->display_name ) . '</p><a class="sa-primary-button" href="' . esc_url( SA_Membership_Adapter::profile_url() ) . '">Membership Profile</a><a class="sa-secondary-button" href="' . esc_url( home_url( '/account-security/' ) ) . '">Account Security</a><a class="sa-secondary-button" href="' . esc_url( SAUTH_Passkeys::manager_url() ) . '">Passkeys &amp; Security Keys</a><a class="sa-secondary-button" href="' . esc_url( SA_Security::page_url( 'sessions' ) ) . '">Active Sessions</a><a class="sa-secondary-button" href="' . esc_url( SA_Security::page_url( 'google_account', SA_Membership_Adapter::profile_url() ) ) . '">Google Account Security</a><a class="sa-text-link" href="' . esc_url( $logout_url ) . '">Log Out</a></div></div>';
 	}
 
 	private function template( $name, array $vars ) {
@@ -205,6 +205,19 @@ final class SA_Plugin {
 			exit;
 		}
 		$client_id = isset( $_POST['google_client_id'] ) ? sanitize_text_field( wp_unslash( $_POST['google_client_id'] ) ) : '';
+		$related_raw = isset( $_POST['related_origins'] ) ? (string) wp_unslash( $_POST['related_origins'] ) : '';
+		$related_origins = array();
+		foreach ( preg_split( '/\\r?\\n/', $related_raw ) as $origin ) {
+			$origin = trim( (string) $origin );
+			if ( '' === $origin ) { continue; }
+			$normalized = class_exists( 'SAUTH_Modern_Auth' ) ? SAUTH_Modern_Auth::normalize_origin( $origin ) : '';
+			if ( '' === $normalized || count( $related_origins ) >= 5 ) {
+				wp_safe_redirect( add_query_arg( 'error', 'invalid_related_origins', self::settings_url() ) );
+				exit;
+			}
+			$related_origins[ $normalized ] = $normalized;
+		}
+		$related_origins = array_values( $related_origins );
 		if ( '' !== $client_id && ! preg_match( '/^[0-9A-Za-z._-]+\.apps\.googleusercontent\.com$/', $client_id ) ) {
 			wp_safe_redirect( add_query_arg( 'error', 'invalid_client_id', self::settings_url() ) );
 			exit;
@@ -234,6 +247,7 @@ final class SA_Plugin {
 			'sauth_google_client_id', 'sa_google_client_id',
 			'sauth_google_client_secret', 'sa_google_client_secret',
 			'sauth_google_enabled', 'sa_google_enabled',
+			'sauth_related_origins',
 		);
 		$snapshot = array();
 		foreach ( $keys as $key ) { $snapshot[ $key ] = get_option( $key, null ); }
@@ -244,6 +258,7 @@ final class SA_Plugin {
 			'sa_google_client_secret' => $encrypted,
 			'sauth_google_enabled' => $enable ? '1' : '0',
 			'sa_google_enabled' => $enable ? '1' : '0',
+			'sauth_related_origins' => $related_origins,
 		);
 		$stored_ok = true;
 		foreach ( $desired as $key => $value ) {
@@ -252,6 +267,8 @@ final class SA_Plugin {
 			$current = get_option( $key, null );
 			if ( '' === $value && false !== strpos( $key, 'client_secret' ) ) {
 				$stored_ok = $stored_ok && null === $current;
+			} elseif ( is_array( $value ) ) {
+				$stored_ok = $stored_ok && is_array( $current ) && array_values( $current ) === array_values( $value );
 			} else {
 				$stored_ok = $stored_ok && (string) $current === (string) $value;
 			}
@@ -264,7 +281,9 @@ final class SA_Plugin {
 			$rollback_ok = true;
 			foreach ( $snapshot as $key => $value ) {
 				$current = get_option( $key, null );
-				$rollback_ok = $rollback_ok && ( null === $value ? null === $current : (string) $current === (string) $value );
+				if ( null === $value ) { $rollback_ok = $rollback_ok && null === $current; }
+				elseif ( is_array( $value ) ) { $rollback_ok = $rollback_ok && is_array( $current ) && array_values( $current ) === array_values( $value ); }
+				else { $rollback_ok = $rollback_ok && (string) $current === (string) $value; }
 			}
 			if ( ! $rollback_ok ) {
 				SAUTH_Operations::enter_safe_mode();

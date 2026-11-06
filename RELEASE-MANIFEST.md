@@ -1,3 +1,20 @@
+# File 02 — Release Manifest — 1.4.0 Modern Authentication 24 Candidate
+
+- Runtime: `1.4.0`
+- Database: `1.4.0`
+- Passkey schema: `1.1.0`
+- Passkey assurance v1: `1.0.0` preserved
+- Modern Auth: `1.0.0`
+- Authentication Assurance v2: `2.0.0`
+- Shared Signals: `1.0.0`
+- Package target: `02-sabri-authentication-1.4.0-SOURCE-CANDIDATE.zip`
+- Candidate branch: `codex/file02-modern-auth-24-1.4.0`
+- Baseline main: `224c39bcb8c28f77504c7348dbad41226753c7e8`
+- Status: source candidate; exact-head CI/package evidence pending; staging/live/operational not claimed.
+
+> **Current authoritative candidate — File 02 1.4.0 / DB 1.4.0 / passkey schema 1.1.0.**  
+> This repository candidate carries the Founder-approved **Modern Authentication 24** amendment (F02-X-24-001..024) forward onto the post-R343 source line. It preserves passkey assurance v1 `1.0.0` and adds Modern Auth `1.0.0`, Authentication Assurance Receipt v2 `2.0.0`, and Shared Signals `1.0.0`. Repository coding/CI/package/staging/live/operational gates remain separate. Any lower-version “current candidate” wording below is retained only as historical provenance unless explicitly restated here.
+
 # File 02 — Release Manifest — 1.3.0
 
 ## Release identity

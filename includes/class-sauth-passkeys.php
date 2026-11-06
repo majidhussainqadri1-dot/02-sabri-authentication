@@ -19,7 +19,7 @@ defined( 'ABSPATH' ) || exit;
  */
 final class SAUTH_Passkeys {
 	const CONTRACT_VERSION      = '1.0.0';
-	const SCHEMA_VERSION        = '1.0.1';
+	const SCHEMA_VERSION        = '1.1.0';
 	const CHALLENGE_TTL         = 300;
 	const ASSURANCE_TTL         = 300;
 	const MAX_CREDENTIALS       = 10;
@@ -80,6 +80,9 @@ final class SAUTH_Passkeys {
 			backup_eligible tinyint(1) NOT NULL DEFAULT 0,
 			backup_state tinyint(1) NOT NULL DEFAULT 0,
 			hardware_backed tinyint(1) NOT NULL DEFAULT 0,
+			aaguid char(32) NOT NULL DEFAULT '',
+			metadata_status varchar(32) NOT NULL DEFAULT 'unverified',
+			trust_level varchar(32) NOT NULL DEFAULT 'unverified',
 			status varchar(24) NOT NULL DEFAULT 'active',
 			created_at datetime NOT NULL,
 			last_used_at datetime DEFAULT NULL,
@@ -114,7 +117,7 @@ final class SAUTH_Passkeys {
 		$exists = $table === (string) $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) );
 		if ( ! $exists || '' !== (string) $wpdb->last_error ) { return false; }
 		$columns = $wpdb->get_col( "SHOW COLUMNS FROM `{$table}`", 0 ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$required = array( 'id','public_id','user_id','credential_lookup_hash','credential_id_ciphertext','public_key_pem','algorithm','sign_count','nickname','attachment','transports','discoverable','backup_eligible','backup_state','hardware_backed','status','created_at','last_used_at','revoked_at','updated_at' );
+		$required = array( 'id','public_id','user_id','credential_lookup_hash','credential_id_ciphertext','public_key_pem','algorithm','sign_count','nickname','attachment','transports','discoverable','backup_eligible','backup_state','hardware_backed','aaguid','metadata_status','trust_level','status','created_at','last_used_at','revoked_at','updated_at' );
 		if ( ! is_array( $columns ) || '' !== (string) $wpdb->last_error || array_diff( $required, array_map( 'strval', $columns ) ) ) { return false; }
 		$required_indexes = array(
 			'PRIMARY'                => array( 0, array( 'id' ) ),
@@ -234,6 +237,33 @@ final class SAUTH_Passkeys {
 	private static function mark_manager_page( $page_id ) { $page_id=absint($page_id); if(!$page_id){return;} update_post_meta($page_id,'_sauth_managed_page','1'); update_post_meta($page_id,'_sauth_private_page','1'); delete_post_meta($page_id,'_sa_private_page'); }
 	private static function manager_page_ready() { $map=(array)get_option('sauth_page_map',array()); $page_id=isset($map['passkeys'])?absint($map['passkeys']):0; return $page_id>0 && self::is_manager_page(get_post($page_id)); }
 
+
+	/**
+	 * Server-authoritative, browser-local reconciliation projection. Credential
+	 * IDs are opaque WebAuthn identifiers; no public/private key material,
+	 * biometric information, or session secrets are exposed.
+	 */
+	public static function browser_signal_payload( $user_id ) {
+		$user_id = absint( $user_id );
+		if ( ! $user_id || get_current_user_id() !== $user_id ) { return array(); }
+		$user = get_userdata( $user_id );
+		if ( ! $user instanceof WP_User ) { return array(); }
+		$ids = array();
+		foreach ( self::credentials_for_user( $user_id ) as $credential ) {
+			$encoded = SA_Security::decrypt( (string) ( $credential['credential_id_ciphertext'] ?? '' ) );
+			if ( is_string( $encoded ) && false !== self::base64url_decode( $encoded ) ) { $ids[] = $encoded; }
+		}
+		$handle = self::user_handle( $user_id, false );
+		$ctx = self::rp_context();
+		return array(
+			'rpId' => (string) $ctx['rp_id'],
+			'userId' => (string) $handle,
+			'name' => (string) $user->user_email,
+			'displayName' => (string) ( $user->display_name ? $user->display_name : $user->user_login ),
+			'allAcceptedCredentialIds' => array_values( array_unique( $ids ) ),
+		);
+	}
+
 	public static function manager_url() {
 		$map = (array) get_option( 'sauth_page_map', array() );
 		$page_id = isset( $map['passkeys'] ) ? absint( $map['passkeys'] ) : 0;
@@ -247,11 +277,13 @@ final class SAUTH_Passkeys {
 		if ( ! wp_script_is( 'sauth-authentication', 'enqueued' ) ) {
 			wp_enqueue_script( 'sauth-authentication', SAUTH_URL . 'assets/js/authentication.js', array(), SAUTH_VERSION, true );
 		}
+		$rp_context = self::rp_context();
 		wp_localize_script(
 			'sauth-authentication',
 			'SabriAuthPasskeys',
 			array(
 				'ajaxUrl'      => admin_url( 'admin-ajax.php' ),
+				'rpId'         => (string) $rp_context['rp_id'],
 				'nonce'        => is_user_logged_in() ? wp_create_nonce( 'sauth_passkeys' ) : '',
 				'loggedIn'     => is_user_logged_in(),
 				'managerUrl'   => self::manager_url(),
@@ -430,6 +462,7 @@ final class SAUTH_Passkeys {
 			self::json_error( 'credential_encryption_failed' );
 		}
 		$backup_eligible = ! empty( $parsed['backup_eligible'] );
+		$trust = class_exists( 'SAUTH_FIDO_Trust' ) ? SAUTH_FIDO_Trust::assess( (string) ( $parsed['aaguid'] ?? '' ), (string) $attestation['fmt'] ) : array( 'status'=>'unavailable','trust_level'=>'unverified','hardware_backed'=>false );
 		$now = current_time( 'mysql', true );
 		global $wpdb;
 		$lock = self::acquire_named_lock( 'passkey-enrollment', $user_id );
@@ -460,16 +493,19 @@ final class SAUTH_Passkeys {
 						'discoverable' => 1,
 						'backup_eligible' => $backup_eligible ? 1 : 0,
 						'backup_state' => ! empty( $parsed['backup_state'] ) ? 1 : 0,
-						'hardware_backed' => 0,
+						'hardware_backed' => ! empty( $trust['hardware_backed'] ) ? 1 : 0,
+						'aaguid' => sanitize_key( (string) ( $parsed['aaguid'] ?? '' ) ),
+						'metadata_status' => sanitize_key( (string) ( $trust['status'] ?? 'unverified' ) ),
+						'trust_level' => sanitize_key( (string) ( $trust['trust_level'] ?? 'unverified' ) ),
 						'sign_count' => absint( $parsed['sign_count'] ),
 						'nickname' => $nickname,
 						'status' => 'active',
 						'created_at' => $now,
 						'updated_at' => $now,
 					),
-					array( '%s','%d','%s','%s','%s','%d','%s','%s','%d','%d','%d','%d','%s','%s','%s','%s' )
+					array( '%s','%d','%s','%s','%s','%d','%s','%s','%d','%d','%d','%d','%s','%s','%s','%d','%s','%s','%s','%s' )
 				);
-				$post = $wpdb->get_row( $wpdb->prepare( 'SELECT public_id,user_id,credential_lookup_hash,public_key_pem,algorithm,backup_eligible,backup_state,status,sign_count FROM ' . self::table() . ' WHERE public_id=%s', $public_id ), ARRAY_A );
+				$post = $wpdb->get_row( $wpdb->prepare( 'SELECT public_id,user_id,credential_lookup_hash,public_key_pem,algorithm,backup_eligible,backup_state,hardware_backed,aaguid,metadata_status,trust_level,status,sign_count FROM ' . self::table() . ' WHERE public_id=%s', $public_id ), ARRAY_A );
 				if ( 1 !== (int) $inserted
 					|| ! is_array( $post )
 					|| '' !== (string) $wpdb->last_error
@@ -480,6 +516,10 @@ final class SAUTH_Passkeys {
 					|| intval( $post['algorithm'] ?? 0 ) !== intval( $key['algorithm'] )
 					|| absint( $post['backup_eligible'] ?? 0 ) !== ( $backup_eligible ? 1 : 0 )
 					|| absint( $post['backup_state'] ?? 0 ) !== ( ! empty( $parsed['backup_state'] ) ? 1 : 0 )
+					|| absint( $post['hardware_backed'] ?? 0 ) !== ( ! empty( $trust['hardware_backed'] ) ? 1 : 0 )
+					|| ! hash_equals( sanitize_key( (string) ( $parsed['aaguid'] ?? '' ) ), (string) ( $post['aaguid'] ?? '' ) )
+					|| ! hash_equals( sanitize_key( (string) ( $trust['status'] ?? 'unverified' ) ), (string) ( $post['metadata_status'] ?? '' ) )
+					|| ! hash_equals( sanitize_key( (string) ( $trust['trust_level'] ?? 'unverified' ) ), (string) ( $post['trust_level'] ?? '' ) )
 					|| absint( $post['sign_count'] ?? 0 ) !== absint( $parsed['sign_count'] ) ) {
 					$deleted = $wpdb->delete(
 						self::table(),
@@ -564,6 +604,9 @@ final class SAUTH_Passkeys {
 			self::authentication_failure( 0, 'credential_unknown' );
 		}
 		$user_id = absint( $credential['user_id'] );
+		if ( class_exists( 'SAUTH_Security_Orchestrator' ) && SAUTH_Security_Orchestrator::authentication_blocked( $user_id ) ) {
+			self::authentication_failure( $user_id, 'emergency_lockdown_active' );
+		}
 		if ( absint( $credential['backup_eligible'] ?? 0 ) !== ( ! empty( $parsed['backup_eligible'] ) ? 1 : 0 ) ) {
 			self::mark_credential_compromised( $credential );
 			self::authentication_failure( $user_id, 'backup_eligibility_changed' );
@@ -939,6 +982,7 @@ final class SAUTH_Passkeys {
 			if ( $credential_length < 16 || $credential_length > 1024 || strlen( $raw ) < 55 + $credential_length + 1 ) {
 				return new WP_Error( 'sauth_webauthn_credential_length', 'Credential ID length is invalid.' );
 			}
+			$result['aaguid'] = bin2hex( substr( $raw, 37, 16 ) );
 			$result['credential_id'] = substr( $raw, 55, $credential_length );
 			$offset = 55 + $credential_length;
 			$cose = self::cbor_decode_item( $raw, $offset, 0 );
@@ -1416,7 +1460,7 @@ final class SAUTH_Passkeys {
 		$offset = ( $page - 1 ) * $limit;
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				'SELECT public_id,nickname,status,created_at,last_used_at,revoked_at,attachment,backup_eligible FROM ' . self::table() . ' WHERE user_id=%d ORDER BY id ASC LIMIT %d OFFSET %d',
+				'SELECT public_id,nickname,status,created_at,last_used_at,revoked_at,attachment,backup_eligible,aaguid,metadata_status,trust_level FROM ' . self::table() . ' WHERE user_id=%d ORDER BY id ASC LIMIT %d OFFSET %d',
 				$user->ID,
 				$limit,
 				$offset
