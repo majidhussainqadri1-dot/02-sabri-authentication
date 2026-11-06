@@ -278,7 +278,7 @@ final class SAUTH_Security_Orchestrator {
 		// The transient protects browser handoff; enforce the same lifetime at the
 		// server-side claim boundary even if a caller retained the original proof.
 		$created_at = strtotime( (string) ( $row['created_at'] ?? '' ) . ' UTC' );
-		if ( false === $created_at || $created_at > time() || time() - $created_at >= 10 * MINUTE_IN_SECONDS ) {
+		if ( false === $created_at || $created_at > time() || time() - $created_at >= 600 ) {
 			return new WP_Error( 'sauth_collision_case_expired', 'Account-resolution case has expired.' );
 		}
 		if ( ! hash_equals( (string) ( $row['fingerprint_hash'] ?? '' ), SA_Security::client_fingerprint() ) ) {
