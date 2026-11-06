@@ -224,3 +224,9 @@ jobs:
           set -euo pipefail
           php -l file02/tests/integration/recovery-reconciliation-health.php
           /tmp/wp eval-file file02/tests/integration/recovery-reconciliation-health.php --path=/tmp/wordpress
+
+      - name: Verify FedCM one-time replay-option lifecycle on real WordPress
+        run: |
+          set -euo pipefail
+          php -l file02/tests/integration/fedcm-claim-expiry-mariadb.php
+          /tmp/wp eval-file file02/tests/integration/fedcm-claim-expiry-mariadb.php --path=/tmp/wordpress
