@@ -200,13 +200,14 @@ final class SAUTH_Modern_Auth {
 		}
 		$key = 'sauth_fedcm_' . $id;
 		$record = get_transient( $key );
-		delete_transient( $key );
 		if ( ! is_array( $record )
 			|| absint( $record['expires_at'] ?? 0 ) <= time()
 			|| ! hash_equals( (string) $record['fingerprint'], SA_Security::client_fingerprint() )
 			|| ! hash_equals( (string) $record['nonce_hash'], hash( 'sha256', $nonce ) ) ) {
 			wp_send_json_error( array( 'code'=>'fedcm_nonce_invalid' ), 400 );
 		}
+		// Invalid nonce/fingerprint must not consume a legitimate FedCM attempt.
+		delete_transient( $key );
 		$verified = apply_filters( 'sauth_fedcm_verify_token_v1', null, $token, $nonce, $record );
 		$token = ''; $nonce = ''; unset( $_POST['token'], $_POST['nonce'] );
 		if ( ! is_array( $verified ) || empty( $verified['verified'] ) || empty( $verified['user_id'] ) ) {
