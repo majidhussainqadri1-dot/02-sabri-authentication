@@ -28,7 +28,10 @@ final class SAUTH_DPoP {
 		$htm = strtoupper( (string) ( $claims['htm'] ?? '' ) );
 		$htu = self::canonical_htu( (string) ( $claims['htu'] ?? '' ) );
 		$expected_htu = self::canonical_htu( (string) $url );
-		$iat = absint( $claims['iat'] ?? 0 );
+		$iat_raw = $claims['iat'] ?? null;
+		// RFC NumericDate is a signed issuance instant, never an absolute value.
+		// Do not convert negative, string or fractional times with absint().
+		$iat = is_int( $iat_raw ) && $iat_raw > 0 ? $iat_raw : 0;
 		$jti = (string) ( $claims['jti'] ?? '' );
 		if ( $htm !== strtoupper( (string) $method ) || '' === $htu || ! hash_equals( $expected_htu, $htu ) || ! $iat || abs( time() - $iat ) > self::MAX_AGE || ! preg_match( '/^[A-Za-z0-9._~-]{16,200}$/', $jti ) ) {
 			return new WP_Error( 'sauth_dpop_claims_invalid', 'DPoP claims are invalid or stale.' );
