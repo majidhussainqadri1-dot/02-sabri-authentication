@@ -250,7 +250,12 @@ final class SAUTH_Security_Orchestrator {
 			if ( 1 !== (int) $deleted ) {
 				// If compensation cannot delete, make the case ineligible for resolution.
 				// A failed UPDATE is still an operational reconciliation incident; never return a proof.
-				$wpdb->update( SAUTH_Activator::table( 'recovery_changes' ), array( 'status'=>'cancelled', 'updated_at'=>$now ), array( 'public_id'=>$public_id, 'status'=>'pending' ), array( '%s','%s' ), array( '%s','%s' ) );
+				$cancelled = $wpdb->update( SAUTH_Activator::table( 'recovery_changes' ), array( 'status'=>'cancelled', 'updated_at'=>$now ), array( 'public_id'=>$public_id, 'status'=>'pending' ), array( '%s','%s' ), array( '%s','%s' ) );
+				if ( 1 !== (int) $cancelled ) {
+					// Both database compensations failed. No bearer proof is returned;
+					// surface a distinct incident for durable operational reconciliation.
+					return new WP_Error( 'sauth_collision_reconciliation_required', 'Account resolution could not be completed; manual reconciliation is required.' );
+				}
 			}
 			return new WP_Error( 'sauth_collision_handoff_failed', 'Account resolution could not be protected.' );
 		}
