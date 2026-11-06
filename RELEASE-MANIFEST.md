@@ -8,9 +8,9 @@
 - Authentication Assurance v2: `2.0.0`
 - Shared Signals: `1.0.0`
 - Package target: `02-sabri-authentication-1.4.0-SOURCE-CANDIDATE.zip`
-- Candidate branch: `codex/file02-modern-auth-24-1.4.0`
+- Current corrective Draft PR: `#23`, branch `audit/f02-v12-run45-source-evidence-20261106` (the historical `codex/file02-modern-auth-24-1.4.0` base remains provenance only).
 - Baseline main: `224c39bcb8c28f77504c7348dbad41226753c7e8`
-- Status: source candidate; exact-head CI/package evidence pending; staging/live/operational not claimed.
+- Status: source candidate / unmerged. Exact corrective PR HEAD `888c9119f07d9d5b498fab5743076090b451bb8f`: **13/13 GitHub workflow runs SUCCESS**, including deterministic package clean-extract parity; not a staged, deployed or Founder-accepted release. The next commit updating this text requires its own exact-head CI check.
 
 > **Current authoritative candidate — File 02 1.4.0 / DB 1.4.0 / passkey schema 1.1.0.**  
 > This repository candidate carries the Founder-approved **Modern Authentication 24** amendment (F02-X-24-001..024) forward onto the post-R343 source line. It preserves passkey assurance v1 `1.0.0` and adds Modern Auth `1.0.0`, Authentication Assurance Receipt v2 `2.0.0`, and Shared Signals `1.0.0`. Repository coding/CI/package/staging/live/operational gates remain separate. Any lower-version “current candidate” wording below is retained only as historical provenance unless explicitly restated here.
