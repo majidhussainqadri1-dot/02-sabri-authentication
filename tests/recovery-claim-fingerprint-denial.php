@@ -1,6 +1,6 @@
 <?php
 /**
- * F02-X24-012: reject a mismatched fingerprint before claiming the case.
+ * F02-X24-012: reject mismatched fingerprints in dedicated collision flow; generic flow must reject collision kinds outright.
  * Deterministic mock only; not WordPress/MariaDB integration.
  * Run: php tests/recovery-claim-fingerprint-denial.php
  */
@@ -56,11 +56,11 @@ foreach (array('resolve_collision_case', 'apply_recovery_change') as $method) {
     $wpdb->updates = 0;
     $ownerCalls = 0;
     $result = SAUTH_Security_Orchestrator::{$method}('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'valid-proof');
-    $expected = 'resolve_collision_case' === $method ? 'sauth_collision_fingerprint_mismatch' : 'sauth_recovery_fingerprint_mismatch';
+    $expected = 'resolve_collision_case' === $method ? 'sauth_collision_fingerprint_mismatch' : 'sauth_collision_dedicated_flow_required';
     if (!($result instanceof WP_Error) || $result->get_error_code() !== $expected || $wpdb->updates !== 0 || $ownerCalls !== 0) {
         fwrite(STDERR, "FAIL {$method}: claim={$wpdb->updates} owner={$ownerCalls}\n");
         $failed = true;
     }
 }
 if ($failed) { exit(1); }
-echo "Fingerprint mismatch denied before claim and owner callback (mock only).\n";
+echo "Dedicated collision fingerprint mismatch and generic collision isolation denied before claim/owner (mock only).\n";
