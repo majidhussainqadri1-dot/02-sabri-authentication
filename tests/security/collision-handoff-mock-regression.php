@@ -2,6 +2,7 @@
 /** F02-X24-012: isolated WP-function mock, NOT real WordPress/MariaDB integration. */
 declare(strict_types=1);
 define('ABSPATH', '/tmp/');
+define('ARRAY_A', 'ARRAY_A');
 define('MINUTE_IN_SECONDS', 60);
 $GLOBALS['f02_fingerprint'] = 'device-A';
 $GLOBALS['f02_now'] = 1000;
