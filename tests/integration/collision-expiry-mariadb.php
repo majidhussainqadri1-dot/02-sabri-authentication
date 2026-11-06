@@ -11,9 +11,10 @@ if ( ! defined( 'ABSPATH' ) || ! class_exists( 'SAUTH_Security_Orchestrator' ) )
 }
 global $wpdb;
 $table = SAUTH_Activator::table( 'recovery_changes' );
-$ids = array();
+$GLOBALS['sauth_qa_expiry_ids'] = array();
 function sauth_qa_expiry_case( $kind, $status, $created_at, $uid ) {
-    global $wpdb, $table, $ids;
+    global $wpdb;
+    $table = SAUTH_Activator::table( 'recovery_changes' );
     $id = strtolower( wp_generate_uuid4() );
     $now = current_time( 'mysql', true );
     $saved = $wpdb->insert( $table, array(
@@ -24,11 +25,12 @@ function sauth_qa_expiry_case( $kind, $status, $created_at, $uid ) {
         'apply_after'=>$now, 'created_at'=>$created_at, 'updated_at'=>$now,
     ), array( '%s','%d','%s','%s','%s','%s','%s','%s','%s','%s' ) );
     if ( 1 !== (int)$saved ) { throw new RuntimeException('fixture insert failed: ' . $wpdb->last_error); }
-    $ids[] = $id;
+    $GLOBALS['sauth_qa_expiry_ids'][] = $id;
     return $id;
 }
 function sauth_qa_expiry_status( $id ) {
-    global $wpdb, $table;
+    global $wpdb;
+    $table = SAUTH_Activator::table( 'recovery_changes' );
     return (string)$wpdb->get_var( $wpdb->prepare( "SELECT status FROM {$table} WHERE public_id=%s", $id ) );
 }
 try {
@@ -61,5 +63,5 @@ try {
     fwrite(STDERR, 'FAIL: ' . $error->getMessage() . "\n");
     exit(1);
 } finally {
-    foreach ( $ids as $id ) { $wpdb->delete($table, array('public_id'=>$id), array('%s')); }
+    foreach ( $GLOBALS['sauth_qa_expiry_ids'] as $id ) { $wpdb->delete($table, array('public_id'=>$id), array('%s')); }
 }
