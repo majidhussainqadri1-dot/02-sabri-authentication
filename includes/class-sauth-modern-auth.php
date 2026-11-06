@@ -12,6 +12,7 @@ final class SAUTH_Modern_Auth {
 	const CONTRACT_VERSION = '1.0.0';
 	const UPGRADE_WINDOW    = 180;
 	const FEDCM_NONCE_TTL   = 300;
+	const FEDCM_CLAIM_EXPIRE_HOOK = 'sauth_fedcm_claim_expire';
 	const MAX_RELATED_ORIGINS = 5;
 
 	private static $feature_ids = array(
@@ -31,6 +32,7 @@ final class SAUTH_Modern_Auth {
 		add_action( 'wp_ajax_sauth_modern_fedcm_begin', array( __CLASS__, 'fedcm_begin_ajax' ) );
 		add_action( 'wp_ajax_nopriv_sauth_modern_fedcm_finish', array( __CLASS__, 'fedcm_finish_ajax' ) );
 		add_action( 'wp_ajax_sauth_modern_fedcm_finish', array( __CLASS__, 'fedcm_finish_ajax' ) );
+		add_action( self::FEDCM_CLAIM_EXPIRE_HOOK, array( __CLASS__, 'expire_fedcm_claim' ), 10, 1 );
 		add_filter( 'sauth_modern_auth_features_v1', array( __CLASS__, 'filter_feature_registry' ) );
 	}
 
@@ -207,6 +209,15 @@ final class SAUTH_Modern_Auth {
 			wp_send_json_error( array( 'code'=>'fedcm_nonce_invalid' ), 400 );
 		}
 		// Invalid nonce/fingerprint must not consume a legitimate FedCM attempt.
+		// get_transient + delete_transient is not an atomic once-only claim:
+		// two concurrent readers can otherwise verify the same signed RP nonce.
+		$claim_key = 'sauth_fedcm_claim_' . hash_hmac( 'sha256', $id, wp_salt( 'auth' ) );
+		if ( ! add_option( $claim_key, time(), '', false ) ) {
+			wp_send_json_error( array( 'code'=>'fedcm_nonce_replayed' ), 409 );
+		}
+		if ( function_exists( 'wp_schedule_single_event' ) ) {
+			wp_schedule_single_event( time() + self::FEDCM_NONCE_TTL + 60, self::FEDCM_CLAIM_EXPIRE_HOOK, array( $claim_key ) );
+		}
 		delete_transient( $key );
 		$verified = apply_filters( 'sauth_fedcm_verify_token_v1', null, $token, $nonce, $record );
 		$token = ''; $nonce = ''; unset( $_POST['token'], $_POST['nonce'] );
@@ -235,6 +246,16 @@ final class SAUTH_Modern_Auth {
 		}
 		SA_Membership_Adapter::audit( 'fedcm_server_verified_sign_in', $user_id );
 		wp_send_json_success( array( 'redirect'=>home_url( '/' ) ) );
+	}
+
+	/** Retire only our bounded non-autoloaded FedCM replay-claim options. */
+	public static function expire_fedcm_claim( $key ) {
+		$key = (string) $key;
+		if ( ! preg_match( '/^sauth_fedcm_claim_[a-f0-9]{64}$/D', $key ) ) { return; }
+		$claimed_at = absint( get_option( $key, 0 ) );
+		if ( $claimed_at && $claimed_at + self::FEDCM_NONCE_TTL <= time() ) {
+			delete_option( $key );
+		}
 	}
 
 	public static function portability_metadata( $user_id ) {
