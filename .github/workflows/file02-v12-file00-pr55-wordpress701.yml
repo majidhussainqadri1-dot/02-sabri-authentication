@@ -212,3 +212,9 @@ jobs:
           grep -q '^WIN:' /tmp/f02-race-a.log
           grep -q '^LOSE:' /tmp/f02-race-b.log
           /tmp/wp eval-file "$fixture" verify --path=/tmp/wordpress
+
+      - name: Fail-first MariaDB collision pending expiry and retention isolation
+        run: |
+          set -euo pipefail
+          php -l file02/tests/integration/collision-expiry-mariadb.php
+          /tmp/wp eval-file file02/tests/integration/collision-expiry-mariadb.php --path=/tmp/wordpress
