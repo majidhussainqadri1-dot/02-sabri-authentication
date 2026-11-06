@@ -22,7 +22,7 @@ final class SAUTH_DPoP {
 		$typ = strtolower( (string) ( $header['typ'] ?? '' ) );
 		$alg = (string) ( $header['alg'] ?? '' );
 		$jwk = isset( $header['jwk'] ) && is_array( $header['jwk'] ) ? $header['jwk'] : array();
-		if ( 'dpop+jwt' !== $typ || ! in_array( $alg, array( 'ES256','RS256' ), true ) || empty( $jwk ) || array_intersect( array( 'd','p','q','dp','dq','qi','oth','k' ), array_keys( $jwk ) ) ) {
+		if ( 'dpop+jwt' !== $typ || ! in_array( $alg, array( 'ES256','RS256' ), true ) || empty( $jwk ) || isset( $jwk['d'] ) || array_intersect( array( 'p','q','dp','dq','qi','oth','k' ), array_keys( $jwk ) ) ) {
 			return new WP_Error( 'sauth_dpop_header_invalid', 'DPoP header is invalid.' );
 		}
 		$htm = strtoupper( (string) ( $claims['htm'] ?? '' ) );
@@ -62,8 +62,16 @@ final class SAUTH_DPoP {
 	}
 
 	public static function expire_replay( $key ) {
-		$key = sanitize_key( (string) $key );
-		if ( 0 === strpos( $key, 'sauth_dpop_' ) ) { delete_option( $key ); }
+		// A cron callback can only remove our own full SHA-256 claim option,
+		// and only after its bounded replay window. No broad prefix deletes.
+		$key = (string) $key;
+		if ( ! preg_match( '/^sauth_dpop_[a-f0-9]{64}$/D', $key ) ) { return; }
+		$claimed_at = get_option( $key, false );
+		if ( is_numeric( $claimed_at )
+			&& (int) $claimed_at > 0
+			&& (int) $claimed_at + self::MAX_AGE + 60 <= time() ) {
+			delete_option( $key );
+		}
 	}
 
 	private static function canonical_htu( $url ) {
