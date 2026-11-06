@@ -218,3 +218,9 @@ jobs:
           set -euo pipefail
           php -l file02/tests/integration/collision-expiry-mariadb.php
           /tmp/wp eval-file file02/tests/integration/collision-expiry-mariadb.php --path=/tmp/wordpress
+
+      - name: Fail-first operational health for unresolved recovery claims
+        run: |
+          set -euo pipefail
+          php -l file02/tests/integration/recovery-reconciliation-health.php
+          /tmp/wp eval-file file02/tests/integration/recovery-reconciliation-health.php --path=/tmp/wordpress
