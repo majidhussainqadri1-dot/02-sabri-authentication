@@ -37,6 +37,9 @@ function add_option($key, $value, $deprecated='', $autoload=false) {
     return true;
 }
 function wp_schedule_single_event($time, $name, $args) { ++$GLOBALS['fedcm_schedule_calls']; return true; }
+function get_option($key, $default = 0) { return array_key_exists($key, $GLOBALS['fedcm_claims']) ? $GLOBALS['fedcm_claims'][$key] : $default; }
+function delete_option($key) { unset($GLOBALS['fedcm_claims'][$key]); return true; }
+
 function wp_salt($x) { return 'test-auth-salt'; }
 function sanitize_text_field($x) { return (string)$x; }
 function wp_unslash($x) { return (string)$x; }
@@ -69,4 +72,15 @@ $replay=f02_attempt($GLOBALS['fedcm_nonce']);
 f02_assert(!$replay->ok,'FedCM nonce replay succeeded after a cached concurrent read');
 f02_assert($GLOBALS['fedcm_verified']===1,'server IdP verifier executed for a replay');
 f02_assert($GLOBALS['fedcm_cookies']===1,'replayed nonce issued a second login cookie');
+f02_assert(count($GLOBALS['fedcm_claims'])===1,'expected one durable DB-backed nonce claim');
+f02_assert($GLOBALS['fedcm_schedule_calls']===1,'nonce claim cleanup was not scheduled once');
+$claim_key = array_key_first($GLOBALS['fedcm_claims']);
+SAUTH_Modern_Auth::expire_fedcm_claim('smc_do_not_delete');
+f02_assert(count($GLOBALS['fedcm_claims'])===1,'foreign option modified by cleanup');
+SAUTH_Modern_Auth::expire_fedcm_claim($claim_key);
+f02_assert(isset($GLOBALS['fedcm_claims'][$claim_key]),'fresh nonce claim prematurely erased');
+$GLOBALS['fedcm_claims'][$claim_key] = time() - 361;
+SAUTH_Modern_Auth::expire_fedcm_claim($claim_key);
+f02_assert(!isset($GLOBALS['fedcm_claims'][$claim_key]),'expired nonce claim not removed');
+
 echo "PASS: FedCM invalid-nonce isolation and once-only concurrent claim (mock).\n";
