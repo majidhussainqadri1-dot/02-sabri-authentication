@@ -267,3 +267,9 @@ jobs:
           set -euo pipefail
           php -l file02/tests/integration/dpop-replay-mariadb.php
           /tmp/wp eval-file file02/tests/integration/dpop-replay-mariadb.php --path=/tmp/wordpress
+
+      - name: Fail-first immutable CAEP/RISC event_id replay on MariaDB
+        run: |
+          set -euo pipefail
+          php -l file02/tests/integration/shared-signal-eventid-conflict-mariadb.php
+          /tmp/wp eval-file file02/tests/integration/shared-signal-eventid-conflict-mariadb.php --path=/tmp/wordpress
