@@ -366,7 +366,10 @@ final class SAUTH_Security_Orchestrator {
 		if(!is_array($row)||'pending'!==(string)$row['status']||strtotime((string)$row['apply_after'])>time()){return new WP_Error('sauth_recovery_not_ready','Recovery change is not ready.');}
 		$expected=SA_Security::decrypt((string)$row['owner_token_ciphertext']);
 		if(false===$expected||!hash_equals((string)$expected,(string)$owner_token)){return new WP_Error('sauth_recovery_token_invalid','Recovery change token is invalid.');}
-		if ( 'collision_resolution' === (string) $row['change_kind'] && ! hash_equals( (string) ( $row['fingerprint_hash'] ?? '' ), SA_Security::client_fingerprint() ) ) { return new WP_Error('sauth_recovery_fingerprint_mismatch','Recovery context changed.'); }
+		// Collision resolution has a dedicated short-lived, fingerprint-bound owner flow.
+		// Never route collision cases through the generic recovery handler, which lacks
+		// that flow's 600-second proof lifetime and owner-specific decision contract.
+		if ( 'collision_resolution' === (string) $row['change_kind'] ) { return new WP_Error( 'sauth_collision_dedicated_flow_required', 'Use the protected account-resolution flow.' ); }
 		$payload_json=SA_Security::decrypt((string)$row['payload_ciphertext']);
 		$payload=is_string($payload_json)?json_decode($payload_json,true):null;
 		if(!is_array($payload)){return new WP_Error('sauth_recovery_payload_invalid','Recovery change payload is unreadable.');}
