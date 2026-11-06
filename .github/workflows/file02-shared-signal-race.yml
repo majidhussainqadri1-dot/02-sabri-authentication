@@ -1,0 +1,33 @@
+name: File 02 v12 CAEP RISC immutable replay
+on:
+  pull_request:
+    paths:
+      - 'includes/class-sauth-shared-signals.php'
+      - 'tests/security/shared-signal-immutable-insert-race.php'
+      - '.github/workflows/file02-shared-signal-race.yml'
+  push:
+    paths:
+      - 'includes/class-sauth-shared-signals.php'
+      - 'tests/security/shared-signal-immutable-insert-race.php'
+      - '.github/workflows/file02-shared-signal-race.yml'
+permissions:
+  contents: read
+jobs:
+  duplicate-race:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['7.4','8.3']
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: shivammathur/setup-php@2.37.2
+        with:
+          php-version: ${{ matrix.php }}
+      - name: Syntax
+        run: php -l includes/class-sauth-shared-signals.php && php -l tests/security/shared-signal-immutable-insert-race.php
+      - name: One event id, one immutable subject
+        run: php tests/security/shared-signal-immutable-insert-race.php
