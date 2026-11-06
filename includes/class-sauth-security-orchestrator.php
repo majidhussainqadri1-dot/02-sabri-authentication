@@ -334,7 +334,9 @@ final class SAUTH_Security_Orchestrator {
 	public static function schedule_recovery_change( $user_id, $kind, array $payload, $delay=self::RECOVERY_DEFAULT ) {
 		global $wpdb;
 		$user_id=absint($user_id);$kind=sanitize_key((string)$kind);
-		$allowed=array('email_change','phone_change','provider_unlink','passkey_remove','recovery_contact','collision_resolution');
+		/* Collision resolution has a separate 600-second, fingerprint-bound owner flow.
+		 * Never mint a collision case through generic 1h–7d recovery scheduling. */
+		$allowed=array('email_change','phone_change','provider_unlink','passkey_remove','recovery_contact');
 		if(!$user_id || !in_array($kind,$allowed,true) || !self::smart_step_up($user_id,'recovery_change_'.$kind)){return new WP_Error('sauth_recovery_step_up_required','Fresh strong authentication is required.');}
 		$delay=max(self::RECOVERY_MIN,min(self::RECOVERY_MAX,absint($delay)));
 		$token=SA_Security::random_token(32);$cipher=SA_Security::encrypt($token);$payload_cipher=SA_Security::encrypt(wp_json_encode($payload));
