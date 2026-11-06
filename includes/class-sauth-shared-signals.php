@@ -56,12 +56,12 @@ final class SAUTH_Shared_Signals {
 		global $wpdb;
 		$table = SAUTH_Activator::table( 'shared_signals' );
 		$existing = $wpdb->get_row( $wpdb->prepare(
-			"SELECT event_id,family,signal_type,user_id FROM {$table} WHERE event_id=%s",
+			"SELECT event_id,family,signal_type,user_id,claims_json FROM {$table} WHERE event_id=%s",
 			$event_id
 		), ARRAY_A );
 		if ( '' !== (string) $wpdb->last_error ) { return new WP_Error( 'sauth_signal_store_unavailable', 'Signal storage unavailable.' ); }
 		if ( is_array( $existing ) ) {
-			return self::same_signal_identity( $existing, $event_id, $family, $type, $user_id )
+			return self::same_signal_identity( $existing, $event_id, $family, $type, $user_id, $claims )
 				? $event_id
 				: new WP_Error( 'sauth_signal_event_id_conflict', 'An event identifier was already bound to another security signal.' );
 		}
@@ -81,11 +81,11 @@ final class SAUTH_Shared_Signals {
 			 * insertion. Re-read immutable identity rather than falsely
 			 * acknowledging an unrelated subject or signal type. */
 			$winner = $wpdb->get_row( $wpdb->prepare(
-				"SELECT event_id,family,signal_type,user_id FROM {$table} WHERE event_id=%s",
+				"SELECT event_id,family,signal_type,user_id,claims_json FROM {$table} WHERE event_id=%s",
 				$event_id
 			), ARRAY_A );
 			if ( is_array( $winner ) ) {
-				return self::same_signal_identity( $winner, $event_id, $family, $type, $user_id )
+				return self::same_signal_identity( $winner, $event_id, $family, $type, $user_id, $claims )
 					? $event_id
 					: new WP_Error( 'sauth_signal_event_id_conflict', 'An event identifier was already bound to another security signal.' );
 			}
@@ -142,11 +142,16 @@ final class SAUTH_Shared_Signals {
 	}
 
 	/** Event identity is immutable across retries and concurrent issuers. */
-	private static function same_signal_identity( array $row, $event_id, $family, $type, $user_id ) {
+	private static function same_signal_identity( array $row, $event_id, $family, $type, $user_id, array $claims ) {
+		$previous = json_decode( (string) ( $row['claims_json'] ?? '' ), true );
+		if ( ! is_array( $previous ) ) { return false; }
+		ksort( $previous, SORT_STRING );
+		ksort( $claims, SORT_STRING );
 		return hash_equals( (string) ( $row['event_id'] ?? '' ), (string) $event_id )
 			&& hash_equals( (string) ( $row['family'] ?? '' ), (string) $family )
 			&& hash_equals( (string) ( $row['signal_type'] ?? '' ), (string) $type )
-			&& absint( $row['user_id'] ?? 0 ) === absint( $user_id );
+			&& absint( $row['user_id'] ?? 0 ) === absint( $user_id )
+			&& $previous === $claims;
 	}
 
 	private static function allowed_type( $family, $type ) {
