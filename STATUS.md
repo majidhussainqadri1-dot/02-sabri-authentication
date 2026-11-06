@@ -1,3 +1,17 @@
+# File 02 v12 — Second manual source-hardening checkpoint (2026-11-06)
+
+**Current v12 source candidate:** second-session code/test head `07eebc8e0476d84fa745c1fa0465efa370ab443f`; **13/13 GitHub Actions succeeded** at that immutable SHA. The follow-up evidence report commit `45e335f6e614574adb9eb29844a15e2889752053` records all six new RED/GREEN failure conditions and their corrective commits.
+
+- New source hardening: DPoP negative JWT iat, private JWK fields and narrowly bounded replay-option expiry; CAEP/RISC event ID user/type/claim immutability; drop untrusted free-text/PII/bearer claims. These 6 tested failure conditions group into 4 major defect families.
+- New v12 operational capability: read-only, aggregate-only, **1000-row bounded** recovery/collision queue inspection on the admin System Check, with fail-closed truncation and **no replay of uncertain File00 owner side effects**.
+- New PHP 7.4/8.3 security tests and disposable real WordPress 7.0.1 / MariaDB 11.4 integrations cover DPoP replay/expiry, CAEP/RISC collision/PII, claim-race and queue inspection. **Real crypto provider/browser and actual File00 collision owner callback are not claimed**.
+- Documentation: `review-evidence/F02-V12-SECOND-MANUAL-40MIN-SECURITY-AND-INTEGRATION-2026-11-06.md`; preceding 48-ID traceability and first-session corrections remain in `review-evidence/F02-V12-MANUAL-40MIN-TRACEABILITY-AND-FIXES-2026-11-06.md`.
+- **Still incomplete for all 48 v12 acceptance gates**: real IdP/FIDO/DPoP approved adapters, actual File00 canonical collision-resolution owner, File26 search-projection consumer contract, production-class failure recovery, Browser/RTL/Accessibility/Performance, Staging rollback/restore, founder sign-off and exact live deployed parity.
+- **Status:** candidate `1.4.0` / DB `1.4.0` / Passkeys `1.1.0`; PR #23 remains draft/unmerged; `main` unchanged `224c39bcb8c28f77504c7348dbad41226753c7e8`; hourly automation remains paused. No staging/live deploy or live DB modification.
+- **Deployment evidence:** Deployed Version unknown; Live DB Version unknown; Migration State unknown; Live Verification Status not performed. **Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔**
+
+---
+
 # File 02 Master Plan v12 — Corrective Draft Status (2026-11-06)
 
 **Current governor:** original `Sabri-Website-Master-Plan-v12.docx`, File02 48 IDs (12 FR, 10 NFR, 2 CEN, 24 X24). The historical File02 v1.x status entries below do NOT replace v12 requirements or prove deployed parity.
