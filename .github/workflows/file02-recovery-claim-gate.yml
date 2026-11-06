@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'includes/class-sauth-security-orchestrator.php'
+      - 'includes/class-sauth-operations.php'
+      - 'tests/security/reconciliation-summary-bounded.php'
       - 'tests/recovery-once-claim-gate.php'
       - 'tests/recovery-claim-reentrancy.php'
       - 'tests/recovery-claim-owner-failure.php'
@@ -22,7 +24,7 @@ jobs:
           php-version: '8.3'
           coverage: none
       - name: PHP syntax validation
-        run: php -l tests/recovery-once-claim-gate.php && php -l tests/recovery-claim-reentrancy.php && php -l tests/recovery-claim-owner-failure.php && php -l tests/recovery-claim-fingerprint-denial.php && php -l tests/recovery-claim-invalid-payload.php && php -l includes/class-sauth-security-orchestrator.php
+        run: php -l tests/recovery-once-claim-gate.php && php -l tests/recovery-claim-reentrancy.php && php -l tests/recovery-claim-owner-failure.php && php -l tests/recovery-claim-fingerprint-denial.php && php -l tests/recovery-claim-invalid-payload.php && php -l includes/class-sauth-security-orchestrator.php && php -l includes/class-sauth-operations.php && php -l tests/security/reconciliation-summary-bounded.php
       - name: Fail-first ordering regression (expected red until corrected)
         run: php tests/recovery-once-claim-gate.php
       - name: Fail-first race-loser behavioral harness (mock only)
@@ -35,3 +37,6 @@ jobs:
 
       - name: Malformed payload must fail closed before claim (mock only)
         run: php tests/recovery-claim-invalid-payload.php
+
+      - name: Bounded privacy-safe recovery queue inspection (PHP mock)
+        run: php tests/security/reconciliation-summary-bounded.php
