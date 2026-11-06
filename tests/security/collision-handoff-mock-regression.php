@@ -8,6 +8,7 @@ $GLOBALS['f02_now'] = 1000;
 $GLOBALS['f02_transients'] = [];
 $GLOBALS['f02_uuid'] = 0;
 $GLOBALS['f02_force_transient_failure'] = false;
+$GLOBALS['f02_force_delete_failure'] = false;
 class WP_Error { public $code; public $message; public function __construct(string $code, string $message) { $this->code=$code; $this->message=$message; } }
 class SAUTH_Activator { public static function table($name) { return 'test_'.$name; } }
 class SA_Security {
@@ -18,7 +19,7 @@ class SA_Security {
 class FakeF02Db {
     public $rows=[];
     public function insert($table, $data, $formats) { $this->rows[$data['public_id']]=$data; return 1; }
-    public function delete($table, $where, $formats=null) { $id=$where['public_id']??''; if (!isset($this->rows[$id])) return 0; unset($this->rows[$id]); return 1; }
+    public function delete($table, $where, $formats=null) { if ($GLOBALS['f02_force_delete_failure']) return false; $id=$where['public_id']??''; if (!isset($this->rows[$id])) return 0; unset($this->rows[$id]); return 1; }
 }
 $GLOBALS['wpdb'] = new FakeF02Db();
 function wp_generate_uuid4() { return sprintf('00000000-0000-4000-8000-%012d', ++$GLOBALS['f02_uuid']); }
@@ -65,4 +66,17 @@ $failed = SAUTH_Security_Orchestrator::create_collision_case('orphan@example.tes
 $GLOBALS['f02_force_transient_failure'] = false;
 if (!($failed instanceof WP_Error) || $failed->code !== 'sauth_collision_handoff_failed') fail('transient failure not reported');
 if (count($GLOBALS['wpdb']->rows) !== $before) fail('transient failure leaves orphaned pending collision case');
+// Fail-first: a compensating DB DELETE can fail after transient storage fails.
+$GLOBALS['f02_force_transient_failure'] = true;
+$GLOBALS['f02_force_delete_failure'] = true;
+$rollback_failed = SAUTH_Security_Orchestrator::create_collision_case('rollback-delete@example.test');
+$GLOBALS['f02_force_transient_failure'] = false;
+$GLOBALS['f02_force_delete_failure'] = false;
+if (!($rollback_failed instanceof WP_Error)) fail('rollback-delete failure not reported');
+foreach ($GLOBALS['wpdb']->rows as $row) {
+    $payload = base64_decode((string)($row['payload_ciphertext'] ?? ''));
+    if (strpos($payload, 'rollback-delete@example.test') !== false && ($row['status'] ?? '') === 'pending') {
+        fail('failed compensating delete leaves pending collision row');
+    }
+}
 echo "PASS: URL secrecy, TTL, fingerprint isolation, expiry, replay and failed-handoff rollback (mock-only)\\n";
