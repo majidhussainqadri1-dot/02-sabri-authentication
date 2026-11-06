@@ -98,6 +98,18 @@ final class SAUTH_Operations {
 			<table class="widefat striped"><thead><tr><th>Check</th><th>Status</th><th>Evidence</th></tr></thead><tbody>
 			<?php foreach ( $checks as $check ) : ?><tr><td><?php echo esc_html( $check['label'] ); ?></td><td><strong><?php echo esc_html( strtoupper( $check['status'] ) ); ?></strong></td><td><?php echo esc_html( $check['evidence'] ); ?></td></tr><?php endforeach; ?>
 			</tbody></table>
+			<h2>Recovery and collision queue — read-only aggregate</h2>
+			<?php $sauth_queue = self::reconciliation_summary(); ?>
+			<?php if ( is_wp_error( $sauth_queue ) ) : ?>
+				<div class="notice notice-error"><p>Recovery queue inspection is incomplete. No zero-backlog assurance is available.</p></div>
+			<?php else : ?>
+				<table class="widefat striped"><thead><tr><th scope="col">State</th><th scope="col">Count</th></tr></thead><tbody>
+				<?php foreach ( $sauth_queue as $state => $count ) : ?>
+					<tr><th scope="row"><?php echo esc_html( ucwords( str_replace( '_', ' ', $state ) ) ); ?></th><td><?php echo esc_html( (string) $count ); ?></td></tr>
+				<?php endforeach; ?>
+				</tbody></table>
+			<?php endif; ?>
+			<p><em>Do not replay uncertain canonical-owner actions. Verify the File 00 owner outcome and complete a supervised reconciliation. This screen contains no identifiers or bearer evidence.</em></p>
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin-top:20px"><input type="hidden" name="action" value="sauth_toggle_safe_mode"><?php wp_nonce_field( 'sauth_toggle_safe_mode', 'sauth_nonce' ); ?><input type="hidden" name="enable" value="<?php echo self::safe_mode() ? '0' : '1'; ?>"><button class="button <?php echo self::safe_mode() ? 'button-primary' : ''; ?>" type="submit"><?php echo esc_html( self::safe_mode() ? 'Exit Safe Mode' : 'Enter Safe Mode' ); ?></button></form>
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin-top:12px"><input type="hidden" name="action" value="sauth_guarded_repair"><?php wp_nonce_field( 'sauth_guarded_repair', 'sauth_nonce' ); ?><button class="button" type="submit">Run Guarded Repair</button></form>
 			<p><em>Guarded Repair is additive/idempotent. It reconciles File 02 schema, passkey schema and private pages; it does not purge File 00 identity or File 02 authentication evidence.</em></p>
@@ -168,6 +180,54 @@ final class SAUTH_Operations {
 		} finally {
 			self::release_repair_lock( $lock );
 		}
+	}
+
+	/**
+	 * Bounded, read-only operational queue inspection (F02-NFR-003/008).
+	 * Never exposes subject identity, bearer proof, encrypted payload or case ID.
+	 * An unknown owner-side effect MUST NOT be replayed by a generic repair.
+	 */
+	public static function reconciliation_summary() {
+		global $wpdb;
+		$table = SAUTH_Activator::table( 'recovery_changes' );
+		if ( '' === $table ) {
+			return new WP_Error( 'sauth_recovery_queue_unavailable', 'Recovery queue is unavailable.' );
+		}
+		$exists = $wpdb->get_var( $wpdb->prepare(
+			'SHOW TABLES LIKE %s', $wpdb->esc_like( $table )
+		) );
+		if ( $table !== (string) $exists || '' !== (string) $wpdb->last_error ) {
+			return new WP_Error( 'sauth_recovery_queue_unavailable', 'Recovery queue cannot be inspected.' );
+		}
+		$rows = $wpdb->get_results(
+			"SELECT status,change_kind,created_at,updated_at FROM {$table} WHERE status IN ('processing','pending') ORDER BY id ASC LIMIT 1001",
+			ARRAY_A
+		);
+		if ( ! is_array( $rows ) || '' !== (string) $wpdb->last_error || count( $rows ) > 1000 ) {
+			// Never claim a healthy zero backlog on a failed/truncated scan.
+			return new WP_Error( 'sauth_recovery_queue_unverified', 'Recovery queue inspection is incomplete; operator review required.' );
+		}
+		$now = time();
+		$out = array(
+			'stale_processing'=>0, 'stale_collision_pending'=>0,
+			'recent_processing'=>0, 'fresh_collision_pending'=>0,
+			'other_pending_recovery'=>0,
+		);
+		foreach ( $rows as $row ) {
+			$status = (string) ( $row['status'] ?? '' );
+			$kind = (string) ( $row['change_kind'] ?? '' );
+			if ( 'processing' === $status ) {
+				$at = strtotime( (string) ( $row['updated_at'] ?? '' ) . ' UTC' );
+				$key = false === $at || $at <= $now - HOUR_IN_SECONDS ? 'stale_processing' : 'recent_processing';
+			} elseif ( 'collision_resolution' === $kind ) {
+				$at = strtotime( (string) ( $row['created_at'] ?? '' ) . ' UTC' );
+				$key = false === $at || $at <= $now - 600 ? 'stale_collision_pending' : 'fresh_collision_pending';
+			} else {
+				$key = 'other_pending_recovery';
+			}
+			$out[ $key ]++;
+		}
+		return $out;
 	}
 
 	/** Current source/runtime checks only; staging/live acceptance is separate. */
