@@ -273,3 +273,9 @@ jobs:
           set -euo pipefail
           php -l file02/tests/integration/shared-signal-eventid-conflict-mariadb.php
           /tmp/wp eval-file file02/tests/integration/shared-signal-eventid-conflict-mariadb.php --path=/tmp/wordpress
+
+      - name: Fail-first privacy denial for hidden CAEP/RISC contact and bearer values
+        run: |
+          set -euo pipefail
+          php -l file02/tests/integration/shared-signal-claims-privacy-mariadb.php
+          /tmp/wp eval-file file02/tests/integration/shared-signal-claims-privacy-mariadb.php --path=/tmp/wordpress
