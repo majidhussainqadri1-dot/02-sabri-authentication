@@ -191,6 +191,25 @@ final class SAUTH_Operations {
 		$checks[] = self::check( 'Database schema marker', SAUTH_DB_VERSION === (string) get_option( 'sauth_db_version', '' ), 'Expected=' . SAUTH_DB_VERSION . '; stored=' . (string) get_option( 'sauth_db_version', '' ) );
 		$core_storage_ready = SAUTH_Activator::storage_ready();
 		$checks[] = self::check( 'Material File 02 storage postconditions', $core_storage_ready, $core_storage_ready ? 'Required tables, columns, managed pages and passkey installation postconditions are materialized.' : 'One or more material storage/page/passkey postconditions are incomplete.' );
+		/* F02-NFR-003/008: read-only backlog alarm. Never retry an uncertain
+		 * owner callback or expose the encrypted identity, case ID or token. */
+		$recovery_table = SAUTH_Activator::table( 'recovery_changes' );
+		$recovery_exists = $recovery_table === (string) $wpdb->get_var(
+			$wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $recovery_table ) )
+		);
+		$recovery_ok = false;
+		if ( $recovery_exists ) {
+			$unreconciled = $wpdb->get_var( $wpdb->prepare(
+				"SELECT 1 FROM {$recovery_table} WHERE (status='processing' AND updated_at<=%s) OR (change_kind='collision_resolution' AND status='pending' AND created_at<=%s) LIMIT 1",
+				gmdate( 'Y-m-d H:i:s', time() - HOUR_IN_SECONDS ),
+				gmdate( 'Y-m-d H:i:s', time() - 600 )
+			) );
+			$recovery_ok = null === $unreconciled && '' === (string) $wpdb->last_error;
+		}
+		$checks[] = self::check(
+			'Recovery claim reconciliation backlog', $recovery_ok,
+			$recovery_ok ? 'No aged processing recovery or expired-but-pending collision claims detected.' : 'Aged recovery/collision state needs supervised reconciliation; no case or identity is exposed.'
+		);
 		$outbox_scheduled = class_exists( 'SAUTH_Event_Outbox' ) && function_exists( 'wp_next_scheduled' ) && false !== wp_next_scheduled( SAUTH_Event_Outbox::CRON_HOOK );
 		$checks[] = self::check( 'Authentication event outbox dispatch schedule', $outbox_scheduled, $outbox_scheduled ? 'Authentication event dispatch cron is scheduled.' : 'Authentication event dispatch cron is not scheduled.' );
 		foreach ( SAUTH_Activator::required_tables() as $name => $table ) {
