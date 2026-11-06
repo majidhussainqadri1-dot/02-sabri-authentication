@@ -17,13 +17,13 @@ try {
     if (!is_array($row) || in_array((string)$row['autoload'], array('yes','on','auto-on'),true)) {
         throw new RuntimeException('replay claim would be autoloaded');
     }
-    SAUTH_Modern_Auth::expire_fedcm_claim($key);
+    do_action('sauth_fedcm_claim_expire', $key);
     if (false === get_option($key,false)) { throw new RuntimeException('fresh claim removed'); }
     update_option($key, time()-601, false);
-    SAUTH_Modern_Auth::expire_fedcm_claim($key);
+    do_action('sauth_fedcm_claim_expire', $key);
     if(false !== get_option($key,false)){throw new RuntimeException('expired claim retained');}
     add_option($foreign, 'preserve', '', false);
-    SAUTH_Modern_Auth::expire_fedcm_claim($foreign);
+    do_action('sauth_fedcm_claim_expire', $foreign);
     if ('preserve' !== get_option($foreign,'')) { throw new RuntimeException('foreign option deleted'); }
     echo "PASS: FedCM one-time option claim and bounded cleanup on real WordPress/MariaDB.\n";
 } catch(Throwable $e) {
