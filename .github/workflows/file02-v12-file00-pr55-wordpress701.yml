@@ -230,3 +230,34 @@ jobs:
           set -euo pipefail
           php -l file02/tests/integration/fedcm-claim-expiry-mariadb.php
           /tmp/wp eval-file file02/tests/integration/fedcm-claim-expiry-mariadb.php --path=/tmp/wordpress
+
+      - name: Real two-process collision-owner claim on MariaDB
+        run: |
+          set -euo pipefail
+          fixture=file02/tests/integration/collision-once-mariadb-concurrency.php
+          php -l "$fixture"
+          /tmp/wp eval-file "$fixture" seed --path=/tmp/wordpress
+          /tmp/wp eval-file "$fixture" worker --path=/tmp/wordpress > /tmp/f02-collision-a.log 2>&1 &
+          pid_a=$!
+          state=''
+          for attempt in $(seq 1 35); do
+            state=$(/tmp/wp eval 'global $wpdb; $id=get_option("sauth_qa_collision_race_case",""); $t=SAUTH_Activator::table("recovery_changes"); echo $id?(string)$wpdb->get_var($wpdb->prepare("SELECT status FROM {$t} WHERE public_id=%s",$id)):"missing";' --path=/tmp/wordpress)
+            test "$state" = processing && break
+            sleep 0.1
+          done
+          if [ "$state" != processing ]; then
+            cat /tmp/f02-collision-a.log || true
+            echo 'FAIL: collision owner claim did not reach processing' >&2
+            exit 1
+          fi
+          /tmp/wp eval-file "$fixture" worker --path=/tmp/wordpress > /tmp/f02-collision-b.log 2>&1 &
+          pid_b=$!
+          set +e
+          wait "$pid_a"; rc_a=$?
+          wait "$pid_b"; rc_b=$?
+          set -e
+          cat /tmp/f02-collision-a.log /tmp/f02-collision-b.log
+          test "$rc_a" -eq 0 && test "$rc_b" -eq 0
+          grep -q '^WIN:' /tmp/f02-collision-a.log
+          grep -q '^LOSE:' /tmp/f02-collision-b.log
+          /tmp/wp eval-file "$fixture" verify --path=/tmp/wordpress
