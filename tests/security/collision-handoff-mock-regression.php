@@ -7,6 +7,7 @@ $GLOBALS['f02_fingerprint'] = 'device-A';
 $GLOBALS['f02_now'] = 1000;
 $GLOBALS['f02_transients'] = [];
 $GLOBALS['f02_uuid'] = 0;
+$GLOBALS['f02_force_transient_failure'] = false;
 class WP_Error { public $code; public $message; public function __construct(string $code, string $message) { $this->code=$code; $this->message=$message; } }
 class SAUTH_Activator { public static function table($name) { return 'test_'.$name; } }
 class SA_Security {
@@ -17,6 +18,7 @@ class SA_Security {
 class FakeF02Db {
     public $rows=[];
     public function insert($table, $data, $formats) { $this->rows[$data['public_id']]=$data; return 1; }
+    public function delete($table, $where, $formats=null) { $id=$where['public_id']??''; if (!isset($this->rows[$id])) return 0; unset($this->rows[$id]); return 1; }
 }
 $GLOBALS['wpdb'] = new FakeF02Db();
 function wp_generate_uuid4() { return sprintf('00000000-0000-4000-8000-%012d', ++$GLOBALS['f02_uuid']); }
@@ -24,7 +26,7 @@ function wp_json_encode($x) { return json_encode($x); }
 function sanitize_key($x) { return preg_replace('/[^a-z0-9_\\-]/', '', strtolower($x)); }
 function current_time($kind, $gmt=false) { return '2026-11-06 00:00:00'; }
 function wp_salt($x) { return 'test-secret-salt'; }
-function set_transient($key, $value, $ttl) { $GLOBALS['f02_transients'][$key]=[$value,$GLOBALS['f02_now']+$ttl]; return true; }
+function set_transient($key, $value, $ttl) { if ($GLOBALS['f02_force_transient_failure']) return false; $GLOBALS['f02_transients'][$key]=[$value,$GLOBALS['f02_now']+$ttl]; return true; }
 function get_transient($key) { $entry=$GLOBALS['f02_transients'][$key]??null; return $entry && $entry[1]>$GLOBALS['f02_now'] ? $entry[0] : false; }
 function delete_transient($key) { unset($GLOBALS['f02_transients'][$key]); return true; }
 function add_query_arg($args, $url) { return $url.'?'.http_build_query($args); }
@@ -57,4 +59,10 @@ $GLOBALS['f02_now']=1000;
 delete_transient($key);
 $html=SAUTH_Security_Orchestrator::render_collision_resolution();
 if (strpos($html, 'name="proof"') !== false) fail('deleted transient replayed');
-echo "PASS: URL secrecy, TTL, same/different fingerprint, expiry, deleted-handoff replay (mock-only)\n";
+$before = count($GLOBALS['wpdb']->rows);
+$GLOBALS['f02_force_transient_failure'] = true;
+$failed = SAUTH_Security_Orchestrator::create_collision_case('orphan@example.test');
+$GLOBALS['f02_force_transient_failure'] = false;
+if (!($failed instanceof WP_Error) || $failed->code !== 'sauth_collision_handoff_failed') fail('transient failure not reported');
+if (count($GLOBALS['wpdb']->rows) !== $before) fail('transient failure leaves orphaned pending collision case');
+echo "PASS: URL secrecy, TTL, fingerprint isolation, expiry, replay and failed-handoff rollback (mock-only)\\n";
