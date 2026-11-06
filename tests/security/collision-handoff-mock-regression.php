@@ -15,7 +15,7 @@ class SA_Security {
     public static function encrypt($data) { return base64_encode($data); }
 }
 class FakeF02Db {
-    public array $rows=[];
+    public $rows=[];
     public function insert($table, $data, $formats) { $this->rows[$data['public_id']]=$data; return 1; }
 }
 $GLOBALS['wpdb'] = new FakeF02Db();
