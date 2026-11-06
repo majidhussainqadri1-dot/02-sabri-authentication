@@ -26,6 +26,9 @@ try {
     $other=$first; $other['type']='verification_change';
     $conflict=SAUTH_Shared_Signals::ingest($other,array('verified'=>true,'source'=>'ci-issuer'));
     f02_signal_assert(is_wp_error($conflict),'reused event_id wrongly acknowledged with a changed signal');
+    $other=$first; $other['claims']=array('risk_score'=>999);
+    $conflict=SAUTH_Shared_Signals::ingest($other,array('verified'=>true,'source'=>'ci-issuer'));
+    f02_signal_assert(is_wp_error($conflict),'reused event_id wrongly acknowledged with altered claims');
     $rows=$wpdb->get_results($wpdb->prepare("SELECT user_id,family,signal_type FROM {$table} WHERE event_id=%s",$event_id),ARRAY_A);
     f02_signal_assert(is_array($rows)&&count($rows)===1&&(int)$rows[0]['user_id']===1 &&$rows[0]['signal_type']==='risk_level_change','immutable signal was replaced or duplicated');
     echo "PASS: CAEP event_id immutable; exact replay idempotent; cross-user/type false receipt denied (real MariaDB).\n";
