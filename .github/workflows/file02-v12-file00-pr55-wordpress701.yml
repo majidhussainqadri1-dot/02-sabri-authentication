@@ -181,3 +181,34 @@ jobs:
           set -euo pipefail
           /tmp/wp eval 'if (!defined("SMC_VERSION") || SMC_VERSION!=="1.2.44") exit(1); if (!defined("SAUTH_VERSION") || SAUTH_VERSION!=="1.4.0") exit(1); if (!defined("SAUTH_DB_VERSION") || SAUTH_DB_VERSION!=="1.4.0") exit(1); if (SAUTH_Passkeys::SCHEMA_VERSION!=="1.1.0") exit(1); if (!defined("SAUTH_PASSKEY_CONTRACT_VERSION") || SAUTH_PASSKEY_CONTRACT_VERSION!=="1.0.0") exit(1); if(!SA_Security::master_key_ready()) exit(1);' --path=/tmp/wordpress
           echo 'Exact current File 00 1.2.44/File 02 1.4.0 fresh-install, R341 legacy email reconciliation, canonical membership routes, canonical taxonomy, passkey-upgrade, exact deployed stale-index recovery, legacy logical-identity collision and active-router migration PASS.'
+
+      - name: Real two-process recovery race on WordPress 7.0.1 and MariaDB 11.4
+        run: |
+          set -euo pipefail
+          fixture=file02/tests/integration/recovery-once-mariadb-concurrency.php
+          php -l "$fixture"
+          /tmp/wp eval-file "$fixture" seed --path=/tmp/wordpress
+          /tmp/wp eval-file "$fixture" worker --path=/tmp/wordpress > /tmp/f02-race-a.log 2>&1 &
+          pid_a=$!
+          status=''
+          for attempt in $(seq 1 35); do
+            status=$(/tmp/wp eval 'global $wpdb; $id=get_option("sauth_qa_recovery_race_case",""); $t=SAUTH_Activator::table("recovery_changes"); echo $id?(string)$wpdb->get_var($wpdb->prepare("SELECT status FROM {$t} WHERE public_id=%s",$id)):"missing";' --path=/tmp/wordpress)
+            test "$status" = processing && break
+            sleep 0.1
+          done
+          if [ "$status" != processing ]; then
+            cat /tmp/f02-race-a.log || true
+            echo 'FAIL: first worker did not establish processing state' >&2
+            exit 1
+          fi
+          /tmp/wp eval-file "$fixture" worker --path=/tmp/wordpress > /tmp/f02-race-b.log 2>&1 &
+          pid_b=$!
+          set +e
+          wait "$pid_a"; rc_a=$?
+          wait "$pid_b"; rc_b=$?
+          set -e
+          cat /tmp/f02-race-a.log /tmp/f02-race-b.log
+          test "$rc_a" -eq 0 && test "$rc_b" -eq 0
+          grep -q '^WIN:' /tmp/f02-race-a.log
+          grep -q '^LOSE:' /tmp/f02-race-b.log
+          /tmp/wp eval-file "$fixture" verify --path=/tmp/wordpress
