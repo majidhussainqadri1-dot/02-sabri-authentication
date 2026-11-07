@@ -42,7 +42,8 @@ require_once __DIR__.'/../../includes/class-sauth-security-orchestrator.php';
 $cases=array(
     array('create',static function(){return SAUTH_Security_Orchestrator::create_collision_case('someone@example.invalid');}),
     array('resolve',static function(){return SAUTH_Security_Orchestrator::resolve_collision_case('12345678-1234-4234-8234-123456789abc','proof');}),
-    array('apply',static function(){return SAUTH_Security_Orchestrator::apply_recovery_change('12345678-1234-4234-8234-123456789abc','proof');})
+    array('apply',static function(){return SAUTH_Security_Orchestrator::apply_recovery_change('12345678-1234-4234-8234-123456789abc','proof');}),
+    array('schedule',static function(){return SAUTH_Security_Orchestrator::schedule_recovery_change(17,'email_change',array('next_email'=>'test@example.invalid'));})
 );
 foreach($cases as $case){
     try{$result=$case[1]();}
@@ -52,4 +53,6 @@ foreach($cases as $case){
     }
 }
 if($GLOBALS['wpdb']->reads||$GLOBALS['wpdb']->writes)fail_sm('Safe Mode denial executed DB side effects');
-echo "PASS: Safe Mode gates collision creation, resolution and generic recovery apply before DB (mock).\n";
+$ops=(string)file_get_contents(__DIR__.'/../../includes/class-sauth-operations.php');
+if(strpos($ops,"'sauth_resolve_collision'")===false) fail_sm('public admin-post route not in Safe Mode gate');
+echo "PASS: Safe Mode gates collision create/resolve and recovery schedule/apply before DB (mock).\n";
