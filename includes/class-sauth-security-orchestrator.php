@@ -311,6 +311,13 @@ final class SAUTH_Security_Orchestrator {
 		$payload_json = SA_Security::decrypt( (string) $row['payload_ciphertext'] );
 		$payload = json_decode( (string) $payload_json, true );
 		if ( ! is_array( $payload ) ) { return new WP_Error( 'sauth_collision_payload_invalid', 'Account-resolution case is unreadable.' ); }
+		// A missing canonical owner has performed no side effects. Keep the case
+		// pending and usable if a verified File 00 adapter becomes available.
+		// A registered owner that fails AFTER claim remains processing, because
+		// its side effects cannot be safely inferred or replayed here.
+		if ( false === has_filter( 'sauth_resolve_collision_case_v1' ) ) {
+			return new WP_Error( 'sauth_collision_owner_unavailable', 'Account-resolution verification is temporarily unavailable.' );
+		}
 		/* File 00/canonical identity owner must make the final decision. File 02
 		 * never performs an email-only merge. */
 		// Claim before invoking a side-effect-capable canonical owner. A failed owner
