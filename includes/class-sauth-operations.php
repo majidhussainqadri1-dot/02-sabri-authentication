@@ -270,6 +270,31 @@ final class SAUTH_Operations {
 			'Recovery claim reconciliation backlog', $recovery_ok,
 			$recovery_ok ? 'No aged processing recovery or expired-but-pending collision claims detected.' : 'Aged recovery/collision state needs supervised reconciliation; no case or identity is exposed.'
 		);
+		/* Security signals are NOT successfully contained until the exact
+		 * WordPress/session/assurance postconditions are confirmed. Missing
+		 * table or an unreadable row must never yield a healthy signal. */
+		$signal_table = SAUTH_Activator::table( 'shared_signals' );
+		$signal_exists = $signal_table === (string) $wpdb->get_var( $wpdb->prepare(
+			'SHOW TABLES LIKE %s', $wpdb->esc_like( $signal_table )
+		) );
+		$signal_ok = false;
+		$signal_count = null;
+		if ( $signal_exists ) {
+			$signal_count = $wpdb->get_var( $wpdb->prepare(
+				"SELECT COUNT(*) FROM {$signal_table} WHERE status='needs_reconciliation'
+				OR (status='pending_containment' AND created_at<=%s)",
+				gmdate( 'Y-m-d H:i:s', time() - 300 )
+			) );
+			$signal_ok = null !== $signal_count && '' === (string) $wpdb->last_error && 0 === (int) $signal_count;
+		}
+		$checks[] = self::check(
+			'Shared security signal containment backlog', $signal_ok,
+			null === $signal_count
+				? 'CAEP/RISC containment state unavailable; no healthy-zero claim.'
+				: ( $signal_ok
+					? 'No stale or unverified CAEP/RISC session-containment outcomes.'
+					: 'Unverified CAEP/RISC containment cases: ' . absint( $signal_count ) . '; supervised reconciliation required; no identities exposed.' )
+		);
 		$outbox_scheduled = class_exists( 'SAUTH_Event_Outbox' ) && function_exists( 'wp_next_scheduled' ) && false !== wp_next_scheduled( SAUTH_Event_Outbox::CRON_HOOK );
 		$checks[] = self::check( 'Authentication event outbox dispatch schedule', $outbox_scheduled, $outbox_scheduled ? 'Authentication event dispatch cron is scheduled.' : 'Authentication event dispatch cron is not scheduled.' );
 		foreach ( SAUTH_Activator::required_tables() as $name => $table ) {
