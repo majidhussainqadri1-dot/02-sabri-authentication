@@ -14,6 +14,10 @@ try {
         'user_id'=>1,'issued_at'=>time(),
         'claims'=>array(
             'risk_score'=>35,
+            'patient_record_number'=>123456789,
+            'beneficiary_id'=>99887766,
+            'reason_code'=>'rawbearersecrettoken123456789abcdefghijklmnop',
+
             'reason'=>'user_lockdown',
             'user_identifier'=>123456,
             'reason_code'=>'Bearer leaked-secret',
@@ -27,7 +31,9 @@ try {
     if(!is_array($claims)||($claims['risk_score']??null)!==35||($claims['reason']??'')!=='user_lockdown') {
         throw new RuntimeException('safe numeric or coded reason claim lost');
     }
-    if(array_key_exists('user_identifier',$claims)||array_key_exists('reason_code',$claims)||array_key_exists('incident_note',$claims)||array_key_exists('contact_hint',$claims)) {
+    if(array_key_exists('user_identifier',$claims)||array_key_exists('reason_code',$claims)
+       ||array_key_exists('patient_record_number',$claims)||array_key_exists('beneficiary_id',$claims)
+       ||array_key_exists('incident_note',$claims)||array_key_exists('contact_hint',$claims)) {
         throw new RuntimeException('personal, opaque or descriptive claim was persisted');
     }
     if(preg_match('/jane\\.doe|example\\.test|Bearer|super-secret-session|202\\D*555\\D*0149/i',(string)$encoded)){
