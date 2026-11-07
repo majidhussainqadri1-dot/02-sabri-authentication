@@ -332,6 +332,11 @@ final class SAUTH_Security_Orchestrator {
 
 	public static function resolve_collision_post() {
 		check_admin_referer( 'sauth_resolve_collision', 'sauth_nonce' );
+		if ( class_exists( 'SAUTH_Operations' ) && SAUTH_Operations::safe_mode() ) {
+			// Never consume a legitimate handoff proof during an incident freeze.
+			wp_safe_redirect( home_url( '/resolve-account/?status=temporarily_unavailable' ) );
+			exit;
+		}
 		$case = isset( $_POST['case'] ) ? sanitize_text_field( wp_unslash( $_POST['case'] ) ) : '';
 		$proof = isset( $_POST['proof'] ) ? (string) wp_unslash( $_POST['proof'] ) : '';
 		$handoff_key = 'sauth_collision_' . hash_hmac( 'sha256', $case . '|' . SA_Security::client_fingerprint(), wp_salt( 'auth' ) );
