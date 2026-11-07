@@ -232,6 +232,9 @@ final class SAUTH_Security_Orchestrator {
 	 */
 	public static function create_collision_case( $identifier, $reason='possible_existing_account' ) {
 		global $wpdb;
+		if ( class_exists( 'SAUTH_Operations' ) && SAUTH_Operations::safe_mode() ) {
+			return new WP_Error( 'sauth_safe_mode_active', 'High-risk account resolution is paused by Safe Mode.' );
+		}
 		$identifier = trim( strtolower( (string) $identifier ) );
 		if ( '' === $identifier || strlen( $identifier ) > 320 ) { return new WP_Error( 'sauth_collision_identifier_invalid', 'Account resolution could not be started.' ); }
 		$public_id = strtolower( wp_generate_uuid4() );
@@ -277,6 +280,9 @@ final class SAUTH_Security_Orchestrator {
 
 	public static function resolve_collision_case( $public_id, $owner_token ) {
 		global $wpdb;
+		if ( class_exists( 'SAUTH_Operations' ) && SAUTH_Operations::safe_mode() ) {
+			return new WP_Error( 'sauth_safe_mode_active', 'High-risk account resolution is paused by Safe Mode.' );
+		}
 		$public_id = strtolower( sanitize_text_field( (string) $public_id ) );
 		$owner_token = (string) $owner_token;
 		if ( ! preg_match( '/^[0-9a-f-]{36}$/', $public_id ) || strlen( $owner_token ) > 512 ) {
@@ -342,6 +348,9 @@ final class SAUTH_Security_Orchestrator {
 
 	public static function schedule_recovery_change( $user_id, $kind, array $payload, $delay=self::RECOVERY_DEFAULT ) {
 		global $wpdb;
+		if ( class_exists( 'SAUTH_Operations' ) && SAUTH_Operations::safe_mode() ) {
+			return new WP_Error( 'sauth_safe_mode_active', 'High-risk account resolution is paused by Safe Mode.' );
+		}
 		$user_id=absint($user_id);$kind=sanitize_key((string)$kind);
 		/* Collision resolution has a separate 600-second, fingerprint-bound owner flow.
 		 * Never mint a collision case through generic 1h–7d recovery scheduling. */
@@ -373,6 +382,9 @@ final class SAUTH_Security_Orchestrator {
 
 	public static function apply_recovery_change( $public_id, $owner_token ) {
 		global $wpdb;
+		if ( class_exists( 'SAUTH_Operations' ) && SAUTH_Operations::safe_mode() ) {
+			return new WP_Error( 'sauth_safe_mode_active', 'High-risk account resolution is paused by Safe Mode.' );
+		}
 		$row=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.SAUTH_Activator::table('recovery_changes').' WHERE public_id=%s',$public_id),ARRAY_A);
 		if(!is_array($row)||'pending'!==(string)$row['status']||strtotime((string)$row['apply_after'])>time()){return new WP_Error('sauth_recovery_not_ready','Recovery change is not ready.');}
 		$expected=SA_Security::decrypt((string)$row['owner_token_ciphertext']);
