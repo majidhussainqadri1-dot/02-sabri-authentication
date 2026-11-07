@@ -39,6 +39,13 @@ try {
     $state=(string)$wpdb->get_var($wpdb->prepare("SELECT status FROM {$table} WHERE event_id=%s",$id));
     f02_contain_db_assert($state==='needs_reconciliation',
         'failed containment not durably flagged for operator reconciliation');
+    $health=array();
+    foreach(SAUTH_Operations::system_check() as $check) {
+        if(($check['label']??'')==='Shared security signal containment backlog') {$health=$check;break;}
+    }
+    f02_contain_db_assert(is_array($health)&&($health['status']??'')==='fail',
+        'unreconciled CAEP containment absent from privacy-safe System Check');
+
     f02_contain_db_assert($events_broadcast===0,
         'security event broadcast before confirmed containment');
     $inject_count_before_duplicate=$injected;
