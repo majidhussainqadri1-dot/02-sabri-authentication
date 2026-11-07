@@ -158,7 +158,15 @@ final class SAUTH_Security_Orchestrator {
 		$networks=$wpdb->get_var($wpdb->prepare("SELECT COUNT(DISTINCT network_hash) FROM {$table} WHERE user_id=%d AND last_seen_at>=%s",$user_id,gmdate('Y-m-d H:i:s',time()-HOUR_IN_SECONDS)));
 		if((int)$devices>=4){$score+=20;$reasons[]='rapid_device_velocity';}
 		if((int)$networks>=3){$score+=20;$reasons[]='rapid_network_velocity';}
-		if(class_exists('SAUTH_Shared_Signals')){$shared=SAUTH_Shared_Signals::risk_score_for_user($user_id);if($shared){$score+=$shared;$reasons[]='shared_security_signal';}}
+		if(class_exists('SAUTH_Shared_Signals')){
+			$shared=SAUTH_Shared_Signals::risk_score_for_user($user_id);
+			if(is_wp_error($shared)){
+				// Authentication must not assume zero risk when security evidence is unavailable.
+				$score=100; $reasons[]='shared_security_unavailable';
+			} elseif(is_int($shared) && $shared>0){
+				$score+=$shared;$reasons[]='shared_security_signal';
+			}
+		}
 		$reasons = array_values( array_unique( $reasons ) );
 		return array('score'=>min(100,$score),'reasons'=>$reasons,'explanations'=>self::explain_reasons($reasons));
 	}
@@ -169,6 +177,7 @@ final class SAUTH_Security_Orchestrator {
 			'rapid_device_velocity'=>'Several devices were seen in a short period',
 			'rapid_network_velocity'=>'Several network contexts were seen in a short period',
 			'shared_security_signal'=>'A verified security signal raised risk',
+			'shared_security_unavailable'=>'Security signal evidence could not be verified',
 			'new_device'=>'This device is new',
 			'new_network'=>'This network context is new',
 			'recent_failures'=>'Several recent sign-in attempts failed',
