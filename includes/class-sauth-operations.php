@@ -74,6 +74,7 @@ final class SAUTH_Operations {
 			'sauth_modern_fedcm_finish',
 			'sauth_recovery_change_request',
 			'sauth_recovery_change_cancel',
+			'sauth_resolve_collision',
 		);
 		if ( ! in_array( $action, $blocked, true ) ) { return; }
 		if ( function_exists( 'wp_doing_ajax' ) && wp_doing_ajax() ) {
