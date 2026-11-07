@@ -159,7 +159,10 @@ final class SAUTH_Shared_Signals {
 		if ( ! $user_id ) { return 0; }
 		$table = SAUTH_Activator::table( 'shared_signals' );
 		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT family,signal_type FROM {$table} WHERE user_id=%d AND status IN ('active','needs_reconciliation','pending_containment') AND issued_at>=%s ORDER BY created_at DESC LIMIT 20", $user_id, gmdate( 'Y-m-d H:i:s', time() - DAY_IN_SECONDS ) ), ARRAY_A );
-		if ( ! is_array( $rows ) ) { return 0; }
+		if ( ! is_array( $rows ) || '' !== (string) $wpdb->last_error ) {
+			// An unavailable security-signal source cannot be interpreted as no risk.
+			return new WP_Error( 'sauth_shared_risk_unavailable', 'Verified security risk evidence cannot be read.' );
+		}
 		$score = 0;
 		foreach ( $rows as $row ) {
 			$type = (string) ( $row['signal_type'] ?? '' );
