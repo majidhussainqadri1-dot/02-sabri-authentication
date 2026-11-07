@@ -57,17 +57,21 @@ final class SAUTH_Shared_Signals {
 			return new WP_Error( 'sauth_signal_invalid', 'Security signal envelope is invalid or stale.' );
 		}
 		$claims = self::safe_claims( isset( $envelope['claims'] ) && is_array( $envelope['claims'] ) ? $envelope['claims'] : array() );
+		$contain = in_array( $type, array( 'session_revoked','credential_compromise','account_disabled' ), true );
 		global $wpdb;
 		$table = SAUTH_Activator::table( 'shared_signals' );
 		$existing = $wpdb->get_row( $wpdb->prepare(
-			"SELECT event_id,family,signal_type,user_id,claims_json FROM {$table} WHERE event_id=%s",
+			"SELECT event_id,family,signal_type,user_id,claims_json,status FROM {$table} WHERE event_id=%s",
 			$event_id
 		), ARRAY_A );
 		if ( '' !== (string) $wpdb->last_error ) { return new WP_Error( 'sauth_signal_store_unavailable', 'Signal storage unavailable.' ); }
 		if ( is_array( $existing ) ) {
-			return self::same_signal_identity( $existing, $event_id, $family, $type, $user_id, $claims )
+			if ( ! self::same_signal_identity( $existing, $event_id, $family, $type, $user_id, $claims ) ) {
+				return new WP_Error( 'sauth_signal_event_id_conflict', 'An event identifier was already bound to another security signal.' );
+			}
+			return 'active' === (string) ( $existing['status'] ?? '' )
 				? $event_id
-				: new WP_Error( 'sauth_signal_event_id_conflict', 'An event identifier was already bound to another security signal.' );
+				: new WP_Error( 'sauth_signal_containment_unverified', 'Verified security containment remains pending operator reconciliation.' );
 		}
 		$now = current_time( 'mysql', true );
 		$inserted = $wpdb->insert(
@@ -75,7 +79,7 @@ final class SAUTH_Shared_Signals {
 			array(
 				'event_id'=>$event_id, 'family'=>$family, 'signal_type'=>$type, 'user_id'=>$user_id,
 				'source'=>sanitize_key( (string) ( $context['source'] ?? 'adapter' ) ),
-				'claims_json'=>wp_json_encode( $claims ), 'status'=>'active',
+				'claims_json'=>wp_json_encode( $claims ), 'status'=>$contain ? 'pending_containment' : 'active',
 				'issued_at'=>gmdate( 'Y-m-d H:i:s', $issued ), 'created_at'=>$now,
 			),
 			array( '%s','%s','%s','%d','%s','%s','%s','%s','%s' )
@@ -85,22 +89,48 @@ final class SAUTH_Shared_Signals {
 			 * insertion. Re-read immutable identity rather than falsely
 			 * acknowledging an unrelated subject or signal type. */
 			$winner = $wpdb->get_row( $wpdb->prepare(
-				"SELECT event_id,family,signal_type,user_id,claims_json FROM {$table} WHERE event_id=%s",
+				"SELECT event_id,family,signal_type,user_id,claims_json,status FROM {$table} WHERE event_id=%s",
 				$event_id
 			), ARRAY_A );
 			if ( is_array( $winner ) ) {
-				return self::same_signal_identity( $winner, $event_id, $family, $type, $user_id, $claims )
+				if ( ! self::same_signal_identity( $winner, $event_id, $family, $type, $user_id, $claims ) ) {
+					return new WP_Error( 'sauth_signal_event_id_conflict', 'An event identifier was already bound to another security signal.' );
+				}
+				return 'active' === (string) ( $winner['status'] ?? '' )
 					? $event_id
-					: new WP_Error( 'sauth_signal_event_id_conflict', 'An event identifier was already bound to another security signal.' );
+					: new WP_Error( 'sauth_signal_containment_unverified', 'Verified security containment remains pending operator reconciliation.' );
 			}
 			return new WP_Error( 'sauth_signal_store_failed', 'Signal could not be stored.' );
 		}
-		do_action( 'sauth_shared_security_signal_v1', array( 'event_id'=>$event_id,'family'=>$family,'type'=>$type,'user_id'=>$user_id,'claims'=>$claims ) );
-		$contain = in_array( $type, array( 'session_revoked','credential_compromise','account_disabled' ), true );
 		if ( $contain ) {
-			SAUTH_Session_Manager::revoke_user_sessions( $user_id, 'shared_security_' . $type );
-			if ( class_exists( 'SAUTH_Passkey_Runtime' ) && is_callable( array( 'SAUTH_Passkey_Runtime', 'invalidate_user_assurance' ) ) ) { SAUTH_Passkey_Runtime::invalidate_user_assurance( $user_id ); }
+			/* The event is a once-only pending claim until BOTH containment
+			 * effects and the exact persisted status can be verified. An
+			 * uncertain owner result is NEVER replayed by a duplicate event. */
+			$revoked = true === SAUTH_Session_Manager::revoke_user_sessions( $user_id, 'shared_security_' . $type );
+			$assurance_invalidated = true;
+			if ( class_exists( 'SAUTH_Passkey_Runtime' ) && is_callable( array( 'SAUTH_Passkey_Runtime', 'invalidate_user_assurance' ) ) ) {
+				$assurance_invalidated = true === SAUTH_Passkey_Runtime::invalidate_user_assurance( $user_id );
+			}
+			if ( ! $revoked || ! $assurance_invalidated ) {
+				$wpdb->update( $table, array( 'status'=>'needs_reconciliation' ),
+					array( 'event_id'=>$event_id, 'status'=>'pending_containment' ),
+					array( '%s' ), array( '%s','%s' ) );
+				return new WP_Error( 'sauth_signal_containment_unverified', 'Session or passkey containment could not be verified; operator reconciliation required.' );
+			}
+			$promoted = $wpdb->update( $table, array( 'status'=>'active' ),
+				array( 'event_id'=>$event_id, 'status'=>'pending_containment' ),
+				array( '%s' ), array( '%s','%s' ) );
+			$observed = $wpdb->get_var( $wpdb->prepare(
+				"SELECT status FROM {$table} WHERE event_id=%s", $event_id
+			) );
+			if ( 1 !== (int) $promoted || 'active' !== (string) $observed || '' !== (string) $wpdb->last_error ) {
+				$wpdb->update( $table, array( 'status'=>'needs_reconciliation' ),
+					array( 'event_id'=>$event_id, 'status'=>'pending_containment' ),
+					array( '%s' ), array( '%s','%s' ) );
+				return new WP_Error( 'sauth_signal_containment_unverified', 'Security containment completion is not durably verified; operator reconciliation required.' );
+			}
 		}
+		do_action( 'sauth_shared_security_signal_v1', array( 'event_id'=>$event_id,'family'=>$family,'type'=>$type,'user_id'=>$user_id,'claims'=>$claims ) );
 		if ( class_exists( 'SAUTH_Security_Orchestrator' ) ) {
 			if ( 'credential_compromise' === $type ) { update_user_meta( $user_id, SAUTH_Security_Orchestrator::COMPROMISE_META, array( 'started_at'=>time(), 'expires_at'=>time()+7*DAY_IN_SECONDS, 'reason'=>'risc_credential_compromise' ) ); }
 			SAUTH_Security_Orchestrator::timeline_event( $user_id, 'shared_' . $family . '_' . $type, $contain ? 'high' : 'medium', array( 'source'=>sanitize_key( (string) ( $context['source'] ?? 'adapter' ) ) ) );
@@ -128,7 +158,7 @@ final class SAUTH_Shared_Signals {
 		$user_id = absint( $user_id );
 		if ( ! $user_id ) { return 0; }
 		$table = SAUTH_Activator::table( 'shared_signals' );
-		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT family,signal_type FROM {$table} WHERE user_id=%d AND status='active' AND issued_at>=%s ORDER BY created_at DESC LIMIT 20", $user_id, gmdate( 'Y-m-d H:i:s', time() - DAY_IN_SECONDS ) ), ARRAY_A );
+		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT family,signal_type FROM {$table} WHERE user_id=%d AND status IN ('active','needs_reconciliation','pending_containment') AND issued_at>=%s ORDER BY created_at DESC LIMIT 20", $user_id, gmdate( 'Y-m-d H:i:s', time() - DAY_IN_SECONDS ) ), ARRAY_A );
 		if ( ! is_array( $rows ) ) { return 0; }
 		$score = 0;
 		foreach ( $rows as $row ) {
@@ -142,7 +172,7 @@ final class SAUTH_Shared_Signals {
 	public static function cleanup() {
 		global $wpdb;
 		$table = SAUTH_Activator::table( 'shared_signals' );
-		$wpdb->query( $wpdb->prepare( "DELETE FROM {$table} WHERE created_at<%s", gmdate( 'Y-m-d H:i:s', time() - self::RETENTION ) ) );
+		$wpdb->query( $wpdb->prepare( "DELETE FROM {$table} WHERE status='active' AND created_at<%s", gmdate( 'Y-m-d H:i:s', time() - self::RETENTION ) ) );
 	}
 
 	/** Event identity is immutable across retries and concurrent issuers. */
