@@ -224,6 +224,12 @@ jobs:
           php -l file02/tests/integration/fedcm-claim-expiry-mariadb.php
           /tmp/wp eval-file file02/tests/integration/fedcm-claim-expiry-mariadb.php --path=/tmp/wordpress
 
+      - name: Fail-first missing canonical collision owner must preserve pending case
+        run: |
+          set -euo pipefail
+          php -l file02/tests/integration/collision-provider-unavailable-mariadb.php
+          /tmp/wp eval-file file02/tests/integration/collision-provider-unavailable-mariadb.php --path=/tmp/wordpress
+
       - name: Real two-process collision-owner claim on MariaDB
         run: |
           set -euo pipefail
