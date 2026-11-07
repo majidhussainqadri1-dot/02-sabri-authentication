@@ -1,6 +1,9 @@
 (function () {
   'use strict';
 
+  var conditionalController = null;
+  var passkeyInFlight = false;
+
   function setPasskeyStatus(message, isError) {
     document.querySelectorAll('[data-sauth-passkey-status]').forEach(function (node) {
       node.textContent = message || '';
@@ -89,6 +92,10 @@
   function normalizeRequestOptions(data) {
     var options = data.publicKey || {};
     options.challenge = base64urlToBuffer(options.challenge);
+    var modern = window.SabriAuthModern || {};
+    if (modern.hybridHints) {
+      options.hints = ['client-device', 'hybrid', 'security-key'];
+    }
     if (Array.isArray(options.allowCredentials)) {
       options.allowCredentials = options.allowCredentials.map(function (item) {
         item.id = base64urlToBuffer(item.id);
@@ -115,8 +122,245 @@
     return cfg.genericError || 'The passkey operation could not be completed safely.';
   }
 
+  function modernConfig() {
+    return window.SabriAuthModern || {};
+  }
+
+  async function postModern(action, values) {
+    var cfg = modernConfig();
+    if (!cfg.ajaxUrl) {
+      throw new Error('modern_auth_configuration_missing');
+    }
+    var body = new URLSearchParams();
+    body.set('action', action);
+    Object.keys(values || {}).forEach(function (key) {
+      if (values[key] !== undefined && values[key] !== null) {
+        body.set(key, String(values[key]));
+      }
+    });
+    var response = await window.fetch(cfg.ajaxUrl, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+      body: body.toString()
+    });
+    var payload = await response.json();
+    if (!response.ok || !payload || payload.success !== true) {
+      throw new Error(payload && payload.data && payload.data.code ? payload.data.code : 'modern_auth_request_failed');
+    }
+    return payload.data || {};
+  }
+
+  async function browserCapabilities() {
+    if (!window.PublicKeyCredential || typeof window.PublicKeyCredential.getClientCapabilities !== 'function') {
+      return {};
+    }
+    try {
+      return await window.PublicKeyCredential.getClientCapabilities();
+    } catch (error) {
+      return {};
+    }
+  }
+
+  async function recordCredentialSignal(signal) {
+    var cfg = modernConfig();
+    if (!cfg.nonce || !cfg.ajaxUrl) {
+      return;
+    }
+    try {
+      await postModern('sauth_modern_credential_signal', { nonce: cfg.nonce, signal: signal });
+    } catch (error) {
+      // Browser reconciliation signals are advisory and must never block auth.
+    }
+  }
+
+  async function signalAcceptedCredentials() {
+    var cfg = modernConfig();
+    var data = cfg.credentialSignalPayload || {};
+    if (!cfg.credentialSignals || !window.PublicKeyCredential || !data.rpId || !data.userId) {
+      return;
+    }
+    if (typeof window.PublicKeyCredential.signalAllAcceptedCredentials === 'function' && Array.isArray(data.allAcceptedCredentialIds)) {
+      try {
+        await window.PublicKeyCredential.signalAllAcceptedCredentials({
+          rpId: data.rpId,
+          userId: data.userId,
+          allAcceptedCredentialIds: data.allAcceptedCredentialIds
+        });
+        await recordCredentialSignal('all_accepted_credentials');
+      } catch (error) {
+        // Server credential truth remains authoritative.
+      }
+    }
+    if (typeof window.PublicKeyCredential.signalCurrentUserDetails === 'function' && data.name && data.displayName) {
+      try {
+        await window.PublicKeyCredential.signalCurrentUserDetails({
+          rpId: data.rpId,
+          userId: data.userId,
+          name: data.name,
+          displayName: data.displayName
+        });
+        await recordCredentialSignal('current_user_details');
+      } catch (error) {
+        // Advisory synchronization only.
+      }
+    }
+  }
+
+  async function signalUnknownCredential(credential) {
+    var cfg = modernConfig();
+    var data = cfg.credentialSignalPayload || {};
+    if (!credential || !credential.rawId || !window.PublicKeyCredential || typeof window.PublicKeyCredential.signalUnknownCredential !== 'function') {
+      return;
+    }
+    var rpId = data.rpId || (ajaxConfig().rpId || '');
+    if (!rpId) {
+      return;
+    }
+    try {
+      await window.PublicKeyCredential.signalUnknownCredential({
+        rpId: rpId,
+        credentialId: bufferToBase64url(credential.rawId)
+      });
+      await recordCredentialSignal('unknown_credential');
+    } catch (error) {
+      // Never change server truth because a browser signal failed.
+    }
+  }
+
+  async function conditionalPasskeySignIn() {
+    var cfg = modernConfig();
+    if (!cfg.conditional || !passkeysSupported() || passkeyInFlight) {
+      return;
+    }
+    if (!window.PublicKeyCredential || typeof window.PublicKeyCredential.isConditionalMediationAvailable !== 'function') {
+      return;
+    }
+    var available = false;
+    try {
+      available = await window.PublicKeyCredential.isConditionalMediationAvailable();
+    } catch (error) {
+      return;
+    }
+    if (!available || !document.querySelector('input[autocomplete~="webauthn"]')) {
+      return;
+    }
+    var begin;
+    try {
+      begin = await post('sauth_passkey_begin_authentication', {
+        redirect_to: (document.querySelector('input[name="redirect_to"]') || {}).value || window.location.href
+      });
+      conditionalController = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      var request = {
+        publicKey: normalizeRequestOptions(begin),
+        mediation: 'conditional'
+      };
+      if (conditionalController) {
+        request.signal = conditionalController.signal;
+      }
+      var credential = await navigator.credentials.get(request);
+      if (!credential || passkeyInFlight) {
+        return;
+      }
+      passkeyInFlight = true;
+      var remember = document.querySelector('input[name="rememberme"]');
+      var finish = await post('sauth_passkey_finish_authentication', {
+        challenge_id: begin.challengeId,
+        raw_id: bufferToBase64url(credential.rawId),
+        client_data_json: bufferToBase64url(credential.response.clientDataJSON),
+        authenticator_data: bufferToBase64url(credential.response.authenticatorData),
+        signature: bufferToBase64url(credential.response.signature),
+        user_handle: credential.response.userHandle ? bufferToBase64url(credential.response.userHandle) : '',
+        remember: remember && remember.checked ? '1' : '0'
+      });
+      window.location.assign(finish.redirect || '/');
+    } catch (error) {
+      if (error && error.message === 'credential_unknown') {
+        await signalUnknownCredential(typeof credential !== 'undefined' ? credential : null);
+      }
+      if (!(error && (error.name === 'AbortError' || error.name === 'NotAllowedError'))) {
+        setPasskeyStatus(friendlyError(error), true);
+      }
+    } finally {
+      passkeyInFlight = false;
+    }
+  }
+
+  async function fedcmSignIn(button) {
+    var cfg = modernConfig();
+    if (!cfg.fedcmProgressive || !cfg.fedcmProvider || !navigator.credentials || typeof navigator.credentials.get !== 'function') {
+      return;
+    }
+    button.disabled = true;
+    try {
+      var begin = await postModern('sauth_modern_fedcm_begin', {});
+      var provider = Object.assign({}, cfg.fedcmProvider, { nonce: begin.nonce });
+      var credential = await navigator.credentials.get({
+        identity: { providers: [provider] },
+        mediation: 'optional'
+      });
+      if (!credential || !credential.token) {
+        throw new Error('fedcm_credential_missing');
+      }
+      var finish = await postModern('sauth_modern_fedcm_finish', {
+        nonce_id: begin.nonceId,
+        nonce: begin.nonce,
+        token: credential.token
+      });
+      window.location.assign(finish.redirect || '/');
+    } catch (error) {
+      setPasskeyStatus('Federated sign-in could not be verified safely. Use another sign-in method.', true);
+      button.disabled = false;
+    }
+  }
+
+  function renderUpgradeOffer() {
+    var cfg = modernConfig();
+    var windowState = cfg.upgradeWindow || {};
+    if (!windowState.eligible || !cfg.passkeyManagerUrl || document.querySelector('[data-sauth-upgrade-offer]')) {
+      return;
+    }
+    var host = document.querySelector('.sa-auth-card');
+    if (!host) {
+      return;
+    }
+    var box = document.createElement('div');
+    box.className = 'sa-notice';
+    box.setAttribute('data-sauth-upgrade-offer', '1');
+    var link = document.createElement('a');
+    link.className = 'sa-secondary-button';
+    link.href = cfg.passkeyManagerUrl;
+    link.textContent = 'Add a passkey while this recent sign-in is fresh';
+    box.appendChild(link);
+    host.appendChild(box);
+  }
+
+  function renderFedCMButton() {
+    var cfg = modernConfig();
+    if (!cfg.fedcmProgressive || !cfg.fedcmProvider || document.querySelector('[data-sauth-fedcm-login]')) {
+      return;
+    }
+    var region = document.querySelector('[data-sauth-passkey-login-region]');
+    if (!region) {
+      return;
+    }
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'sa-secondary-button';
+    button.setAttribute('data-sauth-fedcm-login', '1');
+    button.textContent = 'Continue with private federated sign-in';
+    region.appendChild(button);
+  }
+
   async function signInWithPasskey(button) {
     var cfg = ajaxConfig();
+    var credential = null;
+    if (conditionalController) {
+      conditionalController.abort();
+      conditionalController = null;
+    }
+    if (passkeyInFlight) { return; }
+    passkeyInFlight = true;
     if (!passkeysSupported() || !cfg.available) {
       setPasskeyStatus(cfg.unsupported || 'Passkeys are unavailable in this browser or connection.', true);
       return;
@@ -129,7 +373,7 @@
       var begin = await post('sauth_passkey_begin_authentication', {
         redirect_to: redirectField ? redirectField.value : window.location.href
       });
-      var credential = await navigator.credentials.get({ publicKey: normalizeRequestOptions(begin) });
+      credential = await navigator.credentials.get({ publicKey: normalizeRequestOptions(begin) });
       if (!credential || credential.type !== 'public-key' || !credential.response) {
         throw new Error('passkey_assertion_missing');
       }
@@ -145,8 +389,13 @@
       setPasskeyStatus('Passkey verified. Opening your account…', false);
       window.location.assign(finish.redirect || '/');
     } catch (error) {
+      if (error && error.message === 'credential_unknown' && credential) {
+        await signalUnknownCredential(credential);
+      }
       setPasskeyStatus(friendlyError(error), true);
       button.disabled = false;
+    } finally {
+      passkeyInFlight = false;
     }
   }
 
@@ -253,6 +502,13 @@
       return;
     }
 
+    var fedcm = event.target.closest('[data-sauth-fedcm-login]');
+    if (fedcm) {
+      event.preventDefault();
+      fedcmSignIn(fedcm);
+      return;
+    }
+
     var revoke = event.target.closest('[data-sauth-passkey-revoke]');
     if (revoke) {
       event.preventDefault();
@@ -275,5 +531,12 @@
         button.disabled = true;
       });
     }
+    browserCapabilities().then(function (capabilities) {
+      document.documentElement.dataset.sauthWebauthnCapabilities = Object.keys(capabilities || {}).filter(function (key) { return !!capabilities[key]; }).join(',');
+    });
+    signalAcceptedCredentials();
+    renderUpgradeOffer();
+    renderFedCMButton();
+    conditionalPasskeySignIn();
   });
 })();

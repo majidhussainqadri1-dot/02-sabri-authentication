@@ -11,6 +11,9 @@ final class SA_Activator {
 		'auth_devices'       => 'sauth_auth_devices',
 		'risk_challenges'    => 'sauth_auth_risk_challenges',
 		'auth_attempts'      => 'sauth_auth_attempts',
+		'security_timeline'  => 'sauth_security_timeline',
+		'recovery_changes'   => 'sauth_recovery_changes',
+		'shared_signals'     => 'sauth_shared_signals',
 	);
 
 	private static $legacy_table_suffixes = array(
@@ -56,6 +59,8 @@ final class SA_Activator {
 				SAUTH_Session_Manager::CLEANUP_HOOK,
 				'sauth_login_risk_cleanup',
 				'sauth_provider_health_cleanup',
+				'sauth_security_cleanup',
+				'sauth_shared_signals_cleanup',
 			) as $hook ) {
 				wp_clear_scheduled_hook( $hook );
 			}
@@ -86,6 +91,9 @@ final class SA_Activator {
 		self::create_device_table();
 		self::create_risk_challenge_table();
 		self::create_attempt_table();
+		self::create_security_timeline_table();
+		self::create_recovery_changes_table();
+		self::create_shared_signals_table();
 		$migration_ok = self::migrate_legacy_tables();
 		self::create_pages();
 		$google_secret_ok = self::migrate_google_secret();
@@ -135,6 +143,9 @@ final class SA_Activator {
 			'trusted devices'    => self::table( 'auth_devices' ),
 			'risk challenges'    => self::table( 'risk_challenges' ),
 			'auth attempts'      => self::table( 'auth_attempts' ),
+			'security timeline'  => self::table( 'security_timeline' ),
+			'recovery changes'   => self::table( 'recovery_changes' ),
+			'shared signals'     => self::table( 'shared_signals' ),
 		);
 	}
 
@@ -147,6 +158,9 @@ final class SA_Activator {
 			'trusted devices'    => array( 'id','public_id','user_id','fingerprint_hash','network_hash','device_label','network_label','status','risk_score','first_seen_at','last_seen_at','last_login_at','updated_at' ),
 			'risk challenges'    => array( 'id','public_id','token_hash','user_id','fingerprint_hash','risk_score','reason_code','remember_session','destination','completion_json','status','attempts','expires_at','consumed_at','created_at','updated_at' ),
 			'auth attempts'      => array( 'id','public_id','user_id','fingerprint_hash','network_hash','result','reason_code','risk_score','created_at' ),
+			'security timeline'  => array( 'id','public_id','user_id','event_type','severity','device_hash','details_json','created_at' ),
+			'recovery changes'   => array( 'id','public_id','user_id','change_kind','payload_ciphertext','owner_token_ciphertext','fingerprint_hash','status','apply_after','created_at','updated_at' ),
+			'shared signals'     => array( 'id','event_id','family','signal_type','user_id','source','claims_json','status','issued_at','created_at' ),
 		);
 	}
 
@@ -172,6 +186,15 @@ final class SA_Activator {
 			),
 			'auth attempts' => array(
 				'PRIMARY'=>array(0,array('id')), 'public_id'=>array(0,array('public_id')), 'subject_time'=>array(1,array('user_id','created_at')), 'result_time'=>array(1,array('result','created_at')),
+			),
+			'security timeline' => array(
+				'PRIMARY'=>array(0,array('id')), 'public_id'=>array(0,array('public_id')), 'user_time'=>array(1,array('user_id','created_at')), 'severity_time'=>array(1,array('severity','created_at')),
+			),
+			'recovery changes' => array(
+				'PRIMARY'=>array(0,array('id')), 'public_id'=>array(0,array('public_id')), 'user_status'=>array(1,array('user_id','status','apply_after')), 'status_apply'=>array(1,array('status','apply_after')),
+			),
+			'shared signals' => array(
+				'PRIMARY'=>array(0,array('id')), 'event_id'=>array(0,array('event_id')), 'user_time'=>array(1,array('user_id','issued_at')), 'family_status'=>array(1,array('family','status','issued_at')),
 			),
 		);
 	}
@@ -362,6 +385,69 @@ final class SA_Activator {
 			UNIQUE KEY public_id (public_id),
 			KEY subject_time (user_id, created_at),
 			KEY result_time (result, created_at)
+		) " . $wpdb->get_charset_collate() . ';' );
+	}
+
+
+	public static function create_security_timeline_table() {
+		global $wpdb;
+		$table = self::table( 'security_timeline' );
+		self::dbdelta( "CREATE TABLE {$table} (
+			id bigint unsigned NOT NULL AUTO_INCREMENT,
+			public_id char(36) NOT NULL,
+			user_id bigint unsigned NOT NULL,
+			event_type varchar(80) NOT NULL,
+			severity varchar(16) NOT NULL DEFAULT 'low',
+			device_hash char(64) NOT NULL DEFAULT '',
+			details_json longtext NOT NULL,
+			created_at datetime NOT NULL,
+			PRIMARY KEY  (id),
+			UNIQUE KEY public_id (public_id),
+			KEY user_time (user_id,created_at),
+			KEY severity_time (severity,created_at)
+		) " . $wpdb->get_charset_collate() . ';' );
+	}
+
+	public static function create_recovery_changes_table() {
+		global $wpdb;
+		$table = self::table( 'recovery_changes' );
+		self::dbdelta( "CREATE TABLE {$table} (
+			id bigint unsigned NOT NULL AUTO_INCREMENT,
+			public_id char(36) NOT NULL,
+			user_id bigint unsigned NOT NULL,
+			change_kind varchar(64) NOT NULL,
+			payload_ciphertext longtext NOT NULL,
+			owner_token_ciphertext longtext NOT NULL,
+			fingerprint_hash char(64) NOT NULL,
+			status varchar(24) NOT NULL DEFAULT 'pending',
+			apply_after datetime NOT NULL,
+			created_at datetime NOT NULL,
+			updated_at datetime NOT NULL,
+			PRIMARY KEY  (id),
+			UNIQUE KEY public_id (public_id),
+			KEY user_status (user_id,status,apply_after),
+			KEY status_apply (status,apply_after)
+		) " . $wpdb->get_charset_collate() . ';' );
+	}
+
+	public static function create_shared_signals_table() {
+		global $wpdb;
+		$table = self::table( 'shared_signals' );
+		self::dbdelta( "CREATE TABLE {$table} (
+			id bigint unsigned NOT NULL AUTO_INCREMENT,
+			event_id char(36) NOT NULL,
+			family varchar(16) NOT NULL,
+			signal_type varchar(80) NOT NULL,
+			user_id bigint unsigned NOT NULL,
+			source varchar(64) NOT NULL,
+			claims_json longtext NOT NULL,
+			status varchar(24) NOT NULL DEFAULT 'active',
+			issued_at datetime NOT NULL,
+			created_at datetime NOT NULL,
+			PRIMARY KEY  (id),
+			UNIQUE KEY event_id (event_id),
+			KEY user_time (user_id,issued_at),
+			KEY family_status (family,status,issued_at)
 		) " . $wpdb->get_charset_collate() . ';' );
 	}
 

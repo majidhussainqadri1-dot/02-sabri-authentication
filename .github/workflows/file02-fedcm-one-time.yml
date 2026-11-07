@@ -1,0 +1,33 @@
+name: File 02 FedCM one-time RP nonce and replay
+on:
+  push:
+    paths:
+      - 'includes/class-sauth-modern-auth.php'
+      - 'tests/security/fedcm-nonce-once-mock.php'
+      - '.github/workflows/file02-fedcm-one-time.yml'
+  pull_request:
+    paths:
+      - 'includes/class-sauth-modern-auth.php'
+      - 'tests/security/fedcm-nonce-once-mock.php'
+      - '.github/workflows/file02-fedcm-one-time.yml'
+permissions:
+  contents: read
+jobs:
+  fedcm-replay-gate:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['7.4','8.3']
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: shivammathur/setup-php@2.37.2
+        with:
+          php-version: ${{ matrix.php }}
+      - name: PHP syntax
+        run: php -l includes/class-sauth-modern-auth.php && php -l tests/security/fedcm-nonce-once-mock.php
+      - name: Reject stale FedCM nonce replay with isolated PHP behavioral harness
+        run: php tests/security/fedcm-nonce-once-mock.php

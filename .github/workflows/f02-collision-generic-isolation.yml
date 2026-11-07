@@ -1,0 +1,30 @@
+name: File 02 Generic Recovery Collision Isolation
+on:
+  push:
+    paths:
+      - 'includes/class-sauth-security-orchestrator.php'
+      - 'tests/security/collision-generic-recovery-isolation-regression.php'
+      - 'tests/security/collision-generic-schedule-denial-regression.php'
+      - 'tests/security/security-safe-mode-owner-denial.php'
+      - '.github/workflows/f02-collision-generic-isolation.yml'
+  pull_request:
+    paths:
+      - 'includes/class-sauth-security-orchestrator.php'
+      - 'tests/security/collision-generic-recovery-isolation-regression.php'
+      - 'tests/security/collision-generic-schedule-denial-regression.php'
+      - 'tests/security/security-safe-mode-owner-denial.php'
+      - '.github/workflows/f02-collision-generic-isolation.yml'
+jobs:
+  source-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax
+        run: php -l includes/class-sauth-security-orchestrator.php && php -l tests/security/collision-generic-recovery-isolation-regression.php && php -l tests/security/collision-generic-schedule-denial-regression.php && php -l tests/security/security-safe-mode-owner-denial.php
+      - name: Generic recovery collision isolation
+        run: php tests/security/collision-generic-recovery-isolation-regression.php
+      - name: Runtime deny generic collision scheduling
+        run: php tests/security/collision-generic-schedule-denial-regression.php
+
+      - name: Safe Mode denial of direct collision and recovery-owner commands
+        run: php tests/security/security-safe-mode-owner-denial.php

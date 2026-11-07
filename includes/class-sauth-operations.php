@@ -70,6 +70,11 @@ final class SAUTH_Operations {
 			'sauth_verify_email',
 			'sauth_resend_email_verification',
 			'sa_google_unlink',
+			'sauth_modern_fedcm_begin',
+			'sauth_modern_fedcm_finish',
+			'sauth_recovery_change_request',
+			'sauth_recovery_change_cancel',
+			'sauth_resolve_collision',
 		);
 		if ( ! in_array( $action, $blocked, true ) ) { return; }
 		if ( function_exists( 'wp_doing_ajax' ) && wp_doing_ajax() ) {
@@ -94,6 +99,18 @@ final class SAUTH_Operations {
 			<table class="widefat striped"><thead><tr><th>Check</th><th>Status</th><th>Evidence</th></tr></thead><tbody>
 			<?php foreach ( $checks as $check ) : ?><tr><td><?php echo esc_html( $check['label'] ); ?></td><td><strong><?php echo esc_html( strtoupper( $check['status'] ) ); ?></strong></td><td><?php echo esc_html( $check['evidence'] ); ?></td></tr><?php endforeach; ?>
 			</tbody></table>
+			<h2>Recovery and collision queue — read-only aggregate</h2>
+			<?php $sauth_queue = self::reconciliation_summary(); ?>
+			<?php if ( is_wp_error( $sauth_queue ) ) : ?>
+				<div class="notice notice-error"><p>Recovery queue inspection is incomplete. No zero-backlog assurance is available.</p></div>
+			<?php else : ?>
+				<table class="widefat striped"><thead><tr><th scope="col">State</th><th scope="col">Count</th></tr></thead><tbody>
+				<?php foreach ( $sauth_queue as $state => $count ) : ?>
+					<tr><th scope="row"><?php echo esc_html( ucwords( str_replace( '_', ' ', $state ) ) ); ?></th><td><?php echo esc_html( (string) $count ); ?></td></tr>
+				<?php endforeach; ?>
+				</tbody></table>
+			<?php endif; ?>
+			<p><em>Do not replay uncertain canonical-owner actions. Verify the File 00 owner outcome and complete a supervised reconciliation. This screen contains no identifiers or bearer evidence.</em></p>
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin-top:20px"><input type="hidden" name="action" value="sauth_toggle_safe_mode"><?php wp_nonce_field( 'sauth_toggle_safe_mode', 'sauth_nonce' ); ?><input type="hidden" name="enable" value="<?php echo self::safe_mode() ? '0' : '1'; ?>"><button class="button <?php echo self::safe_mode() ? 'button-primary' : ''; ?>" type="submit"><?php echo esc_html( self::safe_mode() ? 'Exit Safe Mode' : 'Enter Safe Mode' ); ?></button></form>
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin-top:12px"><input type="hidden" name="action" value="sauth_guarded_repair"><?php wp_nonce_field( 'sauth_guarded_repair', 'sauth_nonce' ); ?><button class="button" type="submit">Run Guarded Repair</button></form>
 			<p><em>Guarded Repair is additive/idempotent. It reconciles File 02 schema, passkey schema and private pages; it does not purge File 00 identity or File 02 authentication evidence.</em></p>
@@ -166,6 +183,54 @@ final class SAUTH_Operations {
 		}
 	}
 
+	/**
+	 * Bounded, read-only operational queue inspection (F02-NFR-003/008).
+	 * Never exposes subject identity, bearer proof, encrypted payload or case ID.
+	 * An unknown owner-side effect MUST NOT be replayed by a generic repair.
+	 */
+	public static function reconciliation_summary() {
+		global $wpdb;
+		$table = SAUTH_Activator::table( 'recovery_changes' );
+		if ( '' === $table ) {
+			return new WP_Error( 'sauth_recovery_queue_unavailable', 'Recovery queue is unavailable.' );
+		}
+		$exists = $wpdb->get_var( $wpdb->prepare(
+			'SHOW TABLES LIKE %s', $wpdb->esc_like( $table )
+		) );
+		if ( $table !== (string) $exists || '' !== (string) $wpdb->last_error ) {
+			return new WP_Error( 'sauth_recovery_queue_unavailable', 'Recovery queue cannot be inspected.' );
+		}
+		$rows = $wpdb->get_results(
+			"SELECT status,change_kind,created_at,updated_at FROM {$table} WHERE status IN ('processing','pending') ORDER BY id ASC LIMIT 1001",
+			ARRAY_A
+		);
+		if ( ! is_array( $rows ) || '' !== (string) $wpdb->last_error || count( $rows ) > 1000 ) {
+			// Never claim a healthy zero backlog on a failed/truncated scan.
+			return new WP_Error( 'sauth_recovery_queue_unverified', 'Recovery queue inspection is incomplete; operator review required.' );
+		}
+		$now = time();
+		$out = array(
+			'stale_processing'=>0, 'stale_collision_pending'=>0,
+			'recent_processing'=>0, 'fresh_collision_pending'=>0,
+			'other_pending_recovery'=>0,
+		);
+		foreach ( $rows as $row ) {
+			$status = (string) ( $row['status'] ?? '' );
+			$kind = (string) ( $row['change_kind'] ?? '' );
+			if ( 'processing' === $status ) {
+				$at = strtotime( (string) ( $row['updated_at'] ?? '' ) . ' UTC' );
+				$key = false === $at || $at <= $now - HOUR_IN_SECONDS ? 'stale_processing' : 'recent_processing';
+			} elseif ( 'collision_resolution' === $kind ) {
+				$at = strtotime( (string) ( $row['created_at'] ?? '' ) . ' UTC' );
+				$key = false === $at || $at <= $now - 600 ? 'stale_collision_pending' : 'fresh_collision_pending';
+			} else {
+				$key = 'other_pending_recovery';
+			}
+			$out[ $key ]++;
+		}
+		return $out;
+	}
+
 	/** Current source/runtime checks only; staging/live acceptance is separate. */
 	public static function system_check() {
 		global $wpdb;
@@ -174,10 +239,63 @@ final class SAUTH_Operations {
 		$checks[] = self::check( 'Account orchestration contract', SAUTH_Account_Contract::provider_available(), SAUTH_Account_Contract::provider_available() ? 'smc.authentication-account 1.1.0 provider is callable.' : 'Account provider unavailable or incompatible.' );
 		$passkey_ready = class_exists( 'SAUTH_Passkey_Runtime' ) && class_exists( 'SAUTH_Passkeys' ) && SAUTH_Passkeys::authentication_ready();
 		$checks[] = self::check( 'File 02 passkey authentication assurance', $passkey_ready, $passkey_ready ? 'File 02 passkey runtime, schema, table, HTTPS/origin and dependencies are ready.' : 'File 02 passkey authentication readiness is incomplete.' );
+		$feature_ids = class_exists( 'SAUTH_Modern_Auth' ) ? SAUTH_Modern_Auth::feature_ids() : array();
+		$expected_ids = array(); for ( $i = 1; $i <= 24; $i++ ) { $expected_ids[] = 'F02-X-24-' . str_pad( (string) $i, 3, '0', STR_PAD_LEFT ); }
+		$checks[] = self::check( 'Modern Authentication 24 registry', $feature_ids === $expected_ids, $feature_ids === $expected_ids ? 'Exact F02-X-24-001..024 registry is present without gaps or duplicates.' : 'Modern Authentication feature registry is incomplete or out of order.' );
+		$passkey_schema_ok = class_exists( 'SAUTH_Passkeys' ) && '1.1.0' === SAUTH_Passkeys::SCHEMA_VERSION;
+		$checks[] = self::check( 'Passkey schema 1.1.0', $passkey_schema_ok, $passkey_schema_ok ? 'AAGUID/trust metadata schema identity is 1.1.0.' : 'Passkey schema identity is not 1.1.0.' );
+		$assurance_v2_ok = class_exists( 'SAUTH_Security_Orchestrator' ) && '2.0.0' === SAUTH_Security_Orchestrator::ASSURANCE_V2_VERSION;
+		$checks[] = self::check( 'Authentication Assurance Receipt v2', $assurance_v2_ok, $assurance_v2_ok ? 'Additive v2 contract 2.0.0 is registered; passkey assurance v1 remains preserved.' : 'Assurance v2 contract is unavailable.' );
+		$related = class_exists( 'SAUTH_Modern_Auth' ) ? SAUTH_Modern_Auth::related_origins() : array();
+		$checks[] = self::check( 'Related-origin passkeys configuration', count( $related ) <= 5, count( $related ) . ' exact HTTPS related origins configured.' );
 		$checks[] = self::check( 'Runtime version marker', SAUTH_VERSION === (string) get_option( 'sauth_version', '' ), 'Runtime=' . SAUTH_VERSION . '; stored=' . (string) get_option( 'sauth_version', '' ) );
 		$checks[] = self::check( 'Database schema marker', SAUTH_DB_VERSION === (string) get_option( 'sauth_db_version', '' ), 'Expected=' . SAUTH_DB_VERSION . '; stored=' . (string) get_option( 'sauth_db_version', '' ) );
 		$core_storage_ready = SAUTH_Activator::storage_ready();
 		$checks[] = self::check( 'Material File 02 storage postconditions', $core_storage_ready, $core_storage_ready ? 'Required tables, columns, managed pages and passkey installation postconditions are materialized.' : 'One or more material storage/page/passkey postconditions are incomplete.' );
+		/* F02-NFR-003/008: read-only backlog alarm. Never retry an uncertain
+		 * owner callback or expose the encrypted identity, case ID or token. */
+		$recovery_table = SAUTH_Activator::table( 'recovery_changes' );
+		$recovery_exists = $recovery_table === (string) $wpdb->get_var(
+			$wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $recovery_table ) )
+		);
+		$recovery_ok = false;
+		if ( $recovery_exists ) {
+			$unreconciled = $wpdb->get_var( $wpdb->prepare(
+				"SELECT 1 FROM {$recovery_table} WHERE (status='processing' AND updated_at<=%s) OR (change_kind='collision_resolution' AND status='pending' AND created_at<=%s) LIMIT 1",
+				gmdate( 'Y-m-d H:i:s', time() - HOUR_IN_SECONDS ),
+				gmdate( 'Y-m-d H:i:s', time() - 600 )
+			) );
+			$recovery_ok = null === $unreconciled && '' === (string) $wpdb->last_error;
+		}
+		$checks[] = self::check(
+			'Recovery claim reconciliation backlog', $recovery_ok,
+			$recovery_ok ? 'No aged processing recovery or expired-but-pending collision claims detected.' : 'Aged recovery/collision state needs supervised reconciliation; no case or identity is exposed.'
+		);
+		/* Security signals are NOT successfully contained until the exact
+		 * WordPress/session/assurance postconditions are confirmed. Missing
+		 * table or an unreadable row must never yield a healthy signal. */
+		$signal_table = SAUTH_Activator::table( 'shared_signals' );
+		$signal_exists = $signal_table === (string) $wpdb->get_var( $wpdb->prepare(
+			'SHOW TABLES LIKE %s', $wpdb->esc_like( $signal_table )
+		) );
+		$signal_ok = false;
+		$signal_count = null;
+		if ( $signal_exists ) {
+			$signal_count = $wpdb->get_var( $wpdb->prepare(
+				"SELECT COUNT(*) FROM {$signal_table} WHERE status='needs_reconciliation'
+				OR (status='pending_containment' AND created_at<=%s)",
+				gmdate( 'Y-m-d H:i:s', time() - 300 )
+			) );
+			$signal_ok = null !== $signal_count && '' === (string) $wpdb->last_error && 0 === (int) $signal_count;
+		}
+		$checks[] = self::check(
+			'Shared security signal containment backlog', $signal_ok,
+			null === $signal_count
+				? 'CAEP/RISC containment state unavailable; no healthy-zero claim.'
+				: ( $signal_ok
+					? 'No stale or unverified CAEP/RISC session-containment outcomes.'
+					: 'Unverified CAEP/RISC containment cases: ' . absint( $signal_count ) . '; supervised reconciliation required; no identities exposed.' )
+		);
 		$outbox_scheduled = class_exists( 'SAUTH_Event_Outbox' ) && function_exists( 'wp_next_scheduled' ) && false !== wp_next_scheduled( SAUTH_Event_Outbox::CRON_HOOK );
 		$checks[] = self::check( 'Authentication event outbox dispatch schedule', $outbox_scheduled, $outbox_scheduled ? 'Authentication event dispatch cron is scheduled.' : 'Authentication event dispatch cron is not scheduled.' );
 		foreach ( SAUTH_Activator::required_tables() as $name => $table ) {

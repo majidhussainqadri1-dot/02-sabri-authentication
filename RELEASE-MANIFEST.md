@@ -1,3 +1,28 @@
+# File 02 v12 — THIRD REVIEW / RELEASE BLOCKED (2026-11-07)
+
+This manifest is **NOT a deploy authorization**. Source code candidate before documentation: `4846bd7c71483e3f0fc96b738734fadba163c956`, **12/14 exact-head GitHub Actions successful; the 2 failed executions are the duplicated WordPress 7.0.1 / MariaDB 11.4 integration gate**. The direct Safe Mode guard correctly rejects owner-race fixtures following an earlier migration test which preserves Safe Mode; the isolated test environment has not been repaired. Thus **Release Integrity job success alone is not overall release success**. Retain PR #23 as Draft; no merge, staging/live deploy or full 48-ID acceptance claim. See `review-evidence/F02-V12-THIRD-MANUAL-40MIN-SECURITY-REVIEW-2026-11-07.md`.
+
+**Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔**
+
+---
+
+# File 02 — Release Manifest — 1.4.0 Modern Authentication 24 Candidate
+
+- Runtime: `1.4.0`
+- Database: `1.4.0`
+- Passkey schema: `1.1.0`
+- Passkey assurance v1: `1.0.0` preserved
+- Modern Auth: `1.0.0`
+- Authentication Assurance v2: `2.0.0`
+- Shared Signals: `1.0.0`
+- Package target: `02-sabri-authentication-1.4.0-SOURCE-CANDIDATE.zip`
+- Current corrective Draft PR: `#23`, branch `audit/f02-v12-run45-source-evidence-20261106` (the historical `codex/file02-modern-auth-24-1.4.0` base remains provenance only).
+- Baseline main: `224c39bcb8c28f77504c7348dbad41226753c7e8`
+- Status: source candidate / unmerged. Exact corrective PR HEAD `888c9119f07d9d5b498fab5743076090b451bb8f`: **13/13 GitHub workflow runs SUCCESS**, including deterministic package clean-extract parity; not a staged, deployed or Founder-accepted release. The next commit updating this text requires its own exact-head CI check.
+
+> **Current authoritative candidate — File 02 1.4.0 / DB 1.4.0 / passkey schema 1.1.0.**  
+> This repository candidate carries the Founder-approved **Modern Authentication 24** amendment (F02-X-24-001..024) forward onto the post-R343 source line. It preserves passkey assurance v1 `1.0.0` and adds Modern Auth `1.0.0`, Authentication Assurance Receipt v2 `2.0.0`, and Shared Signals `1.0.0`. Repository coding/CI/package/staging/live/operational gates remain separate. Any lower-version “current candidate” wording below is retained only as historical provenance unless explicitly restated here.
+
 # File 02 — Release Manifest — 1.3.0
 
 ## Release identity

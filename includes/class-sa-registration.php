@@ -80,6 +80,9 @@ final class SA_Registration {
 		if ( ! $valid || ! $user instanceof WP_User ) {
 			$this->login_failure( 0, $redirect, 'credentials_invalid' );
 		}
+		if ( class_exists( 'SAUTH_Security_Orchestrator' ) && SAUTH_Security_Orchestrator::authentication_blocked( $user->ID ) ) {
+			$this->login_failure( $user->ID, $redirect, 'emergency_lockdown_active' );
+		}
 		if ( ! SAUTH_Provider_Health::allow_request( 'membership' ) ) {
 			$this->login_failure( $user->ID, $redirect, 'membership_provider_circuit_open' );
 		}
@@ -158,8 +161,13 @@ final class SA_Registration {
 		unset( $_POST['password'], $_POST['password_confirm'] );
 		if ( 'allow' !== ( $result['result'] ?? '' ) || empty( $result['user_id'] ) ) {
 			self::release_google_registration_locks( $google_locks, 0, 'google_registration_provider_rejected_lock_release_failed' );
-			SAUTH_Provider_Health::record_failure( 'membership', sanitize_key( (string) ( $result['reason_code'] ?? 'provider_rejected' ) ), $latency );
-			SAUTH_Event_Outbox::emit( 'AccountAuthenticationFailed.v1', 0, 0, array( 'method' => 'registration', 'reason' => sanitize_key( (string) ( $result['reason_code'] ?? 'provider_rejected' ) ) ), 'security' );
+			$reason_code = sanitize_key( (string) ( $result['reason_code'] ?? 'provider_rejected' ) );
+			SAUTH_Provider_Health::record_failure( 'membership', $reason_code, $latency );
+			SAUTH_Event_Outbox::emit( 'AccountAuthenticationFailed.v1', 0, 0, array( 'method' => 'registration', 'reason' => $reason_code ), 'security' );
+			if ( class_exists( 'SAUTH_Security_Orchestrator' ) && in_array( $reason_code, array( 'account_exists','duplicate_account','identity_collision','email_in_use','provider_collision' ), true ) ) {
+				$case = SAUTH_Security_Orchestrator::create_collision_case( (string) $payload['email'], $reason_code );
+				if ( is_array( $case ) && ! empty( $case['url'] ) ) { wp_safe_redirect( SA_Security::safe_redirect( (string) $case['url'], SA_Security::page_url( 'login', wp_login_url() ) ) ); exit; }
+			}
 			$this->registration_redirect( 'error', 'Registration could not be completed. The details may already belong to an account, or the membership service may require review.' );
 		}
 		SAUTH_Provider_Health::record_success( 'membership', $latency );
@@ -321,6 +329,13 @@ final class SA_Registration {
 			wp_safe_redirect( $url );
 			exit;
 		}
+		$password_safety = self::password_safety_check( $password );
+		if ( is_wp_error( $password_safety ) ) {
+			$password = ''; $confirm = '';
+			$url = add_query_arg( array( 'key' => $key, 'login' => $login ), SA_Security::message_url( 'reset', 'error', $password_safety->get_error_message() ) );
+			wp_safe_redirect( $url );
+			exit;
+		}
 		$user_id = (int) $user->ID;
 		reset_password( $user, $password );
 		$fresh_user = get_userdata( $user_id );
@@ -389,6 +404,15 @@ final class SA_Registration {
 		);
 	}
 
+	private static function password_safety_check( $password ) {
+		if ( class_exists( 'SAUTH_Password_Safety' ) && is_callable( array( 'SAUTH_Password_Safety', 'check' ) ) ) {
+			return SAUTH_Password_Safety::check( (string) $password );
+		}
+		/* Production loads SAUTH_Password_Safety before this class. Historical
+		 * isolated regression harnesses may load registration alone. */
+		return true;
+	}
+
 	public static function validate_registration( array $payload ) {
 		if ( strlen( trim( (string) $payload['name'] ) ) < 2 || strlen( (string) $payload['name'] ) > 100 ) { return new WP_Error( 'sauth_registration_name', 'Enter your complete name.' ); }
 		if ( strlen( (string) $payload['email'] ) > 320 || ! is_email( (string) $payload['email'] ) ) { return new WP_Error( 'sauth_registration_email', 'Enter a valid email address.' ); }
@@ -396,6 +420,10 @@ final class SA_Registration {
 		$phone_digits = preg_replace( '/\D+/', '', (string) $payload['phone'] );
 		if ( strlen( $phone_digits ) < 8 || strlen( $phone_digits ) > 18 ) { return new WP_Error( 'sauth_registration_phone', 'Enter a valid phone number with country code.' ); }
 		if ( 'password' === $payload['authentication_method'] && ( strlen( (string) $payload['password'] ) < self::MIN_PASSWORD_LENGTH || strlen( (string) $payload['password'] ) > self::MAX_PASSWORD_BYTES || strlen( (string) $payload['password_confirm'] ) > self::MAX_PASSWORD_BYTES || $payload['password'] !== $payload['password_confirm'] ) ) { return new WP_Error( 'sauth_registration_password', 'Use matching passwords of at least 12 characters.' ); }
+		if ( 'password' === $payload['authentication_method'] ) {
+			$password_safety = self::password_safety_check( (string) $payload['password'] );
+			if ( is_wp_error( $password_safety ) ) { return $password_safety; }
+		}
 		if ( 'google' === $payload['authentication_method'] && ( empty( $payload['google_email_verified'] ) || '' === trim( (string) $payload['google_subject'] ) || strlen( (string) $payload['google_subject'] ) > 255 ) ) { return new WP_Error( 'sauth_registration_google', 'The Google email-ownership proof is invalid or expired.' ); }
 		if ( ! in_array( $payload['sex'], array( 'male', 'female' ), true ) ) { return new WP_Error( 'sauth_registration_sex', 'Select the applicable sex for the platform age rule.' ); }
 		$age = self::age_from_date( (string) $payload['date_of_birth'] );

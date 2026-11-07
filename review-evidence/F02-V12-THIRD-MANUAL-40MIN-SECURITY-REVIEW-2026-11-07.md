@@ -1,0 +1,45 @@
+# File 02 — Third sequential manual source/QA session, Master Plan v12
+**Date:** 2026-11-07; **timezone:** Asia/Karachi. Source-only, Draft PR #23, no deploy, no merge, no hourly automation reactivation.
+
+## Governing plan and exact source freeze
+- Source of authority: attached `Sabri-Website-Master-Plan-v12.docx`, actual paragraphs **934–982**: **12 F02-FR, 10 F02-NFR, 2 F02-CEN and 24 F02-X24 = 48** unique requirements. This document supplements the two prior File 02 v12 review ledgers; a traceability pointer is not 48 successful behavioral acceptance receipts.
+- GitHub repository: `majidhussainqadri1-dot/02-sabri-authentication`.
+- Main HEAD (before/during this session): `224c39bcb8c28f77504c7348dbad41226753c7e8`.
+- Baseline Draft PR #23 HEAD for this session: `d108e91825a525843a46d420be12aaa71494933d`.
+- Corrective Source/CI test HEAD immediately before writing this report: `4846bd7c71483e3f0fc96b738734fadba163c956`.
+- Runtime/DB/passkey declared **source candidate** `1.4.0 / 1.4.0 / 1.1.0`; NOT verified on live. File00 PR55 exact pin `b3e9253d06a2897f092981f3a1f77e16b4b78578` in disposable CI; staging/live parity unverified.
+- Comparison to session baseline at that code HEAD: **33 Git commits, 15 files modified/added** (plus this report as a later independent commit). Never infer a successful live deploy from this count.
+
+## Confirmed RED security regressions and attempted source corrections (source-only)
+| ID | v12 mappings | Proven defect and harm | Initial reproducible RED | Candidate source correction |
+|---|---|---|---|---|
+| D12 | F02-X24-015/016, NFR-001 | malformed 36-char event IDs passed the loose regex; negative/fractional issued timestamp and negative user number could be coerced with `absint` | GitHub `42332738835`: invalid 36-character event ID not rejected | `includes/class-sauth-shared-signals.php` at `2814151d15a6fcfc478420290f1e836e99fd3db4`; strict canonical 8-4-4-4-12 UUID, positive integer user/time |
+| D13 | F02-X24-015/016, NFR-003/008 | verified incoming session-revocation signal returned success even if WordPress session revocation failed; duplicate event could falsely succeed without reconciliation | `42332954822`: failed session revocation falsely acknowledged | same class `39cb266f0208babd37f20e1ae3e63a22d2dc559f`: `pending_containment` atomic row, required session/assurance postconditions, only then `active`; failure `needs_reconciliation` or unresolved pending, duplicate denied, no automatic side-effect retry; `SAUTH_Operations` privacy-safe backlog indicator `46e067a80a59f7b846149758f94bbfb8d682370e` |
+| D14 | F02-X24-015/016, NFR-002 | arbitrary numeric keys (patient/beneficiary IDs) and opaque token-shaped strings under harmless claim names survived previous privacy filter | Real MariaDB `42333613750`: personal/opaque/descriptive claim was persisted | `includes/class-sauth-shared-signals.php` `a503a47ba0d82f5e71f4592887324a482f258db9`: bounded typed risk-only numeric/boolean fields and enumerated reason/method/status values; unsupported free text/identity excluded; provider compatibility must be rechecked |
+| D15 | F02-X24-013/015/016, NFR-003 | shared risk lookup `false`/SQL error silently collapsed into zero risk | Real MariaDB `42333810352`: SQL failure treated as zero risk | same class `a81a9d36df171efd1f7142236ef4271f5ee78c97` returns `WP_Error`; `includes/class-sauth-security-orchestrator.php` `02deeb6f2fc9626e268bbf2666bbecb87b453c94` returns risk score 100 + explainable `shared_security_unavailable` |
+| D16 | F02-NFR-001/003/008, X24-011/012 | Safe Mode protected AJAX routes but direct collision creation/resolution/owner recovery commands did not independently deny mutation | PHP 8.3 `42334048339`: collision creation not denied in Safe Mode | `includes/class-sauth-security-orchestrator.php` `98363d66985dbec297e2a6f7ed783538452ee5e5`, `8bdec8938e0f8775ce4b7f5811cffbcf257a4d15`; `includes/class-sauth-operations.php` `5553650e50d60a9f79f642fd209f2f289bd2c38e`; fail closed before DB, preserve short-lived handoff and block public admin-post |
+| D17 | F02-X24-013, NFR-003 | device/network risk count SQL failure was cast to zero and risk engine could underestimate account risk | PHP 7.4/8.3 `42334596735`: unavailable device/network projection treated as no anomalies | `includes/class-sauth-security-orchestrator.php` `4846bd7c71483e3f0fc96b738734fadba163c956`: typed DB failure check, score 100 with `device_risk_unavailable` reason |
+
+Separate CI fixture issues repaired: strict valid-envelope mock initially assumed only one SQL read instead of duplicate-race check; CAEP mock did not include the durable `status='active'` field; containment mock needed `get_var` postcondition and prepared-query interpolation; real fault injector counted multiple actual SQL attempts instead of comparing duplicate-call delta. These are *test harness defects*, not additional live incidents.
+
+## Evidence at exact source/test SHA 4846bd7...
+- GitHub Actions **14 workflow executions: 12 SUCCESS, 2 FAILURE**, zero pending. The 2 failures are duplicate push/PR executions of the **same** real WordPress/MariaDB integration workflow, not two distinct source defects.
+- The concrete integration failure: the legacy migration rehearsal intentionally sets `sauth_safe_mode=1` and asserts it stays active. Later in the SAME shared disposable WordPress DB, new recovery/collision concurrency fixtures are run. The newly required direct Safe Mode guard correctly returns `sauth_safe_mode_active`; an old race fixture expects `processing`, so the test fails *before* the new SQL-risk or missing-owner fixtures can be accepted.
+- Source location: `.github/workflows/file02-v12-file00-pr55-wordpress701.yml`, stale passkey index rehearsal **before** owner-race tests. Required fix is **CI isolation** (e.g. separate fresh environments or reorder the Safe Mode-preservation gate to be last), NOT weakening Safe Mode protection.
+- Two attempts to edit that workflow for secure test separation were rejected by available tool safety checks; therefore no corrective CI workflow edit was committed. Do not claim this gate is green, or merge until exact-head re-run succeeds.
+- PHP 7.4/8.3 isolated CAEP/risk and Safe Mode regressions, source release lint/packaging and other prior workflows are independent evidence; they cannot substitute for missing full WordPress integration.
+
+## Additional unverified/deferred source gap
+- File00 PR55 examined previously does not expose a built-in accepted `sauth_resolve_collision_case_v1` owner-approval adapter. A valid collision case may be atomically claimed `processing` even when no handler is registered, leaving it unavailable. This session added `tests/integration/collision-provider-unavailable-mariadb.php` as a fail-first fixture but it was **NOT executed by CI** because its wiring to the real integration workflow was blocked; consequently treat it as an **unverified pending concern**, not a root cause proven by this run. Do not invent a File00 identity merge.
+- File26 main `1b064c6ea9f81195611ed001d5457e8ced65460a` omits File02 from the accepted owner connector roster; File02 search-index contract/explicit no-index privacy boundary remains a v12 `F02-CEN-01` acceptance dependency.
+- Real DPoP signature verifier, FIDO attestation metadata source, FedCM cryptographic IdP verifier/browser, provider outages, full 48-ID independent behavior, RTL/accessibility/performance, staging upgrade/restore/rollback and Founder approval remain unverified.
+- Privacy/retention concern: new unresolved `pending_containment`/`needs_reconciliation` signals deliberately do not auto-expire within normal active 30-day cleanup; operator lifecycle, legal retention/erasure policy and supervised reconciliation still need explicit design/acceptance. Never silently purge unresolved security evidence or retain it indefinitely without policy.
+
+## Audit counts and final truth boundaries
+- This bounded source run demonstrated **6 distinct new defect families** (D12–D17) with RED evidence and candidate source fixes. **6 candidate source corrections** committed; **0 live fixes established**. Test fixture issues listed separately. A seventh possible File00 owner readiness defect remains unproven/unfixed.
+- The exact candidate HEAD's CI is **not green** while the combined integration is blocked. 48/48 v12 full acceptance **not established**. File02 NOT ready for merge/deployment. Next work belongs to this File02 until acceptance; do not jump to File03.
+- **Repository HEAD**: main `224c39bcb8c28f77504c7348dbad41226753c7e8`; candidate `4846bd7c71483e3f0fc96b738734fadba163c956` before report commit.
+- **Deployed Version**: unknown. **Live DB Version**: unknown. **Migration State**: live unknown. **Live Verification Status**: not performed. The stopped hourly automation remains stopped.
+- **Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔**
+
+Actual elapsed time for the requested 40-minute manual session must be measured separately at completion; this report does NOT pretend that merely creating this document consumed 40 minutes.

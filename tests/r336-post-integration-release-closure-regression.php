@@ -10,12 +10,12 @@ $fail = array();
 $req = static function ( $ok, $message ) use ( &$fail ) { if ( ! $ok ) { $fail[] = $message; } };
 
 $req( is_array( $lock ), 'release lock is invalid' );
-$req( '1.3.4' === (string) ( $lock['release_version'] ?? '' ) && '1.3.0' === (string) ( $lock['database_version'] ?? '' ) && '1.0.1' === (string) ( $lock['passkey_schema_version'] ?? '' ), 'current release/schema identity is stale' );
+$req( '1.4.0' === (string) ( $lock['release_version'] ?? '' ) && '1.4.0' === (string) ( $lock['database_version'] ?? '' ) && '1.1.0' === (string) ( $lock['passkey_schema_version'] ?? '' ), 'current release/schema identity is stale' );
 $current = is_array( $lock['cross_file_integration_evidence'] ?? null ) ? $lock['cross_file_integration_evidence'] : array();
 $prior = is_array( $lock['prior_cross_file_integration_evidence'] ?? null ) ? $lock['prior_cross_file_integration_evidence'] : array();
 $pre_route = is_array( $lock['pre_route_fix_cross_file_integration_evidence'] ?? null ) ? $lock['pre_route_fix_cross_file_integration_evidence'] : array();
 $req( in_array( (string) ( $current['status'] ?? '' ), array( 'repository_integration_green_on_pre_release_identity_head', 'repository_integration_green', 'pending_exact_head' ), true ), 'current cross-file integration status is invalid' );
-$req( '1.3.4' === (string) ( $current['file02_runtime'] ?? '' ), 'current cross-file integration runtime identity is stale' );
+$req( '1.4.0' === (string) ( $current['file02_runtime'] ?? '' ), 'current cross-file integration runtime identity is stale' );
 $req( 'repository_integration_green' === (string) ( $pre_route['status'] ?? '' ) && 31953732443 === (int) ( $pre_route['workflow_run_id'] ?? 0 ), 'pre-route-fix File 02 1.3.1 integration evidence was not retained' );
 $req( 'repository_integration_green' === (string) ( $prior['status'] ?? '' ), 'historical cross-file integration status was not retained' );
 $req( 31850253635 === (int) ( $prior['workflow_run_id'] ?? 0 ), 'historical integration run ID is not the proven run' );
@@ -40,8 +40,8 @@ foreach ( array(
 	'FILE00_REF: 738aa2ab4b8be3d6cfdb3ecd46c88aa8d9ece3a0',
 	"FILE00_VERSION: '1.2.44'",
 	'FILE00_LIVE_ROUTE_REF: c4ab298b3ba2b870d507d32b36b1b4afd2771621',
-	"FILE02_VERSION: '1.3.4'",
-	"FILE02_DB_VERSION: '1.3.0'",
+	"FILE02_VERSION: '1.4.0'",
+	"FILE02_DB_VERSION: '1.4.0'",
 	'Complete supported File 00 deferred administrator bootstrap',
 	'Prove material File 00 managed-page contract',
 	'Establish canonical File 00 application fixture for R341',

@@ -1,0 +1,33 @@
+name: File 02 v12 DPoP proof and replay hardening
+on:
+  pull_request:
+    paths:
+      - 'includes/class-sauth-dpop.php'
+      - 'tests/security/dpop-proof-and-replay-hardening.php'
+      - '.github/workflows/file02-dpop-proof-replay.yml'
+  push:
+    paths:
+      - 'includes/class-sauth-dpop.php'
+      - 'tests/security/dpop-proof-and-replay-hardening.php'
+      - '.github/workflows/file02-dpop-proof-replay.yml'
+permissions:
+  contents: read
+jobs:
+  dpop-security:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['7.4','8.3']
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: shivammathur/setup-php@2.37.2
+        with:
+          php-version: ${{ matrix.php }}
+      - name: Verify PHP syntax
+        run: php -l includes/class-sauth-dpop.php && php -l tests/security/dpop-proof-and-replay-hardening.php
+      - name: Exercise DPoP claims, public-only JWK, replay and expiration
+        run: php tests/security/dpop-proof-and-replay-hardening.php
