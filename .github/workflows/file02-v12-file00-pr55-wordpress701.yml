@@ -279,3 +279,9 @@ jobs:
           set -euo pipefail
           php -l file02/tests/integration/shared-signal-claims-privacy-mariadb.php
           /tmp/wp eval-file file02/tests/integration/shared-signal-claims-privacy-mariadb.php --path=/tmp/wordpress
+
+      - name: Failed CAEP session containment must never return success
+        run: |
+          set -euo pipefail
+          php -l file02/tests/integration/shared-signal-containment-mariadb.php
+          /tmp/wp eval-file file02/tests/integration/shared-signal-containment-mariadb.php --path=/tmp/wordpress
