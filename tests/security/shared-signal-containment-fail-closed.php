@@ -47,6 +47,12 @@ class F02ContainDB {
         }
         return null;
     }
+    public function get_var($sql) {
+        foreach($this->rows as $id=>$row) {
+            if(strpos($sql,$id)!==false) {return $row['status']??null;}
+        }
+        return null;
+    }
     public function insert($table,$data,$format) {
         $this->rows[$data['event_id']]=$data;++$this->writes;return 1;
     }
