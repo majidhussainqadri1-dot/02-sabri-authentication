@@ -18,9 +18,15 @@ class SAUTH_Activator {public static function table($n){return 'test_'.$n;}}
 class F02RiskDB {
   public $last_error='';
   public $fail=true;
+  public $device_fail=false;
   public $rows=array();
   public function prepare($sql,...$args){return $sql;}
-  public function get_var($sql){$this->last_error='';return '0';}
+  public function get_var($sql){
+    if($this->device_fail && strpos((string)$sql,'auth_devices')!==false) {
+      $this->last_error='ci device projection database failure'; return null;
+    }
+    $this->last_error='';return '0';
+  }
   public function get_results($sql,$fmt=null){
     if($this->fail){$this->last_error='ci injected DB outage';return false;}
     $this->last_error='';return $this->rows;
@@ -56,4 +62,12 @@ if(!is_array($normal)||($normal['score']??0)<35
    ||!in_array('shared_security_signal',(array)($normal['reasons']??array()),true)){
     fail_risk('risk engine no longer consumes available verified signals');
 }
+$wpdb->rows=array();
+$wpdb->device_fail=true;
+$device_risk=SAUTH_Security_Orchestrator::risk_v2(17);
+if(!is_array($device_risk)||($device_risk['score']??0)!==100
+   ||!in_array('device_risk_unavailable',(array)($device_risk['reasons']??array()),true)){
+    fail_risk('device/network projection read error incorrectly treated as no suspicious activity');
+}
+$wpdb->device_fail=false;
 echo "PASS: CAEP/RISC DB errors fail closed with reason; healthy empty and compromised signals remain distinguishable.\n";
