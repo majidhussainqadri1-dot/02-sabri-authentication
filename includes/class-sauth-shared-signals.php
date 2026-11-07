@@ -42,10 +42,14 @@ final class SAUTH_Shared_Signals {
 		$family   = sanitize_key( (string) ( $envelope['family'] ?? '' ) );
 		$type     = sanitize_key( (string) ( $envelope['type'] ?? '' ) );
 		$event_id = strtolower( sanitize_text_field( (string) ( $envelope['event_id'] ?? '' ) ) );
-		$user_id  = absint( $envelope['user_id'] ?? 0 );
-		$issued   = absint( $envelope['issued_at'] ?? 0 );
+		$user_raw = $envelope['user_id'] ?? null;
+		// The canonical subject must be a positive integer, not abs(-id).
+		$user_id = is_int( $user_raw ) && $user_raw > 0 ? $user_raw : 0;
+		$issued_raw = $envelope['issued_at'] ?? null;
+		// Preserve signed time semantics: absint(-timestamp) is unsafe.
+		$issued = is_int( $issued_raw ) && $issued_raw > 0 ? $issued_raw : 0;
 		if ( ! in_array( $family, array( 'caep','risc' ), true )
-			|| ! preg_match( '/^[0-9a-f-]{36}$/', $event_id )
+			|| ! preg_match( '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/D', $event_id )
 			|| ! $user_id
 			|| ! self::allowed_type( $family, $type )
 			|| ! $issued
