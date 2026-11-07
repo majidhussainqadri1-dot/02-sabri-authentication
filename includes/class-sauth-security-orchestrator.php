@@ -155,9 +155,15 @@ final class SAUTH_Security_Orchestrator {
 		if(self::compromise_watch($user_id)){$score+=45;$reasons[]='compromise_watch';}
 		$table=SAUTH_Activator::table('auth_devices');
 		$devices=$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$table} WHERE user_id=%d AND last_seen_at>=%s",$user_id,gmdate('Y-m-d H:i:s',time()-HOUR_IN_SECONDS)));
+		$devices_unavailable=null===$devices || ''!==(string)$wpdb->last_error;
 		$networks=$wpdb->get_var($wpdb->prepare("SELECT COUNT(DISTINCT network_hash) FROM {$table} WHERE user_id=%d AND last_seen_at>=%s",$user_id,gmdate('Y-m-d H:i:s',time()-HOUR_IN_SECONDS)));
-		if((int)$devices>=4){$score+=20;$reasons[]='rapid_device_velocity';}
-		if((int)$networks>=3){$score+=20;$reasons[]='rapid_network_velocity';}
+		$networks_unavailable=null===$networks || ''!==(string)$wpdb->last_error;
+		if($devices_unavailable || $networks_unavailable){
+			$score=100;$reasons[]='device_risk_unavailable';
+		} else {
+			if((int)$devices>=4){$score+=20;$reasons[]='rapid_device_velocity';}
+			if((int)$networks>=3){$score+=20;$reasons[]='rapid_network_velocity';}
+		}
 		if(class_exists('SAUTH_Shared_Signals')){
 			$shared=SAUTH_Shared_Signals::risk_score_for_user($user_id);
 			if(is_wp_error($shared)){
@@ -178,6 +184,7 @@ final class SAUTH_Security_Orchestrator {
 			'rapid_network_velocity'=>'Several network contexts were seen in a short period',
 			'shared_security_signal'=>'A verified security signal raised risk',
 			'shared_security_unavailable'=>'Security signal evidence could not be verified',
+			'device_risk_unavailable'=>'Device and network risk evidence could not be verified',
 			'new_device'=>'This device is new',
 			'new_network'=>'This network context is new',
 			'recent_failures'=>'Several recent sign-in attempts failed',
