@@ -6,6 +6,7 @@ on:
       - 'tests/security/shared-signal-immutable-insert-race.php'
       - 'tests/security/shared-signal-strict-envelope.php'
       - 'tests/security/shared-signal-containment-fail-closed.php'
+      - 'tests/security/shared-signal-risk-source-failclosed.php'
       - '.github/workflows/file02-shared-signal-race.yml'
   push:
     paths:
@@ -13,6 +14,7 @@ on:
       - 'tests/security/shared-signal-immutable-insert-race.php'
       - 'tests/security/shared-signal-strict-envelope.php'
       - 'tests/security/shared-signal-containment-fail-closed.php'
+      - 'tests/security/shared-signal-risk-source-failclosed.php'
       - '.github/workflows/file02-shared-signal-race.yml'
 permissions:
   contents: read
@@ -32,7 +34,7 @@ jobs:
         with:
           php-version: ${{ matrix.php }}
       - name: Syntax
-        run: php -l includes/class-sauth-shared-signals.php && php -l tests/security/shared-signal-immutable-insert-race.php && php -l tests/security/shared-signal-strict-envelope.php && php -l tests/security/shared-signal-containment-fail-closed.php
+        run: php -l includes/class-sauth-shared-signals.php && php -l tests/security/shared-signal-immutable-insert-race.php && php -l tests/security/shared-signal-strict-envelope.php && php -l tests/security/shared-signal-containment-fail-closed.php && php -l tests/security/shared-signal-risk-source-failclosed.php
       - name: One event id, one immutable subject
         run: php tests/security/shared-signal-immutable-insert-race.php
 
@@ -41,3 +43,6 @@ jobs:
 
       - name: Reject false success on unverified security containment
         run: php tests/security/shared-signal-containment-fail-closed.php
+
+      - name: Security signal database outage must never yield safe zero risk
+        run: php tests/security/shared-signal-risk-source-failclosed.php
