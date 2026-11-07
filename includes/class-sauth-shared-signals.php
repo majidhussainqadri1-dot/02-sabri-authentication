@@ -198,25 +198,41 @@ final class SAUTH_Shared_Signals {
 
 	private static function safe_claims( array $claims ) {
 		$out = array();
-		/* CAEP/RISC family, type, source and subject already occupy typed
-		 * columns. Never persist arbitrary provider free text: a harmless
-		 * claim key can conceal names, email, bearer proof or patient data. */
-		$coded_fields = array( 'reason','reason_code','risk_level','method',
-			'status','session_state','credential_state','auth_context','source_code' );
+		/* Security-signal subject, type, source and timestamp are already
+		 * typed fields. Unknown numeric keys can hide patient/user IDs just
+		 * as unknown prose can hide email or bearer secrets. Emit only
+		 * fixed-schema public-safe risk metadata, never free-form values. */
+		$reason_codes = array(
+			'unrecognized_event', 'user_lockdown', 'compromise_watch',
+			'rapid_device_velocity', 'rapid_network_velocity',
+			'shared_security_signal', 'new_device', 'new_network',
+			'recent_failures', 'credential_compromise', 'session_revoked',
+			'account_disabled', 'account_enabled', 'account_purged',
+			'risk_level_change', 'token_claims_change', 'verification_change',
+			'provider_signal', 'security_event', 'unknown'
+		);
+		$enums = array(
+			'reason'=>$reason_codes, 'reason_code'=>$reason_codes,
+			'risk_level'=>array('low','medium','high','critical','unknown'),
+			'status'=>array('active','revoked','disabled','enabled','compromised','expired','unknown'),
+			'session_state'=>array('active','revoked','expired','unknown'),
+			'credential_state'=>array('active','compromised','revoked','unknown'),
+			'method'=>array('password','passkey','webauthn','google','oauth','oidc','fedcm','unknown')
+		);
 		foreach ( array_slice( $claims, 0, 20, true ) as $key=>$value ) {
 			$key = sanitize_key( (string) $key );
-			if ( '' === $key || preg_match(
-				'/password|token|secret|cookie|ip|email|phone|address|contact|identity|subject|user|person|member|account|birth|card|bank|name/',
-				$key
-			) ) { continue; }
-			if ( is_bool( $value ) || is_int( $value ) || is_float( $value ) ) {
-				$out[ $key ] = $value;
-			} elseif ( is_string( $value ) && in_array( $key, $coded_fields, true ) ) {
-				// Codes only, not descriptive provider prose or arbitrary IDs.
-				$code = trim( $value );
-				if ( preg_match( '/^[a-z][a-z0-9_-]{0,63}$/D', $code ) ) {
-					$out[ $key ] = $code;
-				}
+			if ( in_array( $key, array('risk','risk_score'), true )
+				&& is_int($value) && $value>=0 && $value<=100 ) {
+				$out[$key]=$value;
+			} elseif ( in_array($key,array('risk_delta'),true)
+				&& is_int($value) && $value>=-100 && $value<=100 ) {
+				$out[$key]=$value;
+			} elseif ( in_array($key,array('reauth_required','assurance_revoked','phishing_resistant'),true)
+				&& is_bool($value) ) {
+				$out[$key]=$value;
+			} elseif ( is_string($value) && isset($enums[$key])
+				&& in_array($value,$enums[$key],true) ) {
+				$out[$key]=$value;
 			}
 		}
 		return $out;
