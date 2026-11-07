@@ -41,10 +41,13 @@ try {
         'failed containment not durably flagged for operator reconciliation');
     f02_contain_db_assert($events_broadcast===0,
         'security event broadcast before confirmed containment');
+    $inject_count_before_duplicate=$injected;
+    add_filter('query',$inject,99,1);
     $same=SAUTH_Shared_Signals::ingest($event,$context);
+    remove_filter('query',$inject,99);
     f02_contain_db_assert(is_wp_error($same)&&$same->get_error_code()==='sauth_signal_containment_unverified',
         'failed security event incorrectly idempotent-success on duplicate');
-    f02_contain_db_assert($injected===1,'uncertain WordPress side effect was replayed');
+    f02_contain_db_assert($injected===$inject_count_before_duplicate,'uncertain WordPress side effect was replayed');
     $ok=$event;$ok['event_id']=$id2;$ok['issued_at']=time();
     $success=SAUTH_Shared_Signals::ingest($ok,$context);
     f02_contain_db_assert($success===$id2,
