@@ -1,3 +1,18 @@
+# File 02 v12 — Third sequential session: SOURCE CORRECTED / INTEGRATION BLOCKED (2026-11-07)
+
+**Not ready for merge or deployment.** The third manual source review recorded 6 independently RED-proven security concerns (strict CAEP/RISC envelope, verified containment, minimized event claims, signal risk DB outage, Safe Mode owner-commands, device/network risk DB outage) with source corrections. Details, exact CI runs, limitations and original plan mapping are retained in `review-evidence/F02-V12-THIRD-MANUAL-40MIN-SECURITY-REVIEW-2026-11-07.md`.
+
+- Immutable code/test HEAD before this document: `4846bd7c71483e3f0fc96b738734fadba163c956`.
+- **Exact code/test CI: 12/14 workflow executions successful; 2/14 failed.** Both failures are the same WordPress/MariaDB integration run on push and PR. No fully green release acceptance exists for the current source.
+- **Confirmed CI isolation blocker:** migration rehearsal intentionally preserves `sauth_safe_mode=1`, then legacy two-process recovery/collision tests expect mutations in that exact same DB. Direct Safe Mode guards correctly deny them; do not remove Safe Mode protection to satisfy outdated tests. Secure, independent test-state isolation is required; workflow remediation was not committed.
+- One additional File00 collision-owner-availability scenario has a new test fixture but remains **not wired or executed**. It is not a confirmed green or a shipped feature.
+- All 48 original v12 IDs still need separate behavior/consumer/staging acceptance, external cryptographic adapters, File00 canonical collision approval, File26 privacy-safe discovery contract or formal no-index decision, Browser/RTL/Accessibility/Performance, backup/restore/rollback and Founder approval.
+- Source candidate declares `1.4.0 / DB 1.4.0 / Passkey schema 1.1.0`; PR #23 draft and unmerged; `main` unchanged. No staging/live deploy, no live schema change or live retest. Hourly automation remains paused.
+- Required live incident truth: **Repository HEAD** = source candidate in Draft PR (refer to exact commit above); **Deployed Version** = unknown; **DB Version** = live unknown; **Migration State** = live unknown; **Live Verification Status** = not performed.
+- **Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔**
+
+---
+
 # File 02 v12 — Second manual source-hardening checkpoint (2026-11-06)
 
 **Current v12 source candidate:** second-session code/test head `07eebc8e0476d84fa745c1fa0465efa370ab443f`; **13/13 GitHub Actions succeeded** at that immutable SHA. The follow-up evidence report commit `45e335f6e614574adb9eb29844a15e2889752053` records all six new RED/GREEN failure conditions and their corrective commits.
