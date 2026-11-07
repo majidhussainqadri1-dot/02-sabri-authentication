@@ -35,12 +35,16 @@ class F02ContainDB {
     public $last_error='';
     public $rows=array();
     public $writes=0;
-    public function prepare($sql,...$args){return $sql;}
+    public function prepare($sql,...$args) {
+        foreach($args as $arg) {
+            $sql=preg_replace('/%[sd]/', is_int($arg)?(string)$arg:("'".(string)$arg."'"), $sql, 1);
+        }
+        return $sql;
+    }
     public function get_row($sql,$output=null){
         foreach($this->rows as $key=>$row) {
             if(strpos($sql,$key)!==false) return $row;
         }
-        // The mock prepare() above intentionally does not interpolate.
         return null;
     }
     public function insert($table,$data,$format) {
