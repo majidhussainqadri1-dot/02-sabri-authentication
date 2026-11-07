@@ -44,7 +44,7 @@ $event='00112233-4455-4666-8777-8899aabbccdd';
 $now=time();
 $envelope=array('family'=>'caep','type'=>'risk_level_change',
     'event_id'=>$event,'user_id'=>17,'issued_at'=>$now,'claims'=>array('risk'=>1));
-$matching=array('event_id'=>$event,'family'=>'caep','signal_type'=>'risk_level_change','user_id'=>17,'claims_json'=>json_encode(array('risk'=>1)));
+$matching=array('event_id'=>$event,'family'=>'caep','signal_type'=>'risk_level_change','user_id'=>17,'claims_json'=>json_encode(array('risk'=>1)),'status'=>'active');
 require_once __DIR__.'/../../includes/class-sauth-shared-signals.php';
 $wpdb=$GLOBALS['wpdb'];
 $wpdb->winner=$matching;
