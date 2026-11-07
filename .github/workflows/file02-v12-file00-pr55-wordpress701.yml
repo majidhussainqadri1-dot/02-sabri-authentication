@@ -285,3 +285,9 @@ jobs:
           set -euo pipefail
           php -l file02/tests/integration/shared-signal-containment-mariadb.php
           /tmp/wp eval-file file02/tests/integration/shared-signal-containment-mariadb.php --path=/tmp/wordpress
+
+      - name: Real MariaDB failed CAEP risk lookup must not become safe zero risk
+        run: |
+          set -euo pipefail
+          php -l file02/tests/integration/shared-signal-risk-fail-closed-mariadb.php
+          /tmp/wp eval-file file02/tests/integration/shared-signal-risk-fail-closed-mariadb.php --path=/tmp/wordpress
