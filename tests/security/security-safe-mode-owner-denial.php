@@ -9,6 +9,7 @@ define('ABSPATH',__DIR__.'/');
 define('ARRAY_A','ARRAY_A');
 define('DAY_IN_SECONDS',86400);
 define('HOUR_IN_SECONDS',3600);
+define('MINUTE_IN_SECONDS',60);
 class WP_Error {private $code;public function __construct($code,$msg=''){$this->code=$code;}public function get_error_code(){return $this->code;}}
 class SAUTH_Operations {public static function safe_mode(){return true;}}
 class SAUTH_Activator {public static function table($name){return 'wp_sauth_'.$name;}}
