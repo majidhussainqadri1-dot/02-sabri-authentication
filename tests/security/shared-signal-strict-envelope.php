@@ -52,7 +52,7 @@ assert_denied($bad,'negative issued-at');
 $bad=$valid;$bad['issued_at']=time()+0.7;
 assert_denied($bad,'fractional issued-at');
 $good=SAUTH_Shared_Signals::ingest($valid,array('verified'=>true,'source'=>'ci'));
-if(!($good instanceof WP_Error)||$good->get_error_code()==='sauth_signal_invalid'||$GLOBALS['wpdb']->read_count!==1){
+if(!($good instanceof WP_Error)||$good->get_error_code()!=='sauth_signal_store_failed'||$GLOBALS['wpdb']->read_count!==2||$GLOBALS['wpdb']->write_count!==1){
     fwrite(STDERR,"FAIL: canonical valid envelope did not reach protected store\n");exit(1);
 }
 echo "PASS: strict CAEP/RISC UUID, subject, issued-at validation before DB; valid envelope reaches storage.\n";
