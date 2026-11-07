@@ -1,3 +1,11 @@
+# File 02 v12 — THIRD REVIEW / RELEASE BLOCKED (2026-11-07)
+
+This manifest is **NOT a deploy authorization**. Source code candidate before documentation: `4846bd7c71483e3f0fc96b738734fadba163c956`, **12/14 exact-head GitHub Actions successful; the 2 failed executions are the duplicated WordPress 7.0.1 / MariaDB 11.4 integration gate**. The direct Safe Mode guard correctly rejects owner-race fixtures following an earlier migration test which preserves Safe Mode; the isolated test environment has not been repaired. Thus **Release Integrity job success alone is not overall release success**. Retain PR #23 as Draft; no merge, staging/live deploy or full 48-ID acceptance claim. See `review-evidence/F02-V12-THIRD-MANUAL-40MIN-SECURITY-REVIEW-2026-11-07.md`.
+
+**Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔**
+
+---
+
 # File 02 — Release Manifest — 1.4.0 Modern Authentication 24 Candidate
 
 - Runtime: `1.4.0`
