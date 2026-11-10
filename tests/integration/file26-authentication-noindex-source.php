@@ -9,7 +9,7 @@ $owners=file_get_contents($root.'/../file26/includes/class-file26-owner-contract
 $index=file_get_contents($root.'/../file26/includes/class-file26-indexer.php');
 $access=file_get_contents($root.'/includes/class-sa-access-control.php');
 $routes=file_get_contents($root.'/includes/class-sauth-canonical-routes.php');
-if(!$owners||!$index||!$access||!$routes)exit("FAIL missing exact pinned source\n");
+if(!$owners||!$index||!$access||!$routes)fwrite(STDERR,"FAIL missing exact pinned source\n"); exit(1);
 function audit_check($ok,$why){if(!$ok){fwrite(STDERR,'FAIL: '.$why."\n");exit(1);}}
 audit_check(strpos($owners,"'file02' =>")===false,'File26 unexpectedly requires File02 private credential connector');
 foreach(["'file03'","'file21'"] as $public_owner) audit_check(strpos($owners,$public_owner)!==false,'File26 owner contract unexpectedly missing public owner '.$public_owner);

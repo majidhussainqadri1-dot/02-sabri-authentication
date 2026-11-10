@@ -18,7 +18,7 @@ $GLOBALS['calls']=0;
 function apply_filters($name,...$args){++$GLOBALS['calls'];return true;}
 $wpdb=new DB();require __DIR__.'/../../includes/class-sauth-security-orchestrator.php';
 $r=SAUTH_Security_Orchestrator::apply_recovery_change('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','proof');
-if(!($r instanceof WP_Error)||$r->get_error_code()!=='sauth_recovery_reconciliation_required'||$wpdb->status!=='processing'||$GLOBALS['calls']!==1)exit("RED: canonical owner acted but failed finalization not typed/retained\n");
+if(!($r instanceof WP_Error)||$r->get_error_code()!=='sauth_recovery_reconciliation_required'||$wpdb->status!=='processing'||$GLOBALS['calls']!==1)fwrite(STDERR,"RED: canonical owner acted but failed finalization not typed/retained\n"); exit(1);
 $r=SAUTH_Security_Orchestrator::apply_recovery_change('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','proof');
-if(!($r instanceof WP_Error)||$GLOBALS['calls']!==1)exit("FAIL owner effect replay\n");
+if(!($r instanceof WP_Error)||$GLOBALS['calls']!==1)fwrite(STDERR,"FAIL owner effect replay\n"); exit(1);
 echo "PASS owner success + DB failure requires supervised reconciliation, no replay (mock).\n";
