@@ -110,6 +110,15 @@ final class SAUTH_Operations {
 				<?php endforeach; ?>
 				</tbody></table>
 			<?php endif; ?>
+			<h2>External authentication release gates — registration only</h2>
+			<p><em>Registered hooks have not thereby passed provider verification, owner approval, staging or live acceptance. Missing optional hooks do not prevent guarded core recovery.</em></p>
+			<table class="widefat striped"><thead><tr><th scope="col">Gate</th><th scope="col">Availability</th><th scope="col">Release acceptance</th></tr></thead><tbody>
+			<?php foreach ( self::external_release_gate_summary() as $gate => $facts ) : ?>
+			<tr><th scope="row"><?php echo esc_html( ucwords( str_replace( '_', ' ', $gate ) ) ); ?></th>
+			<td><?php echo esc_html( (string) $facts['status'] ); ?></td>
+			<td><?php echo esc_html( (string) $facts['acceptance'] ); ?></td></tr>
+			<?php endforeach; ?>
+			</tbody></table>
 			<p><em>Do not replay uncertain canonical-owner actions. Verify the File 00 owner outcome and complete a supervised reconciliation. This screen contains no identifiers or bearer evidence.</em></p>
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin-top:20px"><input type="hidden" name="action" value="sauth_toggle_safe_mode"><?php wp_nonce_field( 'sauth_toggle_safe_mode', 'sauth_nonce' ); ?><input type="hidden" name="enable" value="<?php echo self::safe_mode() ? '0' : '1'; ?>"><button class="button <?php echo self::safe_mode() ? 'button-primary' : ''; ?>" type="submit"><?php echo esc_html( self::safe_mode() ? 'Exit Safe Mode' : 'Enter Safe Mode' ); ?></button></form>
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin-top:12px"><input type="hidden" name="action" value="sauth_guarded_repair"><?php wp_nonce_field( 'sauth_guarded_repair', 'sauth_nonce' ); ?><button class="button" type="submit">Run Guarded Repair</button></form>
@@ -228,6 +237,40 @@ final class SAUTH_Operations {
 			}
 			$out[ $key ]++;
 		}
+		return $out;
+	}
+
+	/**
+	 * Independent external release-gate inventory. A WordPress hook may be
+	 * registered yet return untrusted or failed evidence. Registration is
+	 * NEVER cryptographic acceptance, successful File00 ownership, or live QA.
+	 *
+	 * This is read-only; do not make it a prerequisite for guarded repair,
+	 * since optional integrations must not prevent basic incident recovery.
+	 */
+	public static function external_release_gate_summary() {
+		$hooks = array(
+			'file00_collision_owner' => 'sauth_resolve_collision_case_v1',
+			'file00_recovery_owner' => 'sauth_apply_recovery_change_v1',
+			'fedcm_identity_verifier' => 'sauth_fedcm_verify_token_v1',
+			'dpop_signature' => 'sauth_dpop_verify_signature_v1',
+			'fido_metadata' => 'sauth_fido_metadata_lookup_v1',
+			'caep_risc_authorizer' => 'sauth_shared_signal_authorize_v1',
+			'file24_assurance_consumer' => 'spcrc/authentication_assurance',
+		);
+		$out = array();
+		foreach ( $hooks as $identifier => $hook ) {
+			$out[$identifier] = array(
+				'status' => false !== has_filter( $hook ) ? 'registered_unverified' : 'missing',
+				'acceptance' => 'not_verified',
+			);
+		}
+		$custom = false !== has_filter( 'sauth_breached_password_prefix_lookup_v1' );
+		$hibp = defined( 'SAUTH_HIBP_PASSWORD_CHECK_ENABLED' ) && true === SAUTH_HIBP_PASSWORD_CHECK_ENABLED;
+		$out['breached_password_lookup'] = array(
+			'status' => ( $custom || $hibp ) ? 'registered_unverified' : 'missing',
+			'acceptance' => 'not_verified',
+		);
 		return $out;
 	}
 
