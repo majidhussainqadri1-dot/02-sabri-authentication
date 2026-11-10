@@ -7,6 +7,8 @@ on:
       - 'tests/security/breach-prefix-provider-failfirst.php'
       - 'tests/security/dpop-crypto-claim-failfirst.php'
       - 'tests/security/breach-hibp-optin-no-network.php'
+      - 'includes/class-sauth-operations.php'
+      - 'tests/security/external-provider-operability-truth.php'
       - '.github/workflows/file02-v12-breach-dpop.yml'
   workflow_dispatch:
 permissions:
@@ -34,5 +36,7 @@ jobs:
       - name: DPoP crypto before once-only claim
         if: always()
         run: php tests/security/dpop-crypto-claim-failfirst.php
+      - name: Operator visibility of unresolved external adapters (read-only mock)
+        run: php -l tests/security/external-provider-operability-truth.php && php tests/security/external-provider-operability-truth.php
       - name: Preserve inherited DPoP replay contract
         run: php tests/security/dpop-proof-and-replay-hardening.php
