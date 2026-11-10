@@ -103,6 +103,10 @@ final class SA_Registration {
 
 	public function register() {
 		check_admin_referer( 'sa_register', 'sa_nonce' );
+		/* Enforce safety acknowledgement BEFORE File 00 creates an account. */
+		if ( ! SAUTH_Account_Safety::registration_acknowledged( $_POST ) ) {
+			$this->registration_redirect( 'error', 'Read and acknowledge the mandatory account safety rules before registering.' );
+		}
 		$trap = isset( $_POST['website'] ) ? trim( (string) wp_unslash( $_POST['website'] ) ) : '';
 		if ( '' !== $trap ) { $this->registration_redirect( 'error', 'Registration could not be completed.' ); }
 		if ( SAUTH_Operations::safe_mode() ) { $this->registration_redirect( 'error', 'Account registration is temporarily paused by Safe Mode. Public reading remains available.' ); }
@@ -164,6 +168,12 @@ final class SA_Registration {
 		}
 		SAUTH_Provider_Health::record_success( 'membership', $latency );
 		$user_id = absint( $result['user_id'] );
+		/* Best-effort, privacy-minimized, versioned receipt for both password and Google
+		 * registration. File 00 remains the canonical identity/consent owner. */
+		SA_Membership_Adapter::audit( 'account_security_rules_acknowledged', $user_id, array(
+			'policy_version' => SAUTH_Account_Safety::POLICY_VERSION,
+			'authentication_method' => $payload['authentication_method'],
+		) );
 		if ( 'google' === $payload['authentication_method'] ) {
 			$extended_locks = SA_Google_OAuth::acquire_link_locks( $payload['google_subject'], $user_id, $google_locks );
 			if ( empty( $extended_locks ) ) {

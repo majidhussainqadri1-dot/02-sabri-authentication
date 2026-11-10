@@ -8,12 +8,14 @@ defined( 'ABSPATH' ) || exit;
 final class SAUTH_Canonical_Routes {
 	const QUERY_VAR = 'sauth_canonical_route';
 	const SESSIONS  = 'account_sessions';
+	const SAFETY    = 'account_safety';
 
 	public static function init() {
 		add_action( 'init', array( __CLASS__, 'register' ), 1 );
 		add_filter( 'query_vars', array( __CLASS__, 'query_vars' ) );
 		add_action( 'template_redirect', array( __CLASS__, 'redirect_legacy_route' ), 1 );
 		add_action( 'template_redirect', array( __CLASS__, 'render' ), 5 );
+		add_action( 'template_redirect', array( __CLASS__, 'render_safety' ), 6 );
 		add_filter( 'sabri_shell_route_manifests', array( __CLASS__, 'shell_manifest' ), 99 );
 		add_filter( 'spf_module_manifests', array( __CLASS__, 'foundation_manifest' ), 99 );
 		add_filter( 'sauth_canonical_route_url', array( __CLASS__, 'route_url' ), 10, 2 );
@@ -22,9 +24,11 @@ final class SAUTH_Canonical_Routes {
 
 	public static function register() {
 		add_rewrite_rule( '^account/sessions/?$', 'index.php?' . self::QUERY_VAR . '=' . self::SESSIONS, 'top' );
-		if ( SAUTH_VERSION !== (string) get_option( 'sauth_rewrite_version', '' ) ) {
+		add_rewrite_rule( '^account/safety/?$', 'index.php?' . self::QUERY_VAR . '=' . self::SAFETY, 'top' );
+		if ( SAUTH_VERSION !== (string) get_option( 'sauth_rewrite_version', '' ) || '1' !== (string) get_option( 'sauth_safety_route_ready', '' ) ) {
 			flush_rewrite_rules( false );
 			update_option( 'sauth_rewrite_version', SAUTH_VERSION, false );
+			update_option( 'sauth_safety_route_ready', '1', false );
 		}
 	}
 
@@ -35,7 +39,8 @@ final class SAUTH_Canonical_Routes {
 	}
 
 	public static function route_url( $url, $key ) {
-		return 'sessions' === (string) $key ? home_url( '/account/sessions/' ) : $url;
+		if ( 'sessions' === (string) $key ) { return home_url( '/account/sessions/' ); }
+		return 'safety' === (string) $key ? home_url( '/account/safety/' ) : $url;
 	}
 
 	public static function redirect_legacy_route() {
@@ -74,6 +79,19 @@ final class SAUTH_Canonical_Routes {
 		exit;
 	}
 
+	/** Public educational guidance; personalized actions remain restricted in the shortcode. */
+	public static function render_safety() {
+		if ( self::SAFETY !== (string) get_query_var( self::QUERY_VAR ) ) { return; }
+		status_header( 200 );
+		nocache_headers();
+		header( 'X-Robots-Tag: noindex, noarchive, nosnippet', true );
+		header( 'Referrer-Policy: no-referrer', true );
+		get_header();
+		echo '<main id="main" class="sauth-canonical-route">' . do_shortcode( '[sabri_auth_account_safety]' ) . '</main>';
+		get_footer();
+		exit;
+	}
+
 	public static function shell_manifest( $manifests ) {
 		$manifests = is_array( $manifests ) ? $manifests : array();
 		if ( ! isset( $manifests['file02-authentication'] ) || ! is_array( $manifests['file02-authentication'] ) ) {
@@ -94,6 +112,7 @@ final class SAUTH_Canonical_Routes {
 			'layout'    => 'single-column-account',
 			'shortcode' => '[sabri_auth_sessions]',
 		);
+		$routes['safety'] = array( 'owner' => 'File 02', 'route' => '/account/safety/', 'access' => 'public', 'index' => 'noindex', 'cache' => 'no-store', 'layout' => 'single-column-account', 'shortcode' => '[sabri_auth_account_safety]' );
 		$manifest['routes'] = $routes;
 		$manifests['file02-authentication'] = $manifest;
 		return $manifests;
