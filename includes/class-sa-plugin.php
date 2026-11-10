@@ -65,6 +65,28 @@ final class SA_Plugin {
 		wp_enqueue_style( 'sauth-authentication', SAUTH_URL . 'assets/css/authentication.css', array(), SAUTH_VERSION );
 		wp_enqueue_script( 'sauth-authentication', SAUTH_URL . 'assets/js/authentication.js', array(), SAUTH_VERSION, true );
 		wp_localize_script( 'sauth-authentication', 'SabriAuth', array( 'loggedIn' => is_user_logged_in(), 'loginUrl' => SA_Security::page_url( 'login', wp_login_url() ) ) );
+		wp_localize_script( 'sauth-authentication', 'SabriAuthI18n', array(
+			'The passkey request was cancelled, timed out, or no matching passkey was available.' => __( 'The passkey request was cancelled, timed out, or no matching passkey was available.', 'sabri-authentication' ),
+			'This authenticator already has a matching passkey for the account.' => __( 'This authenticator already has a matching passkey for the account.', 'sabri-authentication' ),
+			'Enter the stronger account verification requested on this page before changing passkeys.' => __( 'Enter the stronger account verification requested on this page before changing passkeys.', 'sabri-authentication' ),
+			'Too many passkey attempts were made. Wait before trying again.' => __( 'Too many passkey attempts were made. Wait before trying again.', 'sabri-authentication' ),
+			'The passkey operation could not be completed safely.' => __( 'The passkey operation could not be completed safely.', 'sabri-authentication' ),
+			'Federated sign-in could not be verified safely. Use another sign-in method.' => __( 'Federated sign-in could not be verified safely. Use another sign-in method.', 'sabri-authentication' ),
+			'Add a passkey while this recent sign-in is fresh' => __( 'Add a passkey while this recent sign-in is fresh', 'sabri-authentication' ),
+			'Continue with private federated sign-in' => __( 'Continue with private federated sign-in', 'sabri-authentication' ),
+			'Passkeys are unavailable in this browser or connection.' => __( 'Passkeys are unavailable in this browser or connection.', 'sabri-authentication' ),
+			'Waiting for your passkey…' => __( 'Waiting for your passkey…', 'sabri-authentication' ),
+			'Passkey verified. Opening your account…' => __( 'Passkey verified. Opening your account…', 'sabri-authentication' ),
+			'Passkey registration is unavailable.' => __( 'Passkey registration is unavailable.', 'sabri-authentication' ),
+			'Confirming your current account security…' => __( 'Confirming your current account security…', 'sabri-authentication' ),
+			'Use your device or security key to create the passkey…' => __( 'Use your device or security key to create the passkey…', 'sabri-authentication' ),
+			'Passkey added successfully.' => __( 'Passkey added successfully.', 'sabri-authentication' ),
+			'Sign in before changing passkeys.' => __( 'Sign in before changing passkeys.', 'sabri-authentication' ),
+			'Revoking the selected passkey…' => __( 'Revoking the selected passkey…', 'sabri-authentication' ),
+			'Passkey revoked.' => __( 'Passkey revoked.', 'sabri-authentication' ),
+			'Hide' => __( 'Hide', 'sabri-authentication' ),
+			'Show' => __( 'Show', 'sabri-authentication' ),
+		) );
 	}
 
 	public function login_shortcode() {

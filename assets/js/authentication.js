@@ -4,6 +4,11 @@
   var conditionalController = null;
   var passkeyInFlight = false;
 
+  function tr(message) {
+    var catalog = window.SabriAuthI18n || {};
+    return Object.prototype.hasOwnProperty.call(catalog, message) ? String(catalog[message]) : message;
+  }
+
   function setPasskeyStatus(message, isError) {
     document.querySelectorAll('[data-sauth-passkey-status]').forEach(function (node) {
       node.textContent = message || '';
@@ -108,18 +113,18 @@
   function friendlyError(error) {
     var cfg = ajaxConfig();
     if (error && (error.name === 'NotAllowedError' || error.name === 'AbortError')) {
-      return 'The passkey request was cancelled, timed out, or no matching passkey was available.';
+      return tr('The passkey request was cancelled, timed out, or no matching passkey was available.');
     }
     if (error && error.name === 'InvalidStateError') {
-      return 'This authenticator already has a matching passkey for the account.';
+      return tr('This authenticator already has a matching passkey for the account.');
     }
     if (error && error.message === 'fresh_reauthentication_required') {
-      return 'Enter the stronger account verification requested on this page before changing passkeys.';
+      return tr('Enter the stronger account verification requested on this page before changing passkeys.');
     }
     if (error && error.message === 'rate_limited') {
-      return 'Too many passkey attempts were made. Wait before trying again.';
+      return tr('Too many passkey attempts were made. Wait before trying again.');
     }
-    return cfg.genericError || 'The passkey operation could not be completed safely.';
+    return cfg.genericError || tr('The passkey operation could not be completed safely.');
   }
 
   function modernConfig() {
@@ -309,7 +314,7 @@
       });
       window.location.assign(finish.redirect || '/');
     } catch (error) {
-      setPasskeyStatus('Federated sign-in could not be verified safely. Use another sign-in method.', true);
+      setPasskeyStatus(tr('Federated sign-in could not be verified safely. Use another sign-in method.'), true);
       button.disabled = false;
     }
   }
@@ -330,7 +335,7 @@
     var link = document.createElement('a');
     link.className = 'sa-secondary-button';
     link.href = cfg.passkeyManagerUrl;
-    link.textContent = 'Add a passkey while this recent sign-in is fresh';
+    link.textContent = tr('Add a passkey while this recent sign-in is fresh');
     box.appendChild(link);
     host.appendChild(box);
   }
@@ -348,7 +353,7 @@
     button.type = 'button';
     button.className = 'sa-secondary-button';
     button.setAttribute('data-sauth-fedcm-login', '1');
-    button.textContent = 'Continue with private federated sign-in';
+    button.textContent = tr('Continue with private federated sign-in');
     region.appendChild(button);
   }
 
@@ -362,11 +367,11 @@
     if (passkeyInFlight) { return; }
     passkeyInFlight = true;
     if (!passkeysSupported() || !cfg.available) {
-      setPasskeyStatus(cfg.unsupported || 'Passkeys are unavailable in this browser or connection.', true);
+      setPasskeyStatus(cfg.unsupported || tr('Passkeys are unavailable in this browser or connection.'), true);
       return;
     }
     button.disabled = true;
-    setPasskeyStatus('Waiting for your passkey…', false);
+    setPasskeyStatus(tr('Waiting for your passkey…'), false);
     try {
       var redirectField = document.querySelector('input[name="redirect_to"]');
       var rememberField = document.querySelector('input[name="rememberme"]');
@@ -386,7 +391,7 @@
         user_handle: credential.response.userHandle ? bufferToBase64url(credential.response.userHandle) : '',
         remember: rememberField && rememberField.checked ? '1' : '0'
       });
-      setPasskeyStatus('Passkey verified. Opening your account…', false);
+      setPasskeyStatus(tr('Passkey verified. Opening your account…'), false);
       window.location.assign(finish.redirect || '/');
     } catch (error) {
       if (error && error.message === 'credential_unknown' && credential) {
@@ -402,13 +407,13 @@
   async function registerPasskey(button) {
     var cfg = ajaxConfig();
     if (!passkeysSupported() || !cfg.available || !cfg.loggedIn) {
-      setPasskeyStatus(cfg.unsupported || 'Passkey registration is unavailable.', true);
+      setPasskeyStatus(cfg.unsupported || tr('Passkey registration is unavailable.'), true);
       return;
     }
     var password = document.getElementById('sauth-passkey-password');
     var nickname = document.getElementById('sauth-passkey-name');
     button.disabled = true;
-    setPasskeyStatus('Confirming your current account security…', false);
+    setPasskeyStatus(tr('Confirming your current account security…'), false);
     try {
       var begin = await post('sauth_passkey_begin_registration', {
         nonce: cfg.nonce || '',
@@ -417,7 +422,7 @@
       if (password) {
         password.value = '';
       }
-      setPasskeyStatus('Use your device or security key to create the passkey…', false);
+      setPasskeyStatus(tr('Use your device or security key to create the passkey…'), false);
       var credential = await navigator.credentials.create({ publicKey: normalizeCreationOptions(begin) });
       if (!credential || credential.type !== 'public-key' || !credential.response || !credential.response.attestationObject) {
         throw new Error('passkey_attestation_unavailable');
@@ -433,7 +438,7 @@
         transports: transports.join(','),
         nickname: nickname ? nickname.value : ''
       });
-      setPasskeyStatus(finish.message || 'Passkey added successfully.', false);
+      setPasskeyStatus(finish.message || tr('Passkey added successfully.'), false);
       if (finish.reload) {
         window.setTimeout(function () { window.location.reload(); }, 500);
       }
@@ -446,7 +451,7 @@
   async function revokePasskey(button) {
     var cfg = ajaxConfig();
     if (!cfg.loggedIn) {
-      setPasskeyStatus('Sign in before changing passkeys.', true);
+      setPasskeyStatus(tr('Sign in before changing passkeys.'), true);
       return;
     }
     if (!window.confirm('Revoke this passkey? It will no longer be accepted for sign-in.')) {
@@ -454,7 +459,7 @@
     }
     var password = document.getElementById('sauth-passkey-password');
     button.disabled = true;
-    setPasskeyStatus('Revoking the selected passkey…', false);
+    setPasskeyStatus(tr('Revoking the selected passkey…'), false);
     try {
       var result = await post('sauth_passkey_revoke', {
         nonce: cfg.nonce || '',
@@ -464,7 +469,7 @@
       if (password) {
         password.value = '';
       }
-      setPasskeyStatus(result.message || 'Passkey revoked.', false);
+      setPasskeyStatus(result.message || tr('Passkey revoked.'), false);
       if (result.reload) {
         window.setTimeout(function () { window.location.reload(); }, 500);
       }
@@ -482,7 +487,7 @@
       if (field) {
         var reveal = field.type === 'password';
         field.type = reveal ? 'text' : 'password';
-        toggle.textContent = reveal ? 'Hide' : 'Show';
+        toggle.textContent = reveal ? tr('Hide') : tr('Show');
         toggle.setAttribute('aria-pressed', reveal ? 'true' : 'false');
       }
       return;
@@ -526,7 +531,7 @@
   document.addEventListener('DOMContentLoaded', function () {
     var cfg = ajaxConfig();
     if (document.querySelector('[data-sauth-passkey-login], [data-sauth-passkey-register]') && (!passkeysSupported() || !cfg.available)) {
-      setPasskeyStatus(cfg.unsupported || 'Passkeys are unavailable in this browser or connection.', true);
+      setPasskeyStatus(cfg.unsupported || tr('Passkeys are unavailable in this browser or connection.'), true);
       document.querySelectorAll('[data-sauth-passkey-login], [data-sauth-passkey-register]').forEach(function (button) {
         button.disabled = true;
       });

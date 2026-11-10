@@ -8,6 +8,19 @@ on:
       - 'tests/recovery-once-claim-gate.php'
       - 'tests/recovery-claim-reentrancy.php'
       - 'tests/recovery-claim-owner-failure.php'
+      - 'tests/recovery-owner-unavailable.php'
+      - 'tests/security/fedcm-finish-guard-source.php'
+      - 'tests/security/v12-i18n-source.php'
+      - 'tests/security/v12-timeline-local-time-source.php'
+      - 'languages/**'
+      - 'templates/login.php'
+      - 'templates/signup.php'
+      - 'tools/build-package.sh'
+      - 'tests/security/collision-owner-handoff-preservation-source.php'
+      - 'tests/security/not-me-stepup-failfirst.php'
+      - 'tests/security/lockdown-postcondition-failfirst.php'
+      - 'tests/security/recovery-finalization-failfirst.php'
+      - 'includes/class-sauth-modern-auth.php'
       - 'tests/recovery-claim-fingerprint-denial.php'
       - 'tests/recovery-claim-invalid-payload.php'
       - '.github/workflows/file02-recovery-claim-gate.yml'
@@ -32,11 +45,34 @@ jobs:
       - name: Owner failure and replay containment (mock only)
         run: php tests/recovery-claim-owner-failure.php
 
+      - name: Missing owner pending preservation (PHP mock)
+        run: php -l tests/recovery-owner-unavailable.php && php tests/recovery-owner-unavailable.php
+      - name: Collision owner absent must not consume a browser handoff proof
+        run: php -l tests/security/collision-owner-handoff-preservation-source.php && php tests/security/collision-owner-handoff-preservation-source.php
+      - name: FedCM fail-closed completion order (static)
+        run: php -l tests/security/fedcm-finish-guard-source.php && php tests/security/fedcm-finish-guard-source.php
+
       - name: Collision fingerprint mismatch denial (mock only)
         run: php tests/recovery-claim-fingerprint-denial.php
 
       - name: Malformed payload must fail closed before claim (mock only)
         run: php tests/recovery-claim-invalid-payload.php
+
+      - name: Timeline UTC to WordPress locale and timezone formatting
+        run: php -l tests/security/v12-timeline-local-time-source.php && php tests/security/v12-timeline-local-time-source.php
+      - name: WordPress 7 Urdu/Arabic translation catalog and packaging source gate
+        run: php -l tests/security/v12-i18n-source.php && php tests/security/v12-i18n-source.php
+
+      - name: V12 canonical green and RTL source boundaries
+        run: php -l tests/security/v12-green-rtl-source.php && php tests/security/v12-green-rtl-source.php
+
+      - name: F02 v12 fail-first session containment and risk-gated step-up (PHP mock)
+        run: php -l tests/security/not-me-stepup-failfirst.php && php tests/security/not-me-stepup-failfirst.php
+
+      - name: Fail-first emergency lockdown postconditions and AJAX truth
+        run: php -l tests/security/lockdown-postcondition-failfirst.php && php tests/security/lockdown-postcondition-failfirst.php
+      - name: Fail-first owner success with final DB write failure
+        run: php -l tests/security/recovery-finalization-failfirst.php && php tests/security/recovery-finalization-failfirst.php
 
       - name: Bounded privacy-safe recovery queue inspection (PHP mock)
         run: php tests/security/reconciliation-summary-bounded.php

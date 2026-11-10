@@ -28,6 +28,7 @@ RUNTIME_PATHS=(
   assets
   includes
   templates
+  languages
 )
 DOCUMENT_PATHS=(
   ARCHITECTURE.md

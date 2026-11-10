@@ -109,12 +109,17 @@ final class SAUTH_Security_Orchestrator {
 		$state=array('active'=>true,'reason'=>sanitize_key($reason),'started_at'=>time());
 		update_user_meta($user_id,self::LOCKDOWN_META,$state);
 		update_user_meta($user_id,self::COMPROMISE_META,array('started_at'=>time(),'expires_at'=>time()+7*DAY_IN_SECONDS,'reason'=>sanitize_key($reason)));
+		// Read-back is authoritative: update_user_meta() may also return false
+		// when an identical value was already present. Never claim success
+		// unless the persisted lockdown and compromise watch are effective.
+		$lockdown_persisted = self::authentication_blocked($user_id);
+		$watch_persisted = self::compromise_watch($user_id);
 		$sessions = SAUTH_Session_Manager::revoke_user_sessions($user_id,'emergency_lockdown');
-		if(class_exists('SAUTH_Passkey_Runtime')){SAUTH_Passkey_Runtime::invalidate_user_assurance($user_id);}
+		$assurance_invalidated = !class_exists('SAUTH_Passkey_Runtime') || true === SAUTH_Passkey_Runtime::invalidate_user_assurance($user_id);
 		if(class_exists('SAUTH_Shared_Signals')){SAUTH_Shared_Signals::emit('risc','credential_compromise',$user_id,array('reason'=>'user_lockdown'));}
 		self::timeline_event($user_id,'emergency_lockdown','critical',array('reason'=>sanitize_key($reason)));
 		SA_Membership_Adapter::audit('authentication_emergency_lockdown',$user_id,array('reason'=>sanitize_key($reason)));
-		return (bool)$sessions;
+		return $lockdown_persisted && $watch_persisted && true === $sessions && $assurance_invalidated;
 	}
 
 	public static function clear_lockdown( $user_id ) {
@@ -142,8 +147,22 @@ final class SAUTH_Security_Orchestrator {
 		$owned=$wpdb->get_var($wpdb->prepare('SELECT public_id FROM '.SAUTH_Activator::table('security_timeline').' WHERE public_id=%s AND user_id=%d',$timeline_id,$user_id));
 		if(!$owned){return new WP_Error('sauth_timeline_event_not_found','Security event not found.');}
 		update_user_meta($user_id,self::COMPROMISE_META,array('started_at'=>time(),'expires_at'=>time()+7*DAY_IN_SECONDS,'reason'=>'unrecognized_event'));
-		SAUTH_Session_Manager::revoke_other_sessions($user_id,(string)wp_get_session_token(),'unrecognized_security_event');
-		if(class_exists('SAUTH_Shared_Signals')){SAUTH_Shared_Signals::emit('risc','credential_compromise',$user_id,array('reason'=>'unrecognized_event'));}
+		$revoked = SAUTH_Session_Manager::revoke_other_sessions($user_id,(string)wp_get_session_token(),'unrecognized_security_event');
+		if ( true !== $revoked ) {
+			// Never acknowledge containment when WordPress/File 02 revocation
+			// postconditions failed. Attempt user-scoped emergency lockdown.
+			self::emergency_lockdown($user_id,'unrecognized_event_containment_failed');
+			return new WP_Error('sauth_not_me_containment_unverified','Session containment could not be verified. Account security has been escalated.');
+		}
+		if ( ! class_exists('SAUTH_Shared_Signals') ) {
+			self::emergency_lockdown($user_id,'unrecognized_event_signal_unavailable');
+			return new WP_Error('sauth_not_me_signal_unverified','A verified security signal could not be recorded.');
+		}
+		$signal = SAUTH_Shared_Signals::emit('risc','credential_compromise',$user_id,array('reason'=>'unrecognized_event'));
+		if ( is_wp_error( $signal ) || ! is_string( $signal ) || '' === $signal ) {
+			self::emergency_lockdown($user_id,'unrecognized_event_signal_failed');
+			return new WP_Error('sauth_not_me_signal_unverified','A verified security signal could not be recorded.');
+		}
 		self::timeline_event($user_id,'unrecognized_event_reported','high',array('source_event'=>$timeline_id));
 		return true;
 	}
@@ -220,6 +239,11 @@ final class SAUTH_Security_Orchestrator {
 	public static function smart_step_up( $user_id, $action, array $policy=array() ) {
 		$receipt=self::assurance_v2($user_id);
 		if('allow'!==($receipt['result']??'')){return false;}
+		// Privileged actions cannot use a valid passkey to bypass a failed
+		// security-evidence source or a high-risk compromise assessment.
+		$risk_score = isset($receipt['risk_score']) ? absint($receipt['risk_score']) : 100;
+		$max_risk = isset($policy['max_risk']) ? max(0,min(79,absint($policy['max_risk']))) : 79;
+		if($risk_score>$max_risk){return false;}
 		$minimum=isset($policy['max_age'])?max(30,min(300,absint($policy['max_age']))):300;
 		if(absint($receipt['freshness_seconds']??9999)>$minimum){return false;}
 		if(!empty($policy['phishing_resistant']) && empty($receipt['phishing_resistant'])){return false;}
@@ -354,9 +378,14 @@ final class SAUTH_Security_Orchestrator {
 		$case = isset( $_POST['case'] ) ? sanitize_text_field( wp_unslash( $_POST['case'] ) ) : '';
 		$proof = isset( $_POST['proof'] ) ? (string) wp_unslash( $_POST['proof'] ) : '';
 		$handoff_key = 'sauth_collision_' . hash_hmac( 'sha256', $case . '|' . SA_Security::client_fingerprint(), wp_salt( 'auth' ) );
-		delete_transient( $handoff_key );
 		$result = self::resolve_collision_case( $case, $proof );
 		$proof = ''; unset( $_POST['proof'] );
+		if ( is_wp_error( $result ) && 'sauth_collision_owner_unavailable' === $result->get_error_code() ) {
+			// The owner has not acted: keep the short-lived proof only server-side.
+			wp_safe_redirect( add_query_arg( array( 'case'=>$case, 'status'=>'temporarily_unavailable' ), home_url( '/resolve-account/' ) ) );
+			exit;
+		}
+		delete_transient( $handoff_key );
 		if ( is_wp_error( $result ) ) {
 			wp_safe_redirect( add_query_arg( 'status', 'verification_required', home_url( '/resolve-account/' ) ) );
 			exit;
@@ -415,6 +444,11 @@ final class SAUTH_Security_Orchestrator {
 		$payload_json=SA_Security::decrypt((string)$row['payload_ciphertext']);
 		$payload=is_string($payload_json)?json_decode($payload_json,true):null;
 		if(!is_array($payload)){return new WP_Error('sauth_recovery_payload_invalid','Recovery change payload is unreadable.');}
+		// An absent canonical owner has performed no side effects: preserve pending.
+		// Once invoked, uncertain owner effects remain processing; no replay.
+		if ( false === has_filter( 'sauth_apply_recovery_change_v1' ) ) {
+			return new WP_Error( 'sauth_recovery_owner_unavailable', 'Canonical recovery authorization is temporarily unavailable.' );
+		}
 		// Atomic one-time claim: a competing worker must never reach the owner.
 		// Keep uncertain outcomes in processing for manual reconciliation.
 		$claim=$wpdb->update(SAUTH_Activator::table('recovery_changes'),array('status'=>'processing','updated_at'=>current_time('mysql',true)),array('public_id'=>$public_id,'status'=>'pending'),array('%s','%s'),array('%s','%s'));
@@ -422,7 +456,12 @@ final class SAUTH_Security_Orchestrator {
 		$result=apply_filters('sauth_apply_recovery_change_v1',null,(string)$row['change_kind'],absint($row['user_id']),$payload);
 		if(true!==$result){return new WP_Error('sauth_recovery_handler_unavailable','Canonical owner did not approve or handle the recovery change.');}
 		$updated=$wpdb->update(SAUTH_Activator::table('recovery_changes'),array('status'=>'applied','updated_at'=>current_time('mysql',true)),array('public_id'=>$public_id,'status'=>'processing'),array('%s','%s'),array('%s','%s'));
-		return 1===(int)$updated;
+		if ( 1 !== (int)$updated ) {
+			// Owner may already have mutated canonical identity state. Keep
+			// processing for supervised reconciliation; never auto-replay.
+			return new WP_Error('sauth_recovery_reconciliation_required','The canonical owner may have completed its action; manual reconciliation is required.');
+		}
+		return true;
 	}
 
 	public static function not_me_ajax() {
@@ -433,7 +472,11 @@ final class SAUTH_Security_Orchestrator {
 	}
 	public static function lockdown_ajax() {
 		if(!is_user_logged_in()){wp_send_json_error(array('code'=>'authentication_required'),401);} check_ajax_referer('sauth_security_center','nonce');
-		wp_send_json_success(array('locked'=>self::emergency_lockdown(get_current_user_id(),'user_request')));
+		$subject = get_current_user_id();
+		if ( !self::emergency_lockdown($subject,'user_request') || !self::authentication_blocked($subject) ) {
+			wp_send_json_error(array('code'=>'lockdown_unverified'),503);
+		}
+		wp_send_json_success(array('locked'=>true));
 	}
 	public static function recovery_change_ajax() { wp_send_json_error(array('code'=>'use_canonical_owner_flow'),409); }
 	public static function recovery_cancel_ajax() { wp_send_json_error(array('code'=>'use_canonical_owner_flow'),409); }
@@ -446,7 +489,11 @@ final class SAUTH_Security_Orchestrator {
 		<p>Review recent authentication activity. Exact IP addresses and secrets are not displayed.</p>
 		<button type="button" class="sa-secondary-button" data-sauth-lockdown>Secure My Account</button>
 		<ul class="sauth-security-timeline">
-		<?php foreach($rows as $row): ?><li><strong><?php echo esc_html(ucwords(str_replace('_',' ',(string)$row['event_type']))); ?></strong> — <?php echo esc_html((string)$row['created_at']); ?> <button type="button" data-sauth-not-me="<?php echo esc_attr((string)$row['public_id']); ?>">This was not me</button></li><?php endforeach; ?>
+		<?php foreach($rows as $row): ?><li><strong><?php echo esc_html(ucwords(str_replace('_',' ',(string)$row['event_type']))); ?></strong> — <?php
+			$auth_time_utc = strtotime( (string)$row['created_at'] . ' UTC' );
+			$auth_time_format = (string)get_option('date_format','Y-m-d') . ' ' . (string)get_option('time_format','H:i');
+			echo false === $auth_time_utc ? esc_html__( 'Time unavailable', 'sabri-authentication' ) : esc_html( wp_date( $auth_time_format, $auth_time_utc ) );
+		?> <button type="button" data-sauth-not-me="<?php echo esc_attr((string)$row['public_id']); ?>">This was not me</button></li><?php endforeach; ?>
 		</ul></section></main><?php return (string)ob_get_clean();
 	}
 	public static function render_collision_resolution(){
@@ -461,6 +508,7 @@ final class SAUTH_Security_Orchestrator {
 		<section class="sa-auth-shell"><div class="sa-auth-card"><h1>Resolve Existing Account</h1>
 		<p>Accounts are never merged silently or from email alone. This flow uses an opaque, one-time, fingerprint-bound case and requires verification by the canonical File 00 identity owner.</p>
 		<?php if ( 'verification_required' === $status ) : ?><div class="sa-notice sa-notice-error" role="status">Additional canonical identity verification is required. No account was merged.</div><?php endif; ?>
+		<?php if ( 'temporarily_unavailable' === $status ) : ?><div class="sa-notice sa-notice-error" role="status">Verification is temporarily unavailable. No account was merged; your protected proof retains only its original short lifetime.</div><?php endif; ?>
 		<?php if ( $case && $proof ) : ?><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 		<input type="hidden" name="action" value="sauth_resolve_collision"><input type="hidden" name="case" value="<?php echo esc_attr( $case ); ?>"><input type="hidden" name="proof" value="<?php echo esc_attr( $proof ); ?>">
 		<?php wp_nonce_field( 'sauth_resolve_collision', 'sauth_nonce' ); ?><button class="sa-primary-button" type="submit">Verify and Continue Safely</button></form>

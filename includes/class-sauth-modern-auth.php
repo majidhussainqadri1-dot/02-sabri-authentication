@@ -194,6 +194,10 @@ final class SAUTH_Modern_Auth {
 	}
 
 	public static function fedcm_finish_ajax() {
+		// The flow may have started before Safe Mode: recheck at completion.
+		if ( class_exists( 'SAUTH_Operations' ) && SAUTH_Operations::safe_mode() ) {
+			wp_send_json_error( array( 'code'=>'safe_mode_active' ), 503 );
+		}
 		$id    = isset( $_POST['nonce_id'] ) ? strtolower( sanitize_text_field( wp_unslash( $_POST['nonce_id'] ) ) ) : '';
 		$nonce = isset( $_POST['nonce'] ) ? (string) wp_unslash( $_POST['nonce'] ) : '';
 		$token = isset( $_POST['token'] ) ? (string) wp_unslash( $_POST['token'] ) : '';
@@ -207,6 +211,10 @@ final class SAUTH_Modern_Auth {
 			|| ! hash_equals( (string) $record['fingerprint'], SA_Security::client_fingerprint() )
 			|| ! hash_equals( (string) $record['nonce_hash'], hash( 'sha256', $nonce ) ) ) {
 			wp_send_json_error( array( 'code'=>'fedcm_nonce_invalid' ), 400 );
+		}
+		// An absent approved verifier must not burn a valid one-time nonce.
+		if ( false === has_filter( 'sauth_fedcm_verify_token_v1' ) ) {
+			wp_send_json_error( array( 'code'=>'fedcm_server_verification_unavailable' ), 503 );
 		}
 		// Invalid nonce/fingerprint must not consume a legitimate FedCM attempt.
 		// get_transient + delete_transient is not an atomic once-only claim:
