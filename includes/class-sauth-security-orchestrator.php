@@ -109,12 +109,17 @@ final class SAUTH_Security_Orchestrator {
 		$state=array('active'=>true,'reason'=>sanitize_key($reason),'started_at'=>time());
 		update_user_meta($user_id,self::LOCKDOWN_META,$state);
 		update_user_meta($user_id,self::COMPROMISE_META,array('started_at'=>time(),'expires_at'=>time()+7*DAY_IN_SECONDS,'reason'=>sanitize_key($reason)));
+		// Read-back is authoritative: update_user_meta() may also return false
+		// when an identical value was already present. Never claim success
+		// unless the persisted lockdown and compromise watch are effective.
+		$lockdown_persisted = self::authentication_blocked($user_id);
+		$watch_persisted = self::compromise_watch($user_id);
 		$sessions = SAUTH_Session_Manager::revoke_user_sessions($user_id,'emergency_lockdown');
-		if(class_exists('SAUTH_Passkey_Runtime')){SAUTH_Passkey_Runtime::invalidate_user_assurance($user_id);}
+		$assurance_invalidated = !class_exists('SAUTH_Passkey_Runtime') || true === SAUTH_Passkey_Runtime::invalidate_user_assurance($user_id);
 		if(class_exists('SAUTH_Shared_Signals')){SAUTH_Shared_Signals::emit('risc','credential_compromise',$user_id,array('reason'=>'user_lockdown'));}
 		self::timeline_event($user_id,'emergency_lockdown','critical',array('reason'=>sanitize_key($reason)));
 		SA_Membership_Adapter::audit('authentication_emergency_lockdown',$user_id,array('reason'=>sanitize_key($reason)));
-		return (bool)$sessions;
+		return $lockdown_persisted && $watch_persisted && true === $sessions && $assurance_invalidated;
 	}
 
 	public static function clear_lockdown( $user_id ) {
@@ -451,7 +456,12 @@ final class SAUTH_Security_Orchestrator {
 		$result=apply_filters('sauth_apply_recovery_change_v1',null,(string)$row['change_kind'],absint($row['user_id']),$payload);
 		if(true!==$result){return new WP_Error('sauth_recovery_handler_unavailable','Canonical owner did not approve or handle the recovery change.');}
 		$updated=$wpdb->update(SAUTH_Activator::table('recovery_changes'),array('status'=>'applied','updated_at'=>current_time('mysql',true)),array('public_id'=>$public_id,'status'=>'processing'),array('%s','%s'),array('%s','%s'));
-		return 1===(int)$updated;
+		if ( 1 !== (int)$updated ) {
+			// Owner may already have mutated canonical identity state. Keep
+			// processing for supervised reconciliation; never auto-replay.
+			return new WP_Error('sauth_recovery_reconciliation_required','The canonical owner may have completed its action; manual reconciliation is required.');
+		}
+		return true;
 	}
 
 	public static function not_me_ajax() {
@@ -462,7 +472,11 @@ final class SAUTH_Security_Orchestrator {
 	}
 	public static function lockdown_ajax() {
 		if(!is_user_logged_in()){wp_send_json_error(array('code'=>'authentication_required'),401);} check_ajax_referer('sauth_security_center','nonce');
-		wp_send_json_success(array('locked'=>self::emergency_lockdown(get_current_user_id(),'user_request')));
+		$subject = get_current_user_id();
+		if ( !self::emergency_lockdown($subject,'user_request') || !self::authentication_blocked($subject) ) {
+			wp_send_json_error(array('code'=>'lockdown_unverified'),503);
+		}
+		wp_send_json_success(array('locked'=>true));
 	}
 	public static function recovery_change_ajax() { wp_send_json_error(array('code'=>'use_canonical_owner_flow'),409); }
 	public static function recovery_cancel_ajax() { wp_send_json_error(array('code'=>'use_canonical_owner_flow'),409); }
