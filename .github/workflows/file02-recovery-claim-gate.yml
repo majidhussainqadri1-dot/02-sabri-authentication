@@ -11,6 +11,7 @@ on:
       - 'tests/recovery-owner-unavailable.php'
       - 'tests/security/fedcm-finish-guard-source.php'
       - 'tests/security/v12-i18n-source.php'
+      - 'tests/security/v12-extended-views-i18n.php'
       - 'tests/security/v12-timeline-local-time-source.php'
       - 'languages/**'
       - 'templates/login.php'
@@ -60,6 +61,9 @@ jobs:
 
       - name: Timeline UTC to WordPress locale and timezone formatting
         run: php -l tests/security/v12-timeline-local-time-source.php && php tests/security/v12-timeline-local-time-source.php
+      - name: Urdu/Arabic extended recovery, Google and membership views (source)
+        run: php -l tests/security/v12-extended-views-i18n.php && php tests/security/v12-extended-views-i18n.php
+
       - name: WordPress 7 Urdu/Arabic translation catalog and packaging source gate
         run: php -l tests/security/v12-i18n-source.php && php tests/security/v12-i18n-source.php
 
