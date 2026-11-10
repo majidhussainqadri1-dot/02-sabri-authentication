@@ -17,6 +17,8 @@ on:
       - 'tools/build-package.sh'
       - 'tests/security/collision-owner-handoff-preservation-source.php'
       - 'tests/security/not-me-stepup-failfirst.php'
+      - 'tests/security/lockdown-postcondition-failfirst.php'
+      - 'tests/security/recovery-finalization-failfirst.php'
       - 'includes/class-sauth-modern-auth.php'
       - 'tests/recovery-claim-fingerprint-denial.php'
       - 'tests/recovery-claim-invalid-payload.php'
@@ -63,6 +65,11 @@ jobs:
 
       - name: F02 v12 fail-first session containment and risk-gated step-up (PHP mock)
         run: php -l tests/security/not-me-stepup-failfirst.php && php tests/security/not-me-stepup-failfirst.php
+
+      - name: Fail-first emergency lockdown postconditions and AJAX truth
+        run: php -l tests/security/lockdown-postcondition-failfirst.php && php tests/security/lockdown-postcondition-failfirst.php
+      - name: Fail-first owner success with final DB write failure
+        run: php -l tests/security/recovery-finalization-failfirst.php && php tests/security/recovery-finalization-failfirst.php
 
       - name: Bounded privacy-safe recovery queue inspection (PHP mock)
         run: php tests/security/reconciliation-summary-bounded.php
