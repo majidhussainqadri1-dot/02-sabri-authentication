@@ -79,17 +79,13 @@ final class SAUTH_Canonical_Routes {
 		exit;
 	}
 
-	/** Only authenticated users may view the account-safety workspace. */
+	/** Public educational guidance; personalized actions remain restricted in the shortcode. */
 	public static function render_safety() {
 		if ( self::SAFETY !== (string) get_query_var( self::QUERY_VAR ) ) { return; }
 		status_header( 200 );
 		nocache_headers();
 		header( 'X-Robots-Tag: noindex, noarchive, nosnippet', true );
 		header( 'Referrer-Policy: no-referrer', true );
-		if ( ! is_user_logged_in() ) {
-			wp_safe_redirect( SA_Membership_Adapter::login_url( home_url( '/account/safety/' ) ) );
-			exit;
-		}
 		get_header();
 		echo '<main id="main" class="sauth-canonical-route">' . do_shortcode( '[sabri_auth_account_safety]' ) . '</main>';
 		get_footer();
@@ -116,7 +112,7 @@ final class SAUTH_Canonical_Routes {
 			'layout'    => 'single-column-account',
 			'shortcode' => '[sabri_auth_sessions]',
 		);
-		$routes['safety'] = array( 'owner' => 'File 02', 'route' => '/account/safety/', 'access' => 'authenticated', 'index' => 'noindex', 'cache' => 'no-store', 'layout' => 'single-column-account', 'shortcode' => '[sabri_auth_account_safety]' );
+		$routes['safety'] = array( 'owner' => 'File 02', 'route' => '/account/safety/', 'access' => 'public', 'index' => 'noindex', 'cache' => 'no-store', 'layout' => 'single-column-account', 'shortcode' => '[sabri_auth_account_safety]' );
 		$manifest['routes'] = $routes;
 		$manifests['file02-authentication'] = $manifest;
 		return $manifests;
