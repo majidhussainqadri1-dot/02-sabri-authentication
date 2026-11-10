@@ -168,6 +168,12 @@ final class SA_Registration {
 		}
 		SAUTH_Provider_Health::record_success( 'membership', $latency );
 		$user_id = absint( $result['user_id'] );
+		/* Best-effort, privacy-minimized, versioned receipt for both password and Google
+		 * registration. File 00 remains the canonical identity/consent owner. */
+		SA_Membership_Adapter::audit( 'account_security_rules_acknowledged', $user_id, array(
+			'policy_version' => SAUTH_Account_Safety::POLICY_VERSION,
+			'authentication_method' => $payload['authentication_method'],
+		) );
 		if ( 'google' === $payload['authentication_method'] ) {
 			$extended_locks = SA_Google_OAuth::acquire_link_locks( $payload['google_subject'], $user_id, $google_locks );
 			if ( empty( $extended_locks ) ) {
