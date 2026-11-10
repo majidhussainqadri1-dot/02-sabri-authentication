@@ -134,6 +134,10 @@ jobs:
           /tmp/wp plugin activate sabri-authentication --path=/tmp/wordpress
           /tmp/wp eval 'if (!SAUTH_Account_Contract::provider_available()) exit(1); if ((string)get_option("sauth_version","")!=="1.4.0"||(string)get_option("sauth_db_version","")!=="1.4.0"||(string)get_option("sauth_passkey_schema_version","")!=="1.1.0") exit(1); if(!SAUTH_Activator::storage_ready()||!SAUTH_Passkeys::installation_ready()) exit(1);' --path=/tmp/wordpress
           /tmp/wp eval '$checks=SAUTH_Operations::system_check(); if(!is_array($checks)) exit(1);' --path=/tmp/wordpress
+      - name: Native WordPress 7 PHP catalogs Urdu and Arabic runtime (isolated)
+        run: |
+          php -l file02/tests/integration/wp-v12-php-catalog-runtime.php
+          /tmp/wp eval-file file02/tests/integration/wp-v12-php-catalog-runtime.php --path=/tmp/wordpress
       - name: Establish canonical File 00 application fixture for R341
         run: |
           set -euo pipefail

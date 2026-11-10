@@ -66,10 +66,26 @@ final class SAUTH_Security_Orchestrator {
 		$severity = in_array( $severity, array( 'low','medium','high','critical' ), true ) ? $severity : 'low';
 		if ( ! $user_id || '' === $event_type ) { return false; }
 		$safe = array();
+		// Detail VALUES, not only detail KEYS, are an exfiltration boundary.
+		// Only strictly coded, bounded diagnostic fields may be persisted;
+		// email, IP, URLs, bearer text, free-form PII and arbitrary payloads
+		// must not survive a security event emitted by another module.
+		$allowed_keys = array( 'method','reason','kind','risk','risk_score','step_up','completion_required','source_event','apply_after','source' );
 		foreach ( array_slice( $details, 0, 20, true ) as $k=>$v ) {
 			$k = sanitize_key( (string) $k );
-			if ( '' === $k || preg_match( '/password|secret|token|cookie|ip|email|phone|address/', $k ) ) { continue; }
-			$safe[$k] = is_scalar($v) ? substr(sanitize_text_field((string)$v),0,240) : '';
+			if ( ! in_array( $k, $allowed_keys, true ) || ! is_scalar( $v ) ) { continue; }
+			if ( 'source_event' === $k ) {
+				$value = strtolower( trim( (string) $v ) );
+				if ( preg_match( '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/D', $value ) ) { $safe[$k] = $value; }
+			} elseif ( 'risk_score' === $k || 'apply_after' === $k ) {
+				$value = (string) $v;
+				if ( preg_match( '/^(?:0|[1-9][0-9]{0,10})$/D', $value ) && ( 'apply_after' === $k || (int) $value <= 100 ) ) { $safe[$k] = (int) $value; }
+			} elseif ( 'step_up' === $k || 'completion_required' === $k ) {
+				if ( is_bool( $v ) || 0 === $v || 1 === $v ) { $safe[$k] = (bool) $v; }
+			} else {
+				$value = strtolower( trim( (string) $v ) );
+				if ( preg_match( '/^[a-z][a-z0-9_]{0,63}$/D', $value ) && ! preg_match( '/(?:bearer|secret|token|api_key|private_key)/i', $value ) ) { $safe[$k] = $value; }
+			}
 		}
 		$public_id = strtolower( wp_generate_uuid4() );
 		$stored = $wpdb->insert(
@@ -88,7 +104,9 @@ final class SAUTH_Security_Orchestrator {
 		global $wpdb;
 		$limit = max( 1, min( 100, absint( $limit ) ) );
 		$rows = $wpdb->get_results( $wpdb->prepare( 'SELECT public_id,event_type,severity,details_json,created_at FROM ' . SAUTH_Activator::table('security_timeline') . ' WHERE user_id=%d ORDER BY id DESC LIMIT %d', absint($user_id), $limit ), ARRAY_A );
-		if ( ! is_array($rows) ) { return array(); }
+		if ( ! is_array($rows) || '' !== (string) $wpdb->last_error ) {
+			return new WP_Error( 'sauth_timeline_unavailable', 'Account-security activity cannot be verified at the moment.' );
+		}
 		foreach ( $rows as &$row ) { $row['details'] = json_decode((string)$row['details_json'],true); unset($row['details_json']); }
 		unset($row);
 		return $rows;
@@ -148,6 +166,12 @@ final class SAUTH_Security_Orchestrator {
 		$owned=$wpdb->get_var($wpdb->prepare('SELECT public_id FROM '.SAUTH_Activator::table('security_timeline').' WHERE public_id=%s AND user_id=%d',$timeline_id,$user_id));
 		if(!$owned){return new WP_Error('sauth_timeline_event_not_found','Security event not found.');}
 		update_user_meta($user_id,self::COMPROMISE_META,array('started_at'=>time(),'expires_at'=>time()+7*DAY_IN_SECONDS,'reason'=>'unrecognized_event'));
+		if ( ! self::compromise_watch( $user_id ) ) {
+			// A failed user-meta write may otherwise return false success while
+			// future login risk sees no active compromise watch.
+			self::emergency_lockdown( $user_id, 'unrecognized_event_watch_unverified' );
+			return new WP_Error( 'sauth_not_me_compromise_watch_unverified', 'The security watch could not be durably verified; additional account containment was attempted.' );
+		}
 		$revoked = SAUTH_Session_Manager::revoke_other_sessions($user_id,(string)wp_get_session_token(),'unrecognized_security_event');
 		if ( true !== $revoked ) {
 			// Never acknowledge containment when WordPress/File 02 revocation
@@ -402,7 +426,11 @@ final class SAUTH_Security_Orchestrator {
 			array( 'public_id'=>$public_id, 'status'=>'processing' ),
 			array( '%d','%s','%s' ), array( '%s','%s' )
 		);
-		if ( 1 !== (int) $changed ) { return new WP_Error( 'sauth_collision_state_race', 'Account-resolution state changed. Retry safely.' ); }
+		if ( 1 !== (int) $changed ) {
+			// Canonical File00 owner MAY already have approved/mutated identity.
+			// Processing is intentionally retained: never advertise retry or replay.
+			return new WP_Error( 'sauth_collision_reconciliation_required', 'Account-resolution owner outcome is uncertain; supervised reconciliation is required before further action.' );
+		}
 		self::timeline_event( absint( $result['user_id'] ), 'account_collision_resolved', 'high', array( 'method'=>'canonical_owner_verification' ) );
 		return array( 'result'=>'allow', 'user_id'=>absint( $result['user_id'] ) );
 	}
@@ -473,7 +501,18 @@ final class SAUTH_Security_Orchestrator {
 			return new WP_Error( 'sauth_safe_mode_active', 'High-risk account resolution is paused by Safe Mode.' );
 		}
 		$row=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.SAUTH_Activator::table('recovery_changes').' WHERE public_id=%s',$public_id),ARRAY_A);
-		if(!is_array($row)||'pending'!==(string)$row['status']||strtotime((string)$row['apply_after'])>time()){return new WP_Error('sauth_recovery_not_ready','Recovery change is not ready.');}
+		if(!is_array($row)||'pending'!==(string)$row['status']){return new WP_Error('sauth_recovery_not_ready','Recovery change is not ready.');}
+		// Database stores UTC. An unreadable/invalid cooling-off date must
+		// NOT be coerced to false (epoch 0) and treated as already elapsed.
+		$apply_after = $row['apply_after'] ?? null;
+		if(!is_string($apply_after) || !preg_match('/^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}$/D',$apply_after)){
+			return new WP_Error('sauth_recovery_not_ready','Recovery cooling-off time is unverifiable.');
+		}
+		$scheduled = DateTimeImmutable::createFromFormat('!Y-m-d H:i:s',$apply_after,new DateTimeZone('UTC'));
+		$calendar_errors = DateTimeImmutable::getLastErrors();
+		if(!$scheduled || $scheduled->format('Y-m-d H:i:s')!==$apply_after || (is_array($calendar_errors) && ($calendar_errors['warning_count'] || $calendar_errors['error_count'])) || $scheduled->getTimestamp()>time()){
+			return new WP_Error('sauth_recovery_not_ready','Recovery cooling-off time has not been verified as elapsed.');
+		}
 		$expected=SA_Security::decrypt((string)$row['owner_token_ciphertext']);
 		if(false===$expected||!hash_equals((string)$expected,(string)$owner_token)){return new WP_Error('sauth_recovery_token_invalid','Recovery change token is invalid.');}
 		// Collision resolution has a dedicated short-lived, fingerprint-bound owner flow.
@@ -521,18 +560,22 @@ final class SAUTH_Security_Orchestrator {
 	public static function recovery_cancel_ajax() { wp_send_json_error(array('code'=>'use_canonical_owner_flow'),409); }
 
 	public static function render_security_center() {
-		if(!is_user_logged_in()){return '<div class="sa-auth-shell"><p>Sign in to review account security.</p></div>';}
-		$rows=self::timeline(get_current_user_id(),30); ob_start(); ?>
-		<main class="sa-auth-shell"><section class="sa-auth-card" aria-labelledby="sauth-security-title">
-		<h1 id="sauth-security-title">Account Security</h1>
-		<p>Review recent authentication activity. Exact IP addresses and secrets are not displayed.</p>
-		<button type="button" class="sa-secondary-button" data-sauth-lockdown>Secure My Account</button>
+		if(!is_user_logged_in()){return '<div class="sa-auth-shell"><p>'.esc_html__( 'Sign in to review account security.', 'sabri-authentication' ).'</p></div>';}
+		$rows=self::timeline(get_current_user_id(),30);
+		$timeline_unavailable = is_wp_error( $rows );
+		if ( $timeline_unavailable ) { $rows = array(); }
+		ob_start(); ?>
+		<main class="sa-auth-shell" dir="<?php echo esc_attr( is_rtl() ? 'rtl' : 'ltr' ); ?>"><section class="sa-auth-card" aria-labelledby="sauth-security-title">
+		<h1 id="sauth-security-title"><?php echo esc_html__( 'Account Security', 'sabri-authentication' ); ?></h1>
+		<p><?php echo esc_html__( 'Review recent authentication activity. Exact IP addresses and secrets are not displayed.', 'sabri-authentication' ); ?></p>
+		<button type="button" class="sa-secondary-button" data-sauth-lockdown><?php echo esc_html__( 'Secure My Account', 'sabri-authentication' ); ?></button>
+		<?php if ( $timeline_unavailable ) : ?><p class="sa-notice sa-notice-error" role="alert"><?php echo esc_html__( 'Security activity cannot be verified at the moment.', 'sabri-authentication' ); ?></p><?php endif; ?>
 		<ul class="sauth-security-timeline">
 		<?php foreach($rows as $row): ?><li><strong><?php echo esc_html(ucwords(str_replace('_',' ',(string)$row['event_type']))); ?></strong> — <?php
 			$auth_time_utc = strtotime( (string)$row['created_at'] . ' UTC' );
 			$auth_time_format = (string)get_option('date_format','Y-m-d') . ' ' . (string)get_option('time_format','H:i');
 			echo false === $auth_time_utc ? esc_html__( 'Time unavailable', 'sabri-authentication' ) : esc_html( wp_date( $auth_time_format, $auth_time_utc ) );
-		?> <button type="button" data-sauth-not-me="<?php echo esc_attr((string)$row['public_id']); ?>">This was not me</button></li><?php endforeach; ?>
+		?> <button type="button" data-sauth-not-me="<?php echo esc_attr((string)$row['public_id']); ?>"><?php echo esc_html__( 'This was not me', 'sabri-authentication' ); ?></button></li><?php endforeach; ?>
 		</ul></section></main><?php return (string)ob_get_clean();
 	}
 	public static function render_collision_resolution(){
@@ -544,14 +587,14 @@ final class SAUTH_Security_Orchestrator {
 		}
 		$status = isset( $_GET['status'] ) ? sanitize_key( wp_unslash( $_GET['status'] ) ) : '';
 		ob_start(); ?>
-		<section class="sa-auth-shell"><div class="sa-auth-card"><h1>Resolve Existing Account</h1>
-		<p>Accounts are never merged silently or from email alone. This flow uses an opaque, one-time, fingerprint-bound case and requires verification by the canonical File 00 identity owner.</p>
-		<?php if ( 'verification_required' === $status ) : ?><div class="sa-notice sa-notice-error" role="status">Additional canonical identity verification is required. No account was merged.</div><?php endif; ?>
-		<?php if ( 'temporarily_unavailable' === $status ) : ?><div class="sa-notice sa-notice-error" role="status">Verification is temporarily unavailable. No account was merged; your protected proof retains only its original short lifetime.</div><?php endif; ?>
+		<section class="sa-auth-shell" dir="<?php echo esc_attr( is_rtl() ? 'rtl' : 'ltr' ); ?>"><div class="sa-auth-card"><h1><?php echo esc_html__( 'Resolve Existing Account', 'sabri-authentication' ); ?></h1>
+		<p><?php echo esc_html__( 'Accounts are never merged silently or from email alone. This flow uses an opaque, one-time, fingerprint-bound case and requires verification by the canonical File 00 identity owner.', 'sabri-authentication' ); ?></p>
+		<?php if ( 'verification_required' === $status ) : ?><div class="sa-notice sa-notice-error" role="status"><?php echo esc_html__( 'Additional canonical identity verification is required. No account was merged.', 'sabri-authentication' ); ?></div><?php endif; ?>
+		<?php if ( 'temporarily_unavailable' === $status ) : ?><div class="sa-notice sa-notice-error" role="status"><?php echo esc_html__( 'Verification is temporarily unavailable. No account was merged; your protected proof retains only its original short lifetime.', 'sabri-authentication' ); ?></div><?php endif; ?>
 		<?php if ( $case && $proof ) : ?><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 		<input type="hidden" name="action" value="sauth_resolve_collision"><input type="hidden" name="case" value="<?php echo esc_attr( $case ); ?>"><input type="hidden" name="proof" value="<?php echo esc_attr( $proof ); ?>">
-		<?php wp_nonce_field( 'sauth_resolve_collision', 'sauth_nonce' ); ?><button class="sa-primary-button" type="submit">Verify and Continue Safely</button></form>
-		<?php else : ?><p>Start from the registration, sign-in, or account-recovery flow so a protected resolution case can be created without exposing whether an identifier exists.</p><?php endif; ?>
+		<?php wp_nonce_field( 'sauth_resolve_collision', 'sauth_nonce' ); ?><button class="sa-primary-button" type="submit"><?php echo esc_html__( 'Verify and Continue Safely', 'sabri-authentication' ); ?></button></form>
+		<?php else : ?><p><?php echo esc_html__( 'Start from the registration, sign-in, or account-recovery flow so a protected resolution case can be created without exposing whether an identifier exists.', 'sabri-authentication' ); ?></p><?php endif; ?>
 		</div></section><?php return (string)ob_get_clean();
 	}
 

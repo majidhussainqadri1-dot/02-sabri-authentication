@@ -24,7 +24,14 @@ final class SAUTH_Password_Safety {
 		$suffix = substr( $sha1, 5 );
 		/* Only the 5-hex prefix is exposed to an approved adapter. The raw
 		 * password and full SHA-1 are never passed to the provider boundary. */
+		$custom_lookup_registered = function_exists( 'has_filter' ) && false !== has_filter( 'sauth_breached_password_prefix_lookup_v1' );
 		$response = apply_filters( 'sauth_breached_password_prefix_lookup_v1', null, $prefix );
+		/* A registered callback returning null means unavailable/uncertain,
+		 * not an operator decision to disable breach protection. Never fall
+		 * through to local-only or a different provider on a failed lookup. */
+		if ( null === $response && $custom_lookup_registered ) {
+			return new WP_Error( 'sauth_password_breach_lookup_unavailable', 'Configured password exposure verification returned no result.' );
+		}
 		/* An operator may explicitly opt into the public HIBP range service.
 		 * No HTTP request is made unless this separate policy is configured. */
 		if ( null === $response && defined( 'SAUTH_HIBP_PASSWORD_CHECK_ENABLED' ) && true === SAUTH_HIBP_PASSWORD_CHECK_ENABLED ) {

@@ -23,11 +23,11 @@ function jwt(){
 require_once __DIR__.'/../../includes/class-sauth-dpop.php';
 $proof=jwt();$url='https://example.test/wp-json/sabri-auth/v1/data';
 $result=SAUTH_DPoP::validate($proof,'POST',$url);
-if(!($result instanceof WP_Error)||$GLOBALS['atVerifier']!==0||count($GLOBALS['replay'])!==0)exit("RED: unverified DPoP signature owned durable replay claim before crypto proof\n");
+if(!($result instanceof WP_Error)||$GLOBALS['atVerifier']!==0||count($GLOBALS['replay'])!==0){fwrite(STDERR, "RED: unverified DPoP signature owned durable replay claim before crypto proof\n"); exit(1);}
 $GLOBALS['verifyPass']=true;
 $valid=SAUTH_DPoP::validate($proof,'POST',$url);
-if(!is_array($valid)||($valid['result']??'')!=='allow'||count($GLOBALS['replay'])!==1)exit("FAIL signed proof unable to establish replay claim\n");
+if(!is_array($valid)||($valid['result']??'')!=='allow'||count($GLOBALS['replay'])!==1){fwrite(STDERR, "FAIL signed proof unable to establish replay claim\n"); exit(1);}
 $before=$GLOBALS['verifiedCalls'];
 $replay=SAUTH_DPoP::validate($proof,'POST',$url);
-if(!($replay instanceof WP_Error)||$replay->get_error_code()!=='sauth_dpop_replay'||$GLOBALS['verifiedCalls']!==$before)exit("FAIL replay re-verified or succeeded\n");
+if(!($replay instanceof WP_Error)||$replay->get_error_code()!=='sauth_dpop_replay'||$GLOBALS['verifiedCalls']!==$before){fwrite(STDERR, "FAIL replay re-verified or succeeded\n"); exit(1);}
 echo "PASS rejected signature never claims nonce; approved proof claims once; replay rejected (mock).\n";

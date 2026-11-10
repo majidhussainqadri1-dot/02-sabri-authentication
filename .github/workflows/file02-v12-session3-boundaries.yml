@@ -1,0 +1,84 @@
+name: File02 v12 — Session 3 fail-first boundary regressions
+on:
+  pull_request:
+    paths:
+      - 'includes/class-sauth-password-safety.php'
+      - 'includes/class-sauth-security-orchestrator.php'
+      - 'includes/class-sauth-dpop.php'
+      - 'tests/security/v12-registered-breach-null-failfirst.php'
+      - 'tests/security/v12-recovery-date-failfirst.php'
+      - 'tests/security/v12-collision-finalization-failfirst.php'
+      - 'tests/security/v12-dpop-htu-jwk-failfirst.php'
+      - 'tests/security/v12-timeline-private-evidence-failfirst.php'
+      - 'tests/security/v12-timeline-read-failure-failfirst.php'
+      - 'tests/security/v12-ci-exitcode-audit.php'
+      - 'tests/security/v12-security-center-i18n-failfirst.php'
+      - '.github/workflows/file02-v12-session3-boundaries.yml'
+  push:
+    branches:
+      - 'audit/f02-v12-session3-20261110-recovery-dpop'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  boundary-fixtures:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['7.4','8.3']
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: shivammathur/setup-php@2.37.2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: none
+      - name: F02 v12 Security Center and Collision Wizard locale/RTL check
+        if: always()
+        run: php -l tests/security/v12-security-center-i18n-failfirst.php && php tests/security/v12-security-center-i18n-failfirst.php
+      - name: Audit that source-security regressions cannot false-green on string exit
+        run: php -l tests/security/v12-ci-exitcode-audit.php && php tests/security/v12-ci-exitcode-audit.php
+      - name: Lint all four fail-first fixtures
+        run: |
+          php -l tests/security/v12-registered-breach-null-failfirst.php
+          php -l tests/security/v12-recovery-date-failfirst.php
+          php -l tests/security/v12-collision-finalization-failfirst.php
+          php -l tests/security/v12-dpop-htu-jwk-failfirst.php
+      - name: Registered breach provider null must deny
+        run: php tests/security/v12-registered-breach-null-failfirst.php
+      - name: Malformed recovery cooling-off must deny
+        if: always()
+        run: php tests/security/v12-recovery-date-failfirst.php
+      - name: Canonical collision finalization uncertainty
+        if: always()
+        run: php tests/security/v12-collision-finalization-failfirst.php
+      - name: Security timeline no PII or bearer details
+        if: always()
+        run: php -l tests/security/v12-timeline-private-evidence-failfirst.php && php tests/security/v12-timeline-private-evidence-failfirst.php
+      - name: Security timeline DB unavailability not false empty
+        if: always()
+        run: php -l tests/security/v12-timeline-read-failure-failfirst.php && php tests/security/v12-timeline-read-failure-failfirst.php
+      - name: Comprehensive inherited v12 source-security and acceptance gates
+        if: always()
+        run: |
+          set -e
+          php tests/security/not-me-stepup-failfirst.php
+          php tests/security/lockdown-postcondition-failfirst.php
+          php tests/security/recovery-finalization-failfirst.php
+          php tests/security/v12-i18n-source.php
+          php tests/security/v12-extended-views-i18n.php
+          php tests/security/v12-48-release-register.php
+          php tests/security/v12-green-rtl-source.php
+          php tests/security/v12-timeline-local-time-source.php
+          php tests/security/fedcm-finish-guard-source.php
+          php tests/security/collision-owner-handoff-preservation-source.php
+          php tests/security/v12-security-center-i18n-failfirst.php
+          php tests/security/breach-prefix-provider-failfirst.php
+          php tests/security/breach-hibp-optin-no-network.php
+          php tests/security/dpop-crypto-claim-failfirst.php
+          php tests/security/v12-timeline-private-evidence-failfirst.php
+          php tests/security/v12-timeline-read-failure-failfirst.php
+      - name: DPoP htu and JWK/alg strictness
+        if: always()
+        run: php tests/security/v12-dpop-htu-jwk-failfirst.php
