@@ -1,0 +1,46 @@
+name: File02 v12 — Session 3 fail-first boundary regressions
+on:
+  pull_request:
+    paths:
+      - 'includes/class-sauth-password-safety.php'
+      - 'includes/class-sauth-security-orchestrator.php'
+      - 'includes/class-sauth-dpop.php'
+      - 'tests/security/v12-registered-breach-null-failfirst.php'
+      - 'tests/security/v12-recovery-date-failfirst.php'
+      - 'tests/security/v12-collision-finalization-failfirst.php'
+      - 'tests/security/v12-dpop-htu-jwk-failfirst.php'
+      - '.github/workflows/file02-v12-session3-boundaries.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  boundary-fixtures:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['7.4','8.3']
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: shivammathur/setup-php@2.37.2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: none
+      - name: Lint all four fail-first fixtures
+        run: |
+          php -l tests/security/v12-registered-breach-null-failfirst.php
+          php -l tests/security/v12-recovery-date-failfirst.php
+          php -l tests/security/v12-collision-finalization-failfirst.php
+          php -l tests/security/v12-dpop-htu-jwk-failfirst.php
+      - name: Registered breach provider null must deny
+        run: php tests/security/v12-registered-breach-null-failfirst.php
+      - name: Malformed recovery cooling-off must deny
+        if: always()
+        run: php tests/security/v12-recovery-date-failfirst.php
+      - name: Canonical collision finalization uncertainty
+        if: always()
+        run: php tests/security/v12-collision-finalization-failfirst.php
+      - name: DPoP htu and JWK/alg strictness
+        if: always()
+        run: php tests/security/v12-dpop-htu-jwk-failfirst.php
