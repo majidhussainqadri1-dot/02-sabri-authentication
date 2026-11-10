@@ -49,6 +49,7 @@ jobs:
           set -euo pipefail
           tests=(
             tests/security-unit.php
+            tests/account-safety-guidance.php
             tests/cf01-assurance-unit.php
             tests/professional-reauthentication-unit.php
             tests/plan-harmonization-unit.php
