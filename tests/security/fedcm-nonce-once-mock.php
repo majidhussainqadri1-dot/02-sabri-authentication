@@ -20,7 +20,7 @@ class SA_Membership_Adapter {
     public static function audit($event, $id) { return true; }
 }
 class SAUTH_Login_Risk { public static function record_successful_login($id, $method, $risk) { return true; } }
-class SAUTH_Operations { public static function safe_mode() { return false; } }
+class SAUTH_Operations { public static function safe_mode() { return !empty($GLOBALS['fedcm_safe_mode']); } }
 $GLOBALS['fedcm_id']='00000000-0000-4000-8000-000000000001';
 $GLOBALS['fedcm_nonce']='nonce-at-test';
 $GLOBALS['fedcm_record']=array('nonce_hash'=>hash('sha256','nonce-at-test'),'fingerprint'=>'client-A','created_at'=>time(),'expires_at'=>time()+300);
@@ -29,6 +29,8 @@ $GLOBALS['fedcm_verified']=0;
 $GLOBALS['fedcm_cookies']=0;
 $GLOBALS['fedcm_claims']=array();
 $GLOBALS['fedcm_schedule_calls']=0;
+$GLOBALS['fedcm_safe_mode']=false;
+$GLOBALS['fedcm_verifier_registered']=true;
 function get_transient($key) { return $GLOBALS['fedcm_record']; }
 function delete_transient($key) { ++$GLOBALS['fedcm_deleted']; return true; }
 function add_option($key, $value, $deprecated='', $autoload=false) {
@@ -48,6 +50,7 @@ function apply_filters($hook, $default, ...$args) {
     if ($hook==='sauth_fedcm_verify_token_v1') { ++$GLOBALS['fedcm_verified']; return array('verified'=>true,'user_id'=>17); }
     return $default;
 }
+function has_filter($hook) { return $hook==='sauth_fedcm_verify_token_v1' && $GLOBALS['fedcm_verifier_registered'] ? 10 : false; }
 function get_userdata($id) { return $id===17 ? new WP_User() : false; }
 function wp_set_current_user($id) { return true; }
 function wp_set_auth_cookie($id, $remember, $secure) { ++$GLOBALS['fedcm_cookies']; }
@@ -66,6 +69,16 @@ require_once __DIR__ . '/../../includes/class-sauth-modern-auth.php';
 $invalid=f02_attempt('attacker-invalid-nonce');
 f02_assert(!$invalid->ok && ($invalid->data['code']??'')==='fedcm_nonce_invalid','invalid RP nonce did not fail');
 f02_assert($GLOBALS['fedcm_deleted']===0,'invalid nonce destructively consumed valid request');
+$GLOBALS['fedcm_safe_mode']=true;
+$blocked=f02_attempt($GLOBALS['fedcm_nonce']);
+f02_assert(!$blocked->ok && ($blocked->data['code']??'')==='safe_mode_active','FedCM finish bypassed Safe Mode');
+f02_assert(!$GLOBALS['fedcm_deleted'] && !$GLOBALS['fedcm_claims'],'Safe Mode consumed pending FedCM nonce');
+$GLOBALS['fedcm_safe_mode']=false;
+$GLOBALS['fedcm_verifier_registered']=false;
+$no_owner=f02_attempt($GLOBALS['fedcm_nonce']);
+f02_assert(!$no_owner->ok && ($no_owner->data['code']??'')==='fedcm_server_verification_unavailable','missing verifier was not rejected');
+f02_assert(!$GLOBALS['fedcm_deleted'] && !$GLOBALS['fedcm_claims'],'missing verifier consumed pending FedCM nonce');
+$GLOBALS['fedcm_verifier_registered']=true;
 $valid=f02_attempt($GLOBALS['fedcm_nonce']);
 f02_assert($valid->ok,'first verified FedCM callback was denied');
 $replay=f02_attempt($GLOBALS['fedcm_nonce']);

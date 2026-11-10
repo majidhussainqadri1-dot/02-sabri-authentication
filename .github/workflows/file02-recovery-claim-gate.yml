@@ -10,6 +10,7 @@ on:
       - 'tests/recovery-claim-owner-failure.php'
       - 'tests/recovery-owner-unavailable.php'
       - 'tests/security/fedcm-finish-guard-source.php'
+      - 'tests/security/collision-owner-handoff-preservation-source.php'
       - 'includes/class-sauth-modern-auth.php'
       - 'tests/recovery-claim-fingerprint-denial.php'
       - 'tests/recovery-claim-invalid-payload.php'
@@ -37,6 +38,8 @@ jobs:
 
       - name: Missing owner pending preservation (PHP mock)
         run: php -l tests/recovery-owner-unavailable.php && php tests/recovery-owner-unavailable.php
+      - name: Collision owner absent must not consume a browser handoff proof
+        run: php -l tests/security/collision-owner-handoff-preservation-source.php && php tests/security/collision-owner-handoff-preservation-source.php
       - name: FedCM fail-closed completion order (static)
         run: php -l tests/security/fedcm-finish-guard-source.php && php tests/security/fedcm-finish-guard-source.php
 
