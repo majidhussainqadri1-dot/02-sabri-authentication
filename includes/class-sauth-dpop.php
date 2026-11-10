@@ -22,11 +22,13 @@ final class SAUTH_DPoP {
 		$typ = strtolower( (string) ( $header['typ'] ?? '' ) );
 		$alg = (string) ( $header['alg'] ?? '' );
 		$jwk = isset( $header['jwk'] ) && is_array( $header['jwk'] ) ? $header['jwk'] : array();
-		if ( 'dpop+jwt' !== $typ || ! in_array( $alg, array( 'ES256','RS256' ), true ) || empty( $jwk ) || isset( $jwk['d'] ) || array_intersect( array( 'p','q','dp','dq','qi','oth','k' ), array_keys( $jwk ) ) ) {
+		if ( 'dpop+jwt' !== $typ || ! in_array( $alg, array( 'ES256','RS256' ), true ) || empty( $jwk ) || isset( $jwk['d'] ) || array_intersect( array( 'p','q','dp','dq','qi','oth','k' ), array_keys( $jwk ) )
+			|| ( 'ES256' === $alg && ( 'EC' !== ( $jwk['kty'] ?? '' ) || 'P-256' !== ( $jwk['crv'] ?? '' ) ) )
+			|| ( 'RS256' === $alg && 'RSA' !== ( $jwk['kty'] ?? '' ) ) ) {
 			return new WP_Error( 'sauth_dpop_header_invalid', 'DPoP header is invalid.' );
 		}
 		$htm = strtoupper( (string) ( $claims['htm'] ?? '' ) );
-		$htu = self::canonical_htu( (string) ( $claims['htu'] ?? '' ) );
+		$htu = self::canonical_htu( (string) ( $claims['htu'] ?? '' ), true );
 		$expected_htu = self::canonical_htu( (string) $url );
 		$iat_raw = $claims['iat'] ?? null;
 		// RFC NumericDate is a signed issuance instant, never an absolute value.
@@ -84,9 +86,13 @@ final class SAUTH_DPoP {
 		}
 	}
 
-	private static function canonical_htu( $url ) {
+	private static function canonical_htu( $url, $signed_claim = false ) {
 		$p = wp_parse_url( $url );
-		if ( ! is_array( $p ) || empty( $p['scheme'] ) || empty( $p['host'] ) ) { return ''; }
+		if ( ! is_array( $p ) || empty( $p['scheme'] ) || empty( $p['host'] )
+			|| isset( $p['user'] ) || isset( $p['pass'] )
+			|| ( $signed_claim && ( isset( $p['query'] ) || isset( $p['fragment'] ) ) ) ) { return ''; }
+		// The signed RFC 9449 htu claim must omit query/fragment and userinfo.
+		// The actual request URL may contain a query, which is not signed.
 		$scheme = strtolower( (string) $p['scheme'] );
 		if ( ! in_array( $scheme, array( 'https','http' ), true ) ) { return ''; }
 		$port = isset( $p['port'] ) ? ':' . absint( $p['port'] ) : '';

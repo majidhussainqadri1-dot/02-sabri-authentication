@@ -402,7 +402,11 @@ final class SAUTH_Security_Orchestrator {
 			array( 'public_id'=>$public_id, 'status'=>'processing' ),
 			array( '%d','%s','%s' ), array( '%s','%s' )
 		);
-		if ( 1 !== (int) $changed ) { return new WP_Error( 'sauth_collision_state_race', 'Account-resolution state changed. Retry safely.' ); }
+		if ( 1 !== (int) $changed ) {
+			// Canonical File00 owner MAY already have approved/mutated identity.
+			// Processing is intentionally retained: never advertise retry or replay.
+			return new WP_Error( 'sauth_collision_reconciliation_required', 'Account-resolution owner outcome is uncertain; supervised reconciliation is required before further action.' );
+		}
 		self::timeline_event( absint( $result['user_id'] ), 'account_collision_resolved', 'high', array( 'method'=>'canonical_owner_verification' ) );
 		return array( 'result'=>'allow', 'user_id'=>absint( $result['user_id'] ) );
 	}
@@ -473,7 +477,18 @@ final class SAUTH_Security_Orchestrator {
 			return new WP_Error( 'sauth_safe_mode_active', 'High-risk account resolution is paused by Safe Mode.' );
 		}
 		$row=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.SAUTH_Activator::table('recovery_changes').' WHERE public_id=%s',$public_id),ARRAY_A);
-		if(!is_array($row)||'pending'!==(string)$row['status']||strtotime((string)$row['apply_after'])>time()){return new WP_Error('sauth_recovery_not_ready','Recovery change is not ready.');}
+		if(!is_array($row)||'pending'!==(string)$row['status']){return new WP_Error('sauth_recovery_not_ready','Recovery change is not ready.');}
+		// Database stores UTC. An unreadable/invalid cooling-off date must
+		// NOT be coerced to false (epoch 0) and treated as already elapsed.
+		$apply_after = $row['apply_after'] ?? null;
+		if(!is_string($apply_after) || !preg_match('/^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}$/D',$apply_after)){
+			return new WP_Error('sauth_recovery_not_ready','Recovery cooling-off time is unverifiable.');
+		}
+		$scheduled = DateTimeImmutable::createFromFormat('!Y-m-d H:i:s',$apply_after,new DateTimeZone('UTC'));
+		$calendar_errors = DateTimeImmutable::getLastErrors();
+		if(!$scheduled || $scheduled->format('Y-m-d H:i:s')!==$apply_after || (is_array($calendar_errors) && ($calendar_errors['warning_count'] || $calendar_errors['error_count'])) || $scheduled->getTimestamp()>time()){
+			return new WP_Error('sauth_recovery_not_ready','Recovery cooling-off time has not been verified as elapsed.');
+		}
 		$expected=SA_Security::decrypt((string)$row['owner_token_ciphertext']);
 		if(false===$expected||!hash_equals((string)$expected,(string)$owner_token)){return new WP_Error('sauth_recovery_token_invalid','Recovery change token is invalid.');}
 		// Collision resolution has a dedicated short-lived, fingerprint-bound owner flow.
