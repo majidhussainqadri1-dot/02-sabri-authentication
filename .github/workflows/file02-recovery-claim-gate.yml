@@ -11,6 +11,7 @@ on:
       - 'tests/recovery-owner-unavailable.php'
       - 'tests/security/fedcm-finish-guard-source.php'
       - 'tests/security/collision-owner-handoff-preservation-source.php'
+      - 'tests/security/not-me-stepup-failfirst.php'
       - 'includes/class-sauth-modern-auth.php'
       - 'tests/recovery-claim-fingerprint-denial.php'
       - 'tests/recovery-claim-invalid-payload.php'
@@ -51,6 +52,9 @@ jobs:
 
       - name: V12 canonical green and RTL source boundaries
         run: php -l tests/security/v12-green-rtl-source.php && php tests/security/v12-green-rtl-source.php
+
+      - name: F02 v12 fail-first session containment and risk-gated step-up (PHP mock)
+        run: php -l tests/security/not-me-stepup-failfirst.php && php tests/security/not-me-stepup-failfirst.php
 
       - name: Bounded privacy-safe recovery queue inspection (PHP mock)
         run: php tests/security/reconciliation-summary-bounded.php
