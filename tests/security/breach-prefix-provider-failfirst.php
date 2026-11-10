@@ -15,7 +15,7 @@ function absint($x){return abs((int)$x);}
 $GLOBALS['prefixResponse']=null;
 $GLOBALS['prefixCalls']=array();
 function apply_filters($hook,$initial,$prefix){
- if($hook!=='sauth_breached_password_prefix_lookup_v1')exit("wrong provider hook\n");
+ if($hook!=='sauth_breached_password_prefix_lookup_v1'){fwrite(STDERR, "wrong provider hook\n");exit(1);}
  $GLOBALS['prefixCalls'][]=$prefix;
  return $GLOBALS['prefixResponse'];
 }
