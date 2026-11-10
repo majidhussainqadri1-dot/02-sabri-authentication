@@ -10,7 +10,10 @@ final class SAUTH_Account_Safety {
     public static function registration_acknowledged( array $input ) {
         return isset( $input['accept_security_rules'] )
             && is_scalar( $input['accept_security_rules'] )
-            && hash_equals( '1', (string) $input['accept_security_rules'] );
+            && hash_equals( '1', (string) $input['accept_security_rules'] )
+            && isset( $input['security_policy_version'] )
+            && is_string( $input['security_policy_version'] )
+            && hash_equals( self::POLICY_VERSION, $input['security_policy_version'] );
     }
 
     public static function render() {
