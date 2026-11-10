@@ -10,6 +10,11 @@ on:
       - 'tests/recovery-claim-owner-failure.php'
       - 'tests/recovery-owner-unavailable.php'
       - 'tests/security/fedcm-finish-guard-source.php'
+      - 'tests/security/v12-i18n-source.php'
+      - 'languages/**'
+      - 'templates/login.php'
+      - 'templates/signup.php'
+      - 'tools/build-package.sh'
       - 'tests/security/collision-owner-handoff-preservation-source.php'
       - 'tests/security/not-me-stepup-failfirst.php'
       - 'includes/class-sauth-modern-auth.php'
@@ -49,6 +54,9 @@ jobs:
 
       - name: Malformed payload must fail closed before claim (mock only)
         run: php tests/recovery-claim-invalid-payload.php
+
+      - name: WordPress 7 Urdu/Arabic translation catalog and packaging source gate
+        run: php -l tests/security/v12-i18n-source.php && php tests/security/v12-i18n-source.php
 
       - name: V12 canonical green and RTL source boundaries
         run: php -l tests/security/v12-green-rtl-source.php && php tests/security/v12-green-rtl-source.php

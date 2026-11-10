@@ -188,6 +188,12 @@ function sauth_start_plugin() {
 }
 add_action( 'plugins_loaded', 'sauth_start_plugin', 30 );
 
+/** Register WP 6.5+ translation catalogs after locale initialization. */
+function sauth_register_textdomain() {
+	load_plugin_textdomain( 'sabri-authentication', false, dirname( plugin_basename( SAUTH_FILE ) ) . '/languages' );
+}
+add_action( 'init', 'sauth_register_textdomain', 1 );
+
 /* Legacy bootstrap hook retained for integrations that explicitly call it. */
 if ( ! function_exists( 'sa_start_plugin' ) ) {
 	function sa_start_plugin() {
