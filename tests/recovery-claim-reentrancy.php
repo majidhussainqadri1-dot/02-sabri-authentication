@@ -55,7 +55,7 @@ function apply_filters($hook, ...$args) {
     return null;
 }
 // Simulate WordPress's registered canonical-owner filter for this isolated mock.
-function has_filter($hook) { return $hook === 'sauth_resolve_collision_case_v1' ? 10 : false; }
+function has_filter($hook) { return in_array($hook, ['sauth_resolve_collision_case_v1','sauth_apply_recovery_change_v1'], true) ? 10 : false; }
 $wpdb = new ClaimRaceDB();
 require_once __DIR__ . '/../includes/class-sauth-security-orchestrator.php';
 $cases = array(

@@ -8,6 +8,9 @@ on:
       - 'tests/recovery-once-claim-gate.php'
       - 'tests/recovery-claim-reentrancy.php'
       - 'tests/recovery-claim-owner-failure.php'
+      - 'tests/recovery-owner-unavailable.php'
+      - 'tests/security/fedcm-finish-guard-source.php'
+      - 'includes/class-sauth-modern-auth.php'
       - 'tests/recovery-claim-fingerprint-denial.php'
       - 'tests/recovery-claim-invalid-payload.php'
       - '.github/workflows/file02-recovery-claim-gate.yml'
@@ -32,11 +35,19 @@ jobs:
       - name: Owner failure and replay containment (mock only)
         run: php tests/recovery-claim-owner-failure.php
 
+      - name: Missing owner pending preservation (PHP mock)
+        run: php -l tests/recovery-owner-unavailable.php && php tests/recovery-owner-unavailable.php
+      - name: FedCM fail-closed completion order (static)
+        run: php -l tests/security/fedcm-finish-guard-source.php && php tests/security/fedcm-finish-guard-source.php
+
       - name: Collision fingerprint mismatch denial (mock only)
         run: php tests/recovery-claim-fingerprint-denial.php
 
       - name: Malformed payload must fail closed before claim (mock only)
         run: php tests/recovery-claim-invalid-payload.php
+
+      - name: V12 canonical green and RTL source boundaries
+        run: php -l tests/security/v12-green-rtl-source.php && php tests/security/v12-green-rtl-source.php
 
       - name: Bounded privacy-safe recovery queue inspection (PHP mock)
         run: php tests/security/reconciliation-summary-bounded.php

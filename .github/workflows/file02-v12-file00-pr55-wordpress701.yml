@@ -175,6 +175,11 @@ jobs:
           /tmp/wp eval 'if (!defined("SMC_VERSION") || SMC_VERSION!=="1.2.44") exit(1); if (!defined("SAUTH_VERSION") || SAUTH_VERSION!=="1.4.0") exit(1); if (!defined("SAUTH_DB_VERSION") || SAUTH_DB_VERSION!=="1.4.0") exit(1); if (SAUTH_Passkeys::SCHEMA_VERSION!=="1.1.0") exit(1); if (!defined("SAUTH_PASSKEY_CONTRACT_VERSION") || SAUTH_PASSKEY_CONTRACT_VERSION!=="1.0.0") exit(1); if(!SA_Security::master_key_ready()) exit(1);' --path=/tmp/wordpress
           echo 'Exact current File 00 1.2.44/File 02 1.4.0 fresh-install, R341 legacy email reconciliation, canonical membership routes, canonical taxonomy, passkey-upgrade, exact deployed stale-index recovery, legacy logical-identity collision and active-router migration PASS.'
 
+      - name: Real missing recovery owner and replay preclaim protection
+        run: |
+          set -euo pipefail
+          php -l file02/tests/integration/recovery-owner-unavailable-mariadb.php
+          /tmp/wp eval-file file02/tests/integration/recovery-owner-unavailable-mariadb.php --path=/tmp/wordpress
       - name: Real two-process recovery race on WordPress 7.0.1 and MariaDB 11.4
         run: |
           set -euo pipefail

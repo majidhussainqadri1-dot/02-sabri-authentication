@@ -354,9 +354,14 @@ final class SAUTH_Security_Orchestrator {
 		$case = isset( $_POST['case'] ) ? sanitize_text_field( wp_unslash( $_POST['case'] ) ) : '';
 		$proof = isset( $_POST['proof'] ) ? (string) wp_unslash( $_POST['proof'] ) : '';
 		$handoff_key = 'sauth_collision_' . hash_hmac( 'sha256', $case . '|' . SA_Security::client_fingerprint(), wp_salt( 'auth' ) );
-		delete_transient( $handoff_key );
 		$result = self::resolve_collision_case( $case, $proof );
 		$proof = ''; unset( $_POST['proof'] );
+		if ( is_wp_error( $result ) && 'sauth_collision_owner_unavailable' === $result->get_error_code() ) {
+			// The owner has not acted: keep the short-lived proof only server-side.
+			wp_safe_redirect( add_query_arg( array( 'case'=>$case, 'status'=>'temporarily_unavailable' ), home_url( '/resolve-account/' ) ) );
+			exit;
+		}
+		delete_transient( $handoff_key );
 		if ( is_wp_error( $result ) ) {
 			wp_safe_redirect( add_query_arg( 'status', 'verification_required', home_url( '/resolve-account/' ) ) );
 			exit;
@@ -415,6 +420,11 @@ final class SAUTH_Security_Orchestrator {
 		$payload_json=SA_Security::decrypt((string)$row['payload_ciphertext']);
 		$payload=is_string($payload_json)?json_decode($payload_json,true):null;
 		if(!is_array($payload)){return new WP_Error('sauth_recovery_payload_invalid','Recovery change payload is unreadable.');}
+		// An absent canonical owner has performed no side effects: preserve pending.
+		// Once invoked, uncertain owner effects remain processing; no replay.
+		if ( false === has_filter( 'sauth_apply_recovery_change_v1' ) ) {
+			return new WP_Error( 'sauth_recovery_owner_unavailable', 'Canonical recovery authorization is temporarily unavailable.' );
+		}
 		// Atomic one-time claim: a competing worker must never reach the owner.
 		// Keep uncertain outcomes in processing for manual reconciliation.
 		$claim=$wpdb->update(SAUTH_Activator::table('recovery_changes'),array('status'=>'processing','updated_at'=>current_time('mysql',true)),array('public_id'=>$public_id,'status'=>'pending'),array('%s','%s'),array('%s','%s'));
@@ -461,6 +471,7 @@ final class SAUTH_Security_Orchestrator {
 		<section class="sa-auth-shell"><div class="sa-auth-card"><h1>Resolve Existing Account</h1>
 		<p>Accounts are never merged silently or from email alone. This flow uses an opaque, one-time, fingerprint-bound case and requires verification by the canonical File 00 identity owner.</p>
 		<?php if ( 'verification_required' === $status ) : ?><div class="sa-notice sa-notice-error" role="status">Additional canonical identity verification is required. No account was merged.</div><?php endif; ?>
+		<?php if ( 'temporarily_unavailable' === $status ) : ?><div class="sa-notice sa-notice-error" role="status">Verification is temporarily unavailable. No account was merged; your protected proof retains only its original short lifetime.</div><?php endif; ?>
 		<?php if ( $case && $proof ) : ?><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 		<input type="hidden" name="action" value="sauth_resolve_collision"><input type="hidden" name="case" value="<?php echo esc_attr( $case ); ?>"><input type="hidden" name="proof" value="<?php echo esc_attr( $proof ); ?>">
 		<?php wp_nonce_field( 'sauth_resolve_collision', 'sauth_nonce' ); ?><button class="sa-primary-button" type="submit">Verify and Continue Safely</button></form>

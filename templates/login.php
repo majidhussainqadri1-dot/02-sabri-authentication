@@ -1,5 +1,5 @@
 <?php defined( 'ABSPATH' ) || exit; ?>
-<main class="sa-auth-shell">
+<main class="sa-auth-shell" dir="<?php echo esc_attr( is_rtl() ? 'rtl' : 'ltr' ); ?>">
 	<section class="sa-auth-card" aria-labelledby="sa-login-title">
 		<div class="sa-brand-mark">SH</div><span class="sa-kicker">Sabri Social Homeopathy Platform</span>
 		<h1 id="sa-login-title">Secure Member Access</h1>

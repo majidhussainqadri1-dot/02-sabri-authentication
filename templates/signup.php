@@ -1,5 +1,5 @@
 <?php defined( 'ABSPATH' ) || exit; ?>
-<main class="sa-auth-shell">
+<main class="sa-auth-shell" dir="<?php echo esc_attr( is_rtl() ? 'rtl' : 'ltr' ); ?>">
 	<section class="sa-auth-card sa-auth-wide" aria-labelledby="sa-signup-title">
 		<div class="sa-brand-mark" aria-hidden="true">SH</div><span class="sa-kicker">Verified membership</span>
 		<h1 id="sa-signup-title">Create a Verified Account</h1>
