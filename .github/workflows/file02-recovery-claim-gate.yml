@@ -12,6 +12,8 @@ on:
       - 'tests/security/fedcm-finish-guard-source.php'
       - 'tests/security/v12-i18n-source.php'
       - 'tests/security/v12-extended-views-i18n.php'
+      - 'tests/security/v12-48-release-register.php'
+      - 'review-evidence/F02-V12-2026-11-10-48-ACCEPTANCE-REGISTER.json'
       - 'tests/security/v12-timeline-local-time-source.php'
       - 'languages/**'
       - 'templates/login.php'
@@ -61,6 +63,9 @@ jobs:
 
       - name: Timeline UTC to WordPress locale and timezone formatting
         run: php -l tests/security/v12-timeline-local-time-source.php && php tests/security/v12-timeline-local-time-source.php
+      - name: Exact v12 forty-eight ID register and zero false production acceptance
+        run: php -l tests/security/v12-48-release-register.php && php tests/security/v12-48-release-register.php
+
       - name: Urdu/Arabic extended recovery, Google and membership views (source)
         run: php -l tests/security/v12-extended-views-i18n.php && php tests/security/v12-extended-views-i18n.php
 
