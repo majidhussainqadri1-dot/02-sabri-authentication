@@ -1,3 +1,16 @@
+## Additional v12 candidate acceptance barriers — 10 November 2026 Draft PR #26
+
+- [ ] On a clone and actual configured custom breached-password callback, unavailable or null response must prevent a password change; opt-in HIBP remains disabled unless approved, and no raw/full hash can leave the environment.
+- [ ] Recovery `apply_after` UTC broken/overflow/future timestamps never invoke File00 owner; verify legal delays, concurrency, and audit.
+- [ ] Canonical Collision owner action completed then DB final state write fails: no replay, explicit reconciliation, strict 600-second proof.
+- [ ] DPoP JWT htu refuses signed query/fragment/userinfo and JOSE alg/key-type mismatch; approved real JWS verifier confirms signature before replay claim.
+- [ ] Security Timeline values and historical rows audited for sensitive data; no unapproved PII/bearer retention under applicable privacy/hold policy.
+- [ ] Timeline DB fault injection renders a visible unavailable alert, not false empty history.
+- [ ] This Was Not Me when compromise-watch write fails never returns contained success; review emergency session containment and user-notification semantics.
+- [ ] Source CI `exit(string)` negative-test false-green permanently excluded by verified nonzero-exit audit; all 20 source fixtures re-run on exact commit, PHP 7.4 and 8.3.
+- [ ] Security Center + Collision Wizard Urdu/Arabic/RTL browser, touch and screen-reader workflows accepted; disposable WordPress PHP catalogs are insufficient alone.
+- [ ] Hostinger Live Reality Freeze + exact deployed artifact/DB and migrated state verified before any Production claim.
+
 # File 02 Staging Acceptance — Version 1.4.0 Modern Authentication 24
 
 Staging must prove fresh-install and supported 1.3.x upgrade to runtime/DB/passkey `1.4.0 / 1.4.0 / 1.1.0`; all prior R343 behavior; the three new tables; all F02-X-24-001..024 source-to-runtime paths; conditional/hybrid passkeys on real browsers; browser credential signals; security timeline/not-me/lockdown; recovery cooling/collision flow; CAEP/RISC replay/authorization; Assurance v2; password privacy; DPoP/FIDO adapters where configured; exact related-origin manifest; FedCM only with real server verifier; privacy export/erasure; accessibility/RTL/performance; backup/restore/rollback. **Modern Authentication 24** is not production-accepted merely because repository CI passes.

@@ -1,3 +1,5 @@
+> **2026-11-10 PR #26 Source Hardening Addendum:** DPoP now rejects signed `htu` query/fragment/userinfo and JOSE `alg`/JWK mismatch *before* approved external cryptographic verifier; no actual provider is thereby authenticated. A registered but `null` breached-password callback now fails closed instead of silently falling back. The external release-gate view from PR #25 still reports registered/unverified; no provider is production accepted. Source/CI proof and live reality remain separate.
+
 # File 02 v12 — External adapters, operator gates and deployment acceptance
 
 ## Security ownership
