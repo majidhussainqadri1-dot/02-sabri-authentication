@@ -1,6 +1,6 @@
 <?php
 /* F02-X24-023 structural: fail-closed FedCM completion, not provider acceptance. */
-$s=file_get_contents(__DIR__.'/../includes/class-sauth-modern-auth.php');
+$s=file_get_contents(dirname(__DIR__,2).'/includes/class-sauth-modern-auth.php');
 $a=strpos($s,'public static function fedcm_finish_ajax()');$b=strpos($s,'public static function expire_fedcm_claim(',$a);
 if($a===false||$b===false){fwrite(STDERR, "FAIL boundary\n");exit(1);}
 $f=substr($s,$a,$b-$a);
