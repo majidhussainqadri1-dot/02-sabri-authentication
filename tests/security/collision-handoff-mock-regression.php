@@ -41,6 +41,8 @@ function home_url($path='') { return 'https://example.test'.$path; }
 function wp_unslash($x) { return stripslashes($x); }
 function sanitize_text_field($x) { return trim(strip_tags($x)); }
 function esc_url($x) { return htmlspecialchars($x, ENT_QUOTES); }
+function is_rtl(){return false;}
+function esc_html__($value,$domain=''){return (string)$value;}
 function esc_attr($x) { return htmlspecialchars($x, ENT_QUOTES); }
 function admin_url($path) { return 'https://example.test/wp-admin/'.$path; }
 function wp_nonce_field($action, $name) { echo '<input type="hidden" name="'.$name.'" value="mock">'; }

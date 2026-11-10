@@ -554,22 +554,22 @@ final class SAUTH_Security_Orchestrator {
 	public static function recovery_cancel_ajax() { wp_send_json_error(array('code'=>'use_canonical_owner_flow'),409); }
 
 	public static function render_security_center() {
-		if(!is_user_logged_in()){return '<div class="sa-auth-shell"><p>Sign in to review account security.</p></div>';}
+		if(!is_user_logged_in()){return '<div class="sa-auth-shell"><p>'.esc_html__( 'Sign in to review account security.', 'sabri-authentication' ).'</p></div>';}
 		$rows=self::timeline(get_current_user_id(),30);
 		$timeline_unavailable = is_wp_error( $rows );
 		if ( $timeline_unavailable ) { $rows = array(); }
 		ob_start(); ?>
-		<main class="sa-auth-shell"><section class="sa-auth-card" aria-labelledby="sauth-security-title">
-		<h1 id="sauth-security-title">Account Security</h1>
-		<p>Review recent authentication activity. Exact IP addresses and secrets are not displayed.</p>
-		<button type="button" class="sa-secondary-button" data-sauth-lockdown>Secure My Account</button>
+		<main class="sa-auth-shell" dir="<?php echo esc_attr( is_rtl() ? 'rtl' : 'ltr' ); ?>"><section class="sa-auth-card" aria-labelledby="sauth-security-title">
+		<h1 id="sauth-security-title"><?php echo esc_html__( 'Account Security', 'sabri-authentication' ); ?></h1>
+		<p><?php echo esc_html__( 'Review recent authentication activity. Exact IP addresses and secrets are not displayed.', 'sabri-authentication' ); ?></p>
+		<button type="button" class="sa-secondary-button" data-sauth-lockdown><?php echo esc_html__( 'Secure My Account', 'sabri-authentication' ); ?></button>
 		<?php if ( $timeline_unavailable ) : ?><p class="sa-notice sa-notice-error" role="alert"><?php echo esc_html__( 'Security activity cannot be verified at the moment.', 'sabri-authentication' ); ?></p><?php endif; ?>
 		<ul class="sauth-security-timeline">
 		<?php foreach($rows as $row): ?><li><strong><?php echo esc_html(ucwords(str_replace('_',' ',(string)$row['event_type']))); ?></strong> — <?php
 			$auth_time_utc = strtotime( (string)$row['created_at'] . ' UTC' );
 			$auth_time_format = (string)get_option('date_format','Y-m-d') . ' ' . (string)get_option('time_format','H:i');
 			echo false === $auth_time_utc ? esc_html__( 'Time unavailable', 'sabri-authentication' ) : esc_html( wp_date( $auth_time_format, $auth_time_utc ) );
-		?> <button type="button" data-sauth-not-me="<?php echo esc_attr((string)$row['public_id']); ?>">This was not me</button></li><?php endforeach; ?>
+		?> <button type="button" data-sauth-not-me="<?php echo esc_attr((string)$row['public_id']); ?>"><?php echo esc_html__( 'This was not me', 'sabri-authentication' ); ?></button></li><?php endforeach; ?>
 		</ul></section></main><?php return (string)ob_get_clean();
 	}
 	public static function render_collision_resolution(){
@@ -581,14 +581,14 @@ final class SAUTH_Security_Orchestrator {
 		}
 		$status = isset( $_GET['status'] ) ? sanitize_key( wp_unslash( $_GET['status'] ) ) : '';
 		ob_start(); ?>
-		<section class="sa-auth-shell"><div class="sa-auth-card"><h1>Resolve Existing Account</h1>
-		<p>Accounts are never merged silently or from email alone. This flow uses an opaque, one-time, fingerprint-bound case and requires verification by the canonical File 00 identity owner.</p>
-		<?php if ( 'verification_required' === $status ) : ?><div class="sa-notice sa-notice-error" role="status">Additional canonical identity verification is required. No account was merged.</div><?php endif; ?>
-		<?php if ( 'temporarily_unavailable' === $status ) : ?><div class="sa-notice sa-notice-error" role="status">Verification is temporarily unavailable. No account was merged; your protected proof retains only its original short lifetime.</div><?php endif; ?>
+		<section class="sa-auth-shell" dir="<?php echo esc_attr( is_rtl() ? 'rtl' : 'ltr' ); ?>"><div class="sa-auth-card"><h1><?php echo esc_html__( 'Resolve Existing Account', 'sabri-authentication' ); ?></h1>
+		<p><?php echo esc_html__( 'Accounts are never merged silently or from email alone. This flow uses an opaque, one-time, fingerprint-bound case and requires verification by the canonical File 00 identity owner.', 'sabri-authentication' ); ?></p>
+		<?php if ( 'verification_required' === $status ) : ?><div class="sa-notice sa-notice-error" role="status"><?php echo esc_html__( 'Additional canonical identity verification is required. No account was merged.', 'sabri-authentication' ); ?></div><?php endif; ?>
+		<?php if ( 'temporarily_unavailable' === $status ) : ?><div class="sa-notice sa-notice-error" role="status"><?php echo esc_html__( 'Verification is temporarily unavailable. No account was merged; your protected proof retains only its original short lifetime.', 'sabri-authentication' ); ?></div><?php endif; ?>
 		<?php if ( $case && $proof ) : ?><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 		<input type="hidden" name="action" value="sauth_resolve_collision"><input type="hidden" name="case" value="<?php echo esc_attr( $case ); ?>"><input type="hidden" name="proof" value="<?php echo esc_attr( $proof ); ?>">
-		<?php wp_nonce_field( 'sauth_resolve_collision', 'sauth_nonce' ); ?><button class="sa-primary-button" type="submit">Verify and Continue Safely</button></form>
-		<?php else : ?><p>Start from the registration, sign-in, or account-recovery flow so a protected resolution case can be created without exposing whether an identifier exists.</p><?php endif; ?>
+		<?php wp_nonce_field( 'sauth_resolve_collision', 'sauth_nonce' ); ?><button class="sa-primary-button" type="submit"><?php echo esc_html__( 'Verify and Continue Safely', 'sabri-authentication' ); ?></button></form>
+		<?php else : ?><p><?php echo esc_html__( 'Start from the registration, sign-in, or account-recovery flow so a protected resolution case can be created without exposing whether an identifier exists.', 'sabri-authentication' ); ?></p><?php endif; ?>
 		</div></section><?php return (string)ob_get_clean();
 	}
 
