@@ -166,6 +166,12 @@ final class SAUTH_Security_Orchestrator {
 		$owned=$wpdb->get_var($wpdb->prepare('SELECT public_id FROM '.SAUTH_Activator::table('security_timeline').' WHERE public_id=%s AND user_id=%d',$timeline_id,$user_id));
 		if(!$owned){return new WP_Error('sauth_timeline_event_not_found','Security event not found.');}
 		update_user_meta($user_id,self::COMPROMISE_META,array('started_at'=>time(),'expires_at'=>time()+7*DAY_IN_SECONDS,'reason'=>'unrecognized_event'));
+		if ( ! self::compromise_watch( $user_id ) ) {
+			// A failed user-meta write may otherwise return false success while
+			// future login risk sees no active compromise watch.
+			self::emergency_lockdown( $user_id, 'unrecognized_event_watch_unverified' );
+			return new WP_Error( 'sauth_not_me_compromise_watch_unverified', 'The security watch could not be durably verified; additional account containment was attempted.' );
+		}
 		$revoked = SAUTH_Session_Manager::revoke_other_sessions($user_id,(string)wp_get_session_token(),'unrecognized_security_event');
 		if ( true !== $revoked ) {
 			// Never acknowledge containment when WordPress/File 02 revocation
