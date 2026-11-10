@@ -10,11 +10,15 @@ foreach(['ur','ar'] as $locale){
  $path=$root.'/languages/'.$domain.'-'.$locale.'.l10n.php';
  if(!is_file($path))exit("FAIL missing ".$locale." language file\n");
  $catalog=require $path;
- if(!is_array($catalog)||!is_array($catalog['messages']??null)||count($catalog['messages'])<40)exit("FAIL incomplete ".$locale." catalog\n");
+ if(!is_array($catalog)||!is_array($catalog['messages']??null)||count($catalog['messages'])<68)exit("FAIL incomplete ".$locale." catalog\n");
  foreach(['Secure Member Access','Create a Verified Account','Password','Confirm password','I accept the current Terms of Use.'] as $msg){
   if(empty($catalog['messages'][$msg]))exit("FAIL untranslated ".$locale." ".$msg."\n");
  }
 }
+$js=file_get_contents($root.'/assets/js/authentication.js');
+if(substr_count($js,'tr(')<16 || strpos($js,'SabriAuthI18n')===false)exit("FAIL translatable browser UI\n");
+$loader=file_get_contents($root.'/includes/class-sa-plugin.php');
+if(strpos($loader,"'SabriAuthI18n'")===false)exit("FAIL localized JS strings not passed from WordPress\n");
 $builder=file_get_contents($root.'/tools/build-package.sh');
 if(strpos($builder,"  languages\n")===false)exit("FAIL language catalogs omitted from installable package\n");
 echo "PASS WordPress PHP i18n catalogs included; key auth UI strings translatable (static).\n";
