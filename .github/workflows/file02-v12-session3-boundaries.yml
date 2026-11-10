@@ -14,6 +14,9 @@ on:
       - 'tests/security/v12-ci-exitcode-audit.php'
       - 'tests/security/v12-security-center-i18n-failfirst.php'
       - '.github/workflows/file02-v12-session3-boundaries.yml'
+  push:
+    branches:
+      - 'audit/f02-v12-session3-20261110-recovery-dpop'
   workflow_dispatch:
 permissions:
   contents: read
@@ -56,6 +59,26 @@ jobs:
       - name: Security timeline DB unavailability not false empty
         if: always()
         run: php -l tests/security/v12-timeline-read-failure-failfirst.php && php tests/security/v12-timeline-read-failure-failfirst.php
+      - name: Comprehensive inherited v12 source-security and acceptance gates
+        if: always()
+        run: |
+          set -e
+          php tests/security/not-me-stepup-failfirst.php
+          php tests/security/lockdown-postcondition-failfirst.php
+          php tests/security/recovery-finalization-failfirst.php
+          php tests/security/v12-i18n-source.php
+          php tests/security/v12-extended-views-i18n.php
+          php tests/security/v12-48-release-register.php
+          php tests/security/v12-green-rtl-source.php
+          php tests/security/v12-timeline-local-time-source.php
+          php tests/security/fedcm-finish-guard-source.php
+          php tests/security/collision-owner-handoff-preservation-source.php
+          php tests/security/v12-security-center-i18n-failfirst.php
+          php tests/security/breach-prefix-provider-failfirst.php
+          php tests/security/breach-hibp-optin-no-network.php
+          php tests/security/dpop-crypto-claim-failfirst.php
+          php tests/security/v12-timeline-private-evidence-failfirst.php
+          php tests/security/v12-timeline-read-failure-failfirst.php
       - name: DPoP htu and JWK/alg strictness
         if: always()
         run: php tests/security/v12-dpop-htu-jwk-failfirst.php
