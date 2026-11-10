@@ -66,10 +66,26 @@ final class SAUTH_Security_Orchestrator {
 		$severity = in_array( $severity, array( 'low','medium','high','critical' ), true ) ? $severity : 'low';
 		if ( ! $user_id || '' === $event_type ) { return false; }
 		$safe = array();
+		// Detail VALUES, not only detail KEYS, are an exfiltration boundary.
+		// Only strictly coded, bounded diagnostic fields may be persisted;
+		// email, IP, URLs, bearer text, free-form PII and arbitrary payloads
+		// must not survive a security event emitted by another module.
+		$allowed_keys = array( 'method','reason','kind','risk','risk_score','step_up','completion_required','source_event','apply_after','source' );
 		foreach ( array_slice( $details, 0, 20, true ) as $k=>$v ) {
 			$k = sanitize_key( (string) $k );
-			if ( '' === $k || preg_match( '/password|secret|token|cookie|ip|email|phone|address/', $k ) ) { continue; }
-			$safe[$k] = is_scalar($v) ? substr(sanitize_text_field((string)$v),0,240) : '';
+			if ( ! in_array( $k, $allowed_keys, true ) || ! is_scalar( $v ) ) { continue; }
+			if ( 'source_event' === $k ) {
+				$value = strtolower( trim( (string) $v ) );
+				if ( preg_match( '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/D', $value ) ) { $safe[$k] = $value; }
+			} elseif ( 'risk_score' === $k || 'apply_after' === $k ) {
+				$value = (string) $v;
+				if ( preg_match( '/^(?:0|[1-9][0-9]{0,10})$/D', $value ) && ( 'apply_after' === $k || (int) $value <= 100 ) ) { $safe[$k] = (int) $value; }
+			} elseif ( 'step_up' === $k || 'completion_required' === $k ) {
+				if ( is_bool( $v ) || 0 === $v || 1 === $v ) { $safe[$k] = (bool) $v; }
+			} else {
+				$value = strtolower( trim( (string) $v ) );
+				if ( preg_match( '/^[a-z][a-z0-9_]{0,63}$/D', $value ) && ! preg_match( '/(?:bearer|secret|token|api_key|private_key)/i', $value ) ) { $safe[$k] = $value; }
+			}
 		}
 		$public_id = strtolower( wp_generate_uuid4() );
 		$stored = $wpdb->insert(
@@ -88,7 +104,9 @@ final class SAUTH_Security_Orchestrator {
 		global $wpdb;
 		$limit = max( 1, min( 100, absint( $limit ) ) );
 		$rows = $wpdb->get_results( $wpdb->prepare( 'SELECT public_id,event_type,severity,details_json,created_at FROM ' . SAUTH_Activator::table('security_timeline') . ' WHERE user_id=%d ORDER BY id DESC LIMIT %d', absint($user_id), $limit ), ARRAY_A );
-		if ( ! is_array($rows) ) { return array(); }
+		if ( ! is_array($rows) || '' !== (string) $wpdb->last_error ) {
+			return new WP_Error( 'sauth_timeline_unavailable', 'Account-security activity cannot be verified at the moment.' );
+		}
 		foreach ( $rows as &$row ) { $row['details'] = json_decode((string)$row['details_json'],true); unset($row['details_json']); }
 		unset($row);
 		return $rows;
@@ -537,11 +555,15 @@ final class SAUTH_Security_Orchestrator {
 
 	public static function render_security_center() {
 		if(!is_user_logged_in()){return '<div class="sa-auth-shell"><p>Sign in to review account security.</p></div>';}
-		$rows=self::timeline(get_current_user_id(),30); ob_start(); ?>
+		$rows=self::timeline(get_current_user_id(),30);
+		$timeline_unavailable = is_wp_error( $rows );
+		if ( $timeline_unavailable ) { $rows = array(); }
+		ob_start(); ?>
 		<main class="sa-auth-shell"><section class="sa-auth-card" aria-labelledby="sauth-security-title">
 		<h1 id="sauth-security-title">Account Security</h1>
 		<p>Review recent authentication activity. Exact IP addresses and secrets are not displayed.</p>
 		<button type="button" class="sa-secondary-button" data-sauth-lockdown>Secure My Account</button>
+		<?php if ( $timeline_unavailable ) : ?><p class="sa-notice sa-notice-error" role="alert"><?php echo esc_html__( 'Security activity cannot be verified at the moment.', 'sabri-authentication' ); ?></p><?php endif; ?>
 		<ul class="sauth-security-timeline">
 		<?php foreach($rows as $row): ?><li><strong><?php echo esc_html(ucwords(str_replace('_',' ',(string)$row['event_type']))); ?></strong> — <?php
 			$auth_time_utc = strtotime( (string)$row['created_at'] . ' UTC' );
