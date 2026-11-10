@@ -11,6 +11,7 @@ on:
       - 'tests/security/v12-dpop-htu-jwk-failfirst.php'
       - 'tests/security/v12-timeline-private-evidence-failfirst.php'
       - 'tests/security/v12-timeline-read-failure-failfirst.php'
+      - 'tests/security/v12-ci-exitcode-audit.php'
       - '.github/workflows/file02-v12-session3-boundaries.yml'
   workflow_dispatch:
 permissions:
@@ -29,6 +30,8 @@ jobs:
           php-version: ${{ matrix.php }}
           coverage: none
           tools: none
+      - name: Audit that source-security regressions cannot false-green on string exit
+        run: php -l tests/security/v12-ci-exitcode-audit.php && php tests/security/v12-ci-exitcode-audit.php
       - name: Lint all four fail-first fixtures
         run: |
           php -l tests/security/v12-registered-breach-null-failfirst.php
