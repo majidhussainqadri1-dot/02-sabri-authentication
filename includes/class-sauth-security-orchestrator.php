@@ -489,7 +489,11 @@ final class SAUTH_Security_Orchestrator {
 		<p>Review recent authentication activity. Exact IP addresses and secrets are not displayed.</p>
 		<button type="button" class="sa-secondary-button" data-sauth-lockdown>Secure My Account</button>
 		<ul class="sauth-security-timeline">
-		<?php foreach($rows as $row): ?><li><strong><?php echo esc_html(ucwords(str_replace('_',' ',(string)$row['event_type']))); ?></strong> — <?php echo esc_html((string)$row['created_at']); ?> <button type="button" data-sauth-not-me="<?php echo esc_attr((string)$row['public_id']); ?>">This was not me</button></li><?php endforeach; ?>
+		<?php foreach($rows as $row): ?><li><strong><?php echo esc_html(ucwords(str_replace('_',' ',(string)$row['event_type']))); ?></strong> — <?php
+			$auth_time_utc = strtotime( (string)$row['created_at'] . ' UTC' );
+			$auth_time_format = (string)get_option('date_format','Y-m-d') . ' ' . (string)get_option('time_format','H:i');
+			echo false === $auth_time_utc ? esc_html__( 'Time unavailable', 'sabri-authentication' ) : esc_html( wp_date( $auth_time_format, $auth_time_utc ) );
+		?> <button type="button" data-sauth-not-me="<?php echo esc_attr((string)$row['public_id']); ?>">This was not me</button></li><?php endforeach; ?>
 		</ul></section></main><?php return (string)ob_get_clean();
 	}
 	public static function render_collision_resolution(){
