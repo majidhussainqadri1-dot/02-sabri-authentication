@@ -9,6 +9,8 @@ on:
       - 'tests/security/v12-recovery-date-failfirst.php'
       - 'tests/security/v12-collision-finalization-failfirst.php'
       - 'tests/security/v12-dpop-htu-jwk-failfirst.php'
+      - 'tests/security/v12-timeline-private-evidence-failfirst.php'
+      - 'tests/security/v12-timeline-read-failure-failfirst.php'
       - '.github/workflows/file02-v12-session3-boundaries.yml'
   workflow_dispatch:
 permissions:
@@ -41,6 +43,12 @@ jobs:
       - name: Canonical collision finalization uncertainty
         if: always()
         run: php tests/security/v12-collision-finalization-failfirst.php
+      - name: Security timeline no PII or bearer details
+        if: always()
+        run: php -l tests/security/v12-timeline-private-evidence-failfirst.php && php tests/security/v12-timeline-private-evidence-failfirst.php
+      - name: Security timeline DB unavailability not false empty
+        if: always()
+        run: php -l tests/security/v12-timeline-read-failure-failfirst.php && php tests/security/v12-timeline-read-failure-failfirst.php
       - name: DPoP htu and JWK/alg strictness
         if: always()
         run: php tests/security/v12-dpop-htu-jwk-failfirst.php
