@@ -43,8 +43,8 @@ function wp_generate_uuid4(){return '22222222-2222-4222-8222-222222222222';}
 function wp_json_encode($x){return json_encode($x);}
 function current_time($s,$gmt=false){return gmdate('Y-m-d H:i:s');}
 function apply_filters($name,$value,...$args){return $value;}
-$GLOBALS['meta']=[];
-function update_user_meta($uid,$key,$value){$GLOBALS['meta'][$uid][$key]=$value;return true;}
+$GLOBALS['meta']=[];$GLOBALS['store_available']=true;
+function update_user_meta($uid,$key,$value){if(!$GLOBALS['store_available'])return false;$GLOBALS['meta'][$uid][$key]=$value;return true;}
 function get_user_meta($uid,$key,$single=true){return $GLOBALS['meta'][$uid][$key]??false;}
 function delete_user_meta($uid,$key){unset($GLOBALS['meta'][$uid][$key]);return true;}
 $wpdb=new MockSecurityDB();
@@ -61,6 +61,11 @@ f02_check(is_wp_error($r)&&$r->get_error_code()==='sauth_not_me_signal_unverifie
 f02_check(SAUTH_Security_Orchestrator::authentication_blocked(17),'risk-signal failure was not contained');
 unset($GLOBALS['meta'][17]);
 SAUTH_Shared_Signals::$result='event-17';
+$GLOBALS['store_available']=false;
+$r=SAUTH_Security_Orchestrator::report_not_me(17,'event-17');
+f02_check(is_wp_error($r)&&$r->get_error_code()==='sauth_not_me_compromise_watch_unverified','failed risk-watch persistence falsely acknowledged a contained security event');
+$GLOBALS['store_available']=true;
+unset($GLOBALS['meta'][17]);
 $r=SAUTH_Security_Orchestrator::report_not_me(17,'event-17');
 f02_check($r===true&&!SAUTH_Security_Orchestrator::authentication_blocked(17),'valid security report was rejected');
 $wpdb->risk_unavailable=true;
