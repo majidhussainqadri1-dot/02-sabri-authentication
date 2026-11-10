@@ -25,6 +25,7 @@ final class SAUTH_Security_Orchestrator {
 		add_action( 'admin_post_nopriv_sauth_resolve_collision', array( __CLASS__, 'resolve_collision_post' ) );
 		add_action( 'admin_post_sauth_resolve_collision', array( __CLASS__, 'resolve_collision_post' ) );
 		add_filter( 'sauth_authentication_assurance_v2', array( __CLASS__, 'assurance_filter' ), 20, 2 );
+		add_filter( 'sauth/session_assurance', array( __CLASS__, 'file24_assurance_projection' ), 30, 4 );
 		add_action( 'sauth_event_recorded', array( __CLASS__, 'observe_auth_event' ), 30, 1 );
 		add_action( 'sauth_security_cleanup', array( __CLASS__, 'cleanup' ) );
 		if ( function_exists( 'wp_next_scheduled' ) && ! wp_next_scheduled( 'sauth_security_cleanup' ) ) {
@@ -234,6 +235,44 @@ final class SAUTH_Security_Orchestrator {
 	public static function assurance_filter( $baseline, $user_id ) {
 		$receipt = self::assurance_v2( absint( $user_id ) );
 		return 'allow' === ( $receipt['result'] ?? '' ) ? $receipt : ( is_array( $baseline ) ? $baseline : array() );
+	}
+
+	/**
+	 * File 24's actual read-only authentication-assurance consumer currently
+	 * uses sauth/session_assurance. Translate only native File 02 evidence.
+	 *
+	 * No File 00 membership role is granted here. A current WP session alone
+	 * does not establish fresh MFA, risk clearance or privileged authorization.
+	 * Every decision remains current-user, session, time and purpose bound.
+	 */
+	public static function file24_assurance_projection( $baseline, $user_id, $purpose, $context = array() ) {
+		$projection = is_array( $baseline ) ? $baseline : array();
+		$user_id = absint( $user_id );
+		$projection['authenticated'] = false;
+		$projection['recent_authentication'] = false;
+		$projection['mfa_satisfied'] = false;
+		$projection['session_risk'] = 'unknown';
+		$projection['assurance_ref'] = '';
+		if ( ! $user_id || get_current_user_id() !== $user_id || self::authentication_blocked( $user_id ) ) {
+			return $projection;
+		}
+		$projection['authenticated'] = true; // Exact current WordPress subject only.
+		$receipt = self::assurance_v2( $user_id );
+		if ( 'allow' !== ( $receipt['result'] ?? '' ) ) { return $projection; }
+		$score = isset( $receipt['risk_score'] ) && is_int( $receipt['risk_score'] ) ? max( 0, min( 100, $receipt['risk_score'] ) ) : 100;
+		$projection['session_risk'] = $score >= 80 ? 'high' : ( $score >= 40 ? 'medium' : 'low' );
+		$fresh = !empty( $receipt['user_verification'] )
+			&& !empty( $receipt['phishing_resistant'] )
+			&& absint( $receipt['verified_at'] ?? 0 ) > time() - 300
+			&& absint( $receipt['expires_at'] ?? 0 ) > time();
+		if ( ! $fresh || $score >= 80 ) { return $projection; }
+		$projection['recent_authentication'] = true;
+		$projection['mfa_satisfied'] = true;
+		$purpose = sanitize_key( (string) $purpose );
+		$evidence = $user_id . '|' . $purpose . '|' . (string) $receipt['verified_at'] . '|' .
+			(string) ( $receipt['session_binding'] ?? '' ) . '|' . (string) ( $receipt['fingerprint_binding'] ?? '' );
+		$projection['assurance_ref'] = 'sauth:' . hash_hmac( 'sha256', $evidence, wp_salt( 'auth' ) );
+		return $projection;
 	}
 
 	public static function smart_step_up( $user_id, $action, array $policy=array() ) {
