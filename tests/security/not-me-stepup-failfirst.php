@@ -25,6 +25,7 @@ class SAUTH_Passkey_Runtime{
 class SAUTH_Shared_Signals{
  static $result='event-17';
  static function emit($family,$type,$uid,$claims=[]){return self::$result;}
+ static function risk_score_for_user($uid){return 0;}
 }
 class MockSecurityDB{
  public $last_error='',$risk_unavailable=true;

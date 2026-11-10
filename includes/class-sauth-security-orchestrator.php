@@ -142,8 +142,22 @@ final class SAUTH_Security_Orchestrator {
 		$owned=$wpdb->get_var($wpdb->prepare('SELECT public_id FROM '.SAUTH_Activator::table('security_timeline').' WHERE public_id=%s AND user_id=%d',$timeline_id,$user_id));
 		if(!$owned){return new WP_Error('sauth_timeline_event_not_found','Security event not found.');}
 		update_user_meta($user_id,self::COMPROMISE_META,array('started_at'=>time(),'expires_at'=>time()+7*DAY_IN_SECONDS,'reason'=>'unrecognized_event'));
-		SAUTH_Session_Manager::revoke_other_sessions($user_id,(string)wp_get_session_token(),'unrecognized_security_event');
-		if(class_exists('SAUTH_Shared_Signals')){SAUTH_Shared_Signals::emit('risc','credential_compromise',$user_id,array('reason'=>'unrecognized_event'));}
+		$revoked = SAUTH_Session_Manager::revoke_other_sessions($user_id,(string)wp_get_session_token(),'unrecognized_security_event');
+		if ( true !== $revoked ) {
+			// Never acknowledge containment when WordPress/File 02 revocation
+			// postconditions failed. Attempt user-scoped emergency lockdown.
+			self::emergency_lockdown($user_id,'unrecognized_event_containment_failed');
+			return new WP_Error('sauth_not_me_containment_unverified','Session containment could not be verified. Account security has been escalated.');
+		}
+		if ( ! class_exists('SAUTH_Shared_Signals') ) {
+			self::emergency_lockdown($user_id,'unrecognized_event_signal_unavailable');
+			return new WP_Error('sauth_not_me_signal_unverified','A verified security signal could not be recorded.');
+		}
+		$signal = SAUTH_Shared_Signals::emit('risc','credential_compromise',$user_id,array('reason'=>'unrecognized_event'));
+		if ( is_wp_error( $signal ) || ! is_string( $signal ) || '' === $signal ) {
+			self::emergency_lockdown($user_id,'unrecognized_event_signal_failed');
+			return new WP_Error('sauth_not_me_signal_unverified','A verified security signal could not be recorded.');
+		}
 		self::timeline_event($user_id,'unrecognized_event_reported','high',array('source_event'=>$timeline_id));
 		return true;
 	}
@@ -220,6 +234,11 @@ final class SAUTH_Security_Orchestrator {
 	public static function smart_step_up( $user_id, $action, array $policy=array() ) {
 		$receipt=self::assurance_v2($user_id);
 		if('allow'!==($receipt['result']??'')){return false;}
+		// Privileged actions cannot use a valid passkey to bypass a failed
+		// security-evidence source or a high-risk compromise assessment.
+		$risk_score = isset($receipt['risk_score']) ? absint($receipt['risk_score']) : 100;
+		$max_risk = isset($policy['max_risk']) ? max(0,min(79,absint($policy['max_risk']))) : 79;
+		if($risk_score>$max_risk){return false;}
 		$minimum=isset($policy['max_age'])?max(30,min(300,absint($policy['max_age']))):300;
 		if(absint($receipt['freshness_seconds']??9999)>$minimum){return false;}
 		if(!empty($policy['phishing_resistant']) && empty($receipt['phishing_resistant'])){return false;}
