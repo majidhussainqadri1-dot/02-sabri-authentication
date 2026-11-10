@@ -28,9 +28,9 @@ $id=SAUTH_Security_Orchestrator::timeline_event(17,'account_security','high',[
  'unused_private'=>'RANDOM_SECRET',
  'risk_score'=>40
 ]);
-if(!is_string($id)||!is_array($wpdb->lastInsert))exit("FAIL timeline event not stored\n");
+if(!is_string($id)||!is_array($wpdb->lastInsert))fwrite(STDERR,"FAIL timeline event not stored\n"); exit(1);
 $safe=json_decode($wpdb->lastInsert['details_json'],true);
-if(!is_array($safe)||($safe['method']??'')!=='webauthn_passkey'||($safe['risk_score']??'')!==40||($safe['source_event']??'')!=='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')exit("FAIL safe diagnostic values unexpectedly missing\n");
+if(!is_array($safe)||($safe['method']??'')!=='webauthn_passkey'||(int)($safe['risk_score']??-1)!==40||($safe['source_event']??'')!=='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')fwrite(STDERR,"FAIL safe diagnostic values unexpectedly missing\n"); exit(1);
 $full=json_encode($safe);
-foreach(['person@example.test','Bearer_test_secret','127.0.0.1','RANDOM_SECRET'] as $secret)if(strpos($full,$secret)!==false)exit("RED: timeline stored raw PII or unapproved detail value\n");
+foreach(['person@example.test','Bearer_test_secret','127.0.0.1','RANDOM_SECRET'] as $secret)if(strpos($full,$secret)!==false)fwrite(STDERR,"RED: timeline stored raw PII or unapproved detail value\n"); exit(1);
 echo "PASS timeline bounded code-only diagnostics, no PII/bearers (mock).\n";

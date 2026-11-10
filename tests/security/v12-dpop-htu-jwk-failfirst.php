@@ -33,8 +33,8 @@ foreach([
 ] as $bad){
  $before=$GLOBALS['verifierCalls'];
  $r=SAUTH_DPoP::validate(make_proof(...$bad),'POST',$url);
- if(!($r instanceof WP_Error)||$before!==$GLOBALS['verifierCalls'])exit("RED: malformed DPoP htu or inconsistent JOSE alg reached signature adapter\n");
+ if(!($r instanceof WP_Error)||$before!==$GLOBALS['verifierCalls'])fwrite(STDERR,"RED: malformed DPoP htu or inconsistent JOSE alg reached signature adapter\n"); exit(1);
 }
 $r=SAUTH_DPoP::validate(make_proof($url),'POST',$url);
-if(!is_array($r)||($r['result']??'')!=='allow')exit("FAIL: valid canonical proof rejected\n");
+if(!is_array($r)||($r['result']??'')!=='allow')fwrite(STDERR,"FAIL: valid canonical proof rejected\n"); exit(1);
 echo "PASS strict DPoP htu and JOSE alg/JWK type before verifier (mock).\n";
