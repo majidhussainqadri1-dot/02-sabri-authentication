@@ -44,10 +44,20 @@ final class SAUTH_DPoP {
 		$thumbprint = self::jwk_thumbprint( $jwk );
 		if ( '' === $thumbprint ) { return new WP_Error( 'sauth_dpop_jwk_invalid', 'DPoP public JWK is invalid.' ); }
 		$replay_key = 'sauth_dpop_' . hash( 'sha256', $thumbprint . '|' . $jti );
-		if ( ! add_option( $replay_key, time(), '', false ) ) { return new WP_Error( 'sauth_dpop_replay', 'DPoP proof replayed.' ); }
-		if ( function_exists( 'wp_schedule_single_event' ) ) { wp_schedule_single_event( time() + self::MAX_AGE + 60, self::REPLAY_EXPIRE_HOOK, array( $replay_key ) ); }
+		/* Cheap duplicate guard before cryptography. The authoritative, atomic
+		 * once-only claim is created AFTER proof signature verification, so an
+		 * unsigned request cannot claim or delete another worker's proof. */
+		if ( false !== get_option( $replay_key, false ) ) {
+			return new WP_Error( 'sauth_dpop_replay', 'DPoP proof replayed.' );
+		}
 		$verified = true === apply_filters( 'sauth_dpop_verify_signature_v1', false, $parts[0] . '.' . $parts[1], $parts[2], $jwk, $alg );
-		if ( ! $verified ) { delete_option( $replay_key ); return new WP_Error( 'sauth_dpop_signature_unverified', 'DPoP signature verifier unavailable or rejected the proof.' ); }
+		if ( ! $verified ) {
+			return new WP_Error( 'sauth_dpop_signature_unverified', 'DPoP signature verifier unavailable or rejected the proof.' );
+		}
+		if ( ! add_option( $replay_key, time(), '', false ) ) {
+			return new WP_Error( 'sauth_dpop_replay', 'DPoP proof replayed.' );
+		}
+		if ( function_exists( 'wp_schedule_single_event' ) ) { wp_schedule_single_event( time() + self::MAX_AGE + 60, self::REPLAY_EXPIRE_HOOK, array( $replay_key ) ); }
 		return array( 'result'=>'allow','jkt'=>$thumbprint,'jti'=>$jti,'iat'=>$iat,'alg'=>$alg );
 	}
 

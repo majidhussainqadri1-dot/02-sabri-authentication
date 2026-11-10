@@ -1,0 +1,60 @@
+name: File 02 v12 — File24 assurance and File26 non-index native source contracts
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  cross-file-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact File02 candidate
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          path: file02
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Checkout pinned File24 source (separate repository reality)
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          repository: majidhussainqadri1-dot/24-sabri-platform-security-privacy-compliance-and-resilience-center
+          ref: a5b8d49968a7a5a7d6f3f4655bea541bf38a9acb
+          path: file24
+          persist-credentials: false
+      - name: Checkout pinned File26 source (separate repository reality)
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          repository: majidhussainqadri1-dot/26-search-discovery-recommendations-knowledge-graph-classification
+          ref: 1b064c6ea9f81195611ed001d5457e8ced65460a
+          path: file26
+          persist-credentials: false
+      - name: Checkout pinned File25 visual source (separate repository reality)
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          repository: majidhussainqadri1-dot/25-sabri-public-ui-profile-timeline-visual-experience
+          ref: 347a4ff4d4c233c5ea6cd82c7786ee5398ea9d1e
+          path: file25
+          persist-credentials: false
+      - uses: shivammathur/setup-php@2.37.2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: none
+      - name: Exact input parity
+        run: |
+          test "$(git -C file24 rev-parse HEAD)" = a5b8d49968a7a5a7d6f3f4655bea541bf38a9acb
+          test "$(git -C file26 rev-parse HEAD)" = 1b064c6ea9f81195611ed001d5457e8ced65460a
+          test "$(git -C file25 rev-parse HEAD)" = 347a4ff4d4c233c5ea6cd82c7786ee5398ea9d1e
+      - name: File24 actual consumer contract (read-only mock)
+        run: |
+          php -l file02/tests/integration/file24-assurance-consumer-mock.php
+          php file02/tests/integration/file24-assurance-consumer-mock.php
+      - name: File26 protected authentication no-index contract (source-only)
+        run: |
+          php -l file02/tests/integration/file26-authentication-noindex-source.php
+          php file02/tests/integration/file26-authentication-noindex-source.php
+      - name: File25 canonical green, mode and accessibility source contract
+        run: |
+          php -l file02/tests/integration/file25-visual-token-bridge-source.php
+          php file02/tests/integration/file25-visual-token-bridge-source.php

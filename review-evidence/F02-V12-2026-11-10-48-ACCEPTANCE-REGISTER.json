@@ -1,0 +1,357 @@
+{
+  "schema": "sabri.file02.v12.release-evidence.v1",
+  "baseline_plan": "Sabri-Website-Master-Plan-v12.docx paragraphs 935-983",
+  "repository_main": "224c39bcb8c28f77504c7348dbad41226753c7e8",
+  "parent_pr23": "79016d52fbaa9690ddd43983fedb83dc477c9ab0",
+  "parent_pr24": "35bcd0f87ae825fb55914a3bcd9af87d4d8accf2",
+  "source_version": "1.4.0",
+  "source_db_version": "1.4.0",
+  "source_passkey_schema": "1.1.0",
+  "evidence_policy": "Source existence and CI never establish end-to-end production acceptance; each not_verified entry must be independently accepted by actual owner/providers/staging/live tests.",
+  "summary": {
+    "requirements": 48,
+    "FR": 12,
+    "NFR": 10,
+    "CEN": 2,
+    "X24": 24,
+    "independently_verified_production_acceptances": 0
+  },
+  "requirements": [
+    {
+      "id": "F02-FR-001",
+      "class": "FR",
+      "source": "implemented_candidate",
+      "acceptance": "not_verified",
+      "owner": "File02/File00"
+    },
+    {
+      "id": "F02-FR-002",
+      "class": "FR",
+      "source": "implemented_candidate",
+      "acceptance": "not_verified",
+      "owner": "File02/File00"
+    },
+    {
+      "id": "F02-FR-003",
+      "class": "FR",
+      "source": "implemented_candidate",
+      "acceptance": "not_verified",
+      "owner": "File02/File00"
+    },
+    {
+      "id": "F02-FR-004",
+      "class": "FR",
+      "source": "implemented_candidate",
+      "acceptance": "not_verified",
+      "owner": "File02/File00"
+    },
+    {
+      "id": "F02-FR-005",
+      "class": "FR",
+      "source": "implemented_candidate",
+      "acceptance": "not_verified",
+      "owner": "File02/File00"
+    },
+    {
+      "id": "F02-FR-006",
+      "class": "FR",
+      "source": "implemented_candidate",
+      "acceptance": "not_verified",
+      "owner": "File02/File00"
+    },
+    {
+      "id": "F02-FR-007",
+      "class": "FR",
+      "source": "implemented_candidate",
+      "acceptance": "not_verified",
+      "owner": "File02/File00"
+    },
+    {
+      "id": "F02-FR-008",
+      "class": "FR",
+      "source": "implemented_candidate",
+      "acceptance": "not_verified",
+      "owner": "File02/File00"
+    },
+    {
+      "id": "F02-FR-009",
+      "class": "FR",
+      "source": "implemented_candidate",
+      "acceptance": "not_verified",
+      "owner": "File02/File00"
+    },
+    {
+      "id": "F02-FR-010",
+      "class": "FR",
+      "source": "implemented_candidate",
+      "acceptance": "not_verified",
+      "owner": "File02/File00"
+    },
+    {
+      "id": "F02-FR-011",
+      "class": "FR",
+      "source": "implemented_candidate",
+      "acceptance": "not_verified",
+      "owner": "File02/File00"
+    },
+    {
+      "id": "F02-FR-012",
+      "class": "FR",
+      "source": "implemented_candidate",
+      "acceptance": "not_verified",
+      "owner": "File02/File00"
+    },
+    {
+      "id": "F02-NFR-001",
+      "class": "NFR",
+      "source": "partial_acceptance_controls",
+      "acceptance": "not_verified",
+      "owner": "File02/QA"
+    },
+    {
+      "id": "F02-NFR-002",
+      "class": "NFR",
+      "source": "partial_acceptance_controls",
+      "acceptance": "not_verified",
+      "owner": "File02/QA"
+    },
+    {
+      "id": "F02-NFR-003",
+      "class": "NFR",
+      "source": "partial_acceptance_controls",
+      "acceptance": "not_verified",
+      "owner": "File02/QA"
+    },
+    {
+      "id": "F02-NFR-004",
+      "class": "NFR",
+      "source": "partial_acceptance_controls",
+      "acceptance": "not_verified",
+      "owner": "File02/QA"
+    },
+    {
+      "id": "F02-NFR-005",
+      "class": "NFR",
+      "source": "partial_acceptance_controls",
+      "acceptance": "not_verified",
+      "owner": "File02/QA"
+    },
+    {
+      "id": "F02-NFR-006",
+      "class": "NFR",
+      "source": "partial_acceptance_controls",
+      "acceptance": "not_verified",
+      "owner": "File02/QA"
+    },
+    {
+      "id": "F02-NFR-007",
+      "class": "NFR",
+      "source": "partial_acceptance_controls",
+      "acceptance": "not_verified",
+      "owner": "File02/QA"
+    },
+    {
+      "id": "F02-NFR-008",
+      "class": "NFR",
+      "source": "partial_acceptance_controls",
+      "acceptance": "not_verified",
+      "owner": "File02/QA"
+    },
+    {
+      "id": "F02-NFR-009",
+      "class": "NFR",
+      "source": "partial_acceptance_controls",
+      "acceptance": "not_verified",
+      "owner": "File02/QA"
+    },
+    {
+      "id": "F02-NFR-010",
+      "class": "NFR",
+      "source": "partial_acceptance_controls",
+      "acceptance": "not_verified",
+      "owner": "File02/QA"
+    },
+    {
+      "id": "F02-CEN-01",
+      "class": "CEN",
+      "source": "cross_file_contract_candidate",
+      "acceptance": "not_verified",
+      "owner": "File02/File25/File26"
+    },
+    {
+      "id": "F02-CEN-02",
+      "class": "CEN",
+      "source": "cross_file_contract_candidate",
+      "acceptance": "not_verified",
+      "owner": "File02/File00/File24"
+    },
+    {
+      "id": "F02-X24-001",
+      "class": "X24",
+      "source": "implemented_candidate",
+      "acceptance": "not_verified",
+      "dependency": null
+    },
+    {
+      "id": "F02-X24-002",
+      "class": "X24",
+      "source": "implemented_candidate",
+      "acceptance": "not_verified",
+      "dependency": null
+    },
+    {
+      "id": "F02-X24-003",
+      "class": "X24",
+      "source": "implemented_candidate",
+      "acceptance": "not_verified",
+      "dependency": null
+    },
+    {
+      "id": "F02-X24-004",
+      "class": "X24",
+      "source": "implemented_candidate",
+      "acceptance": "not_verified",
+      "dependency": null
+    },
+    {
+      "id": "F02-X24-005",
+      "class": "X24",
+      "source": "implemented_candidate",
+      "acceptance": "not_verified",
+      "dependency": null
+    },
+    {
+      "id": "F02-X24-006",
+      "class": "X24",
+      "source": "implemented_candidate",
+      "acceptance": "not_verified",
+      "dependency": null
+    },
+    {
+      "id": "F02-X24-007",
+      "class": "X24",
+      "source": "implemented_candidate",
+      "acceptance": "not_verified",
+      "dependency": null
+    },
+    {
+      "id": "F02-X24-008",
+      "class": "X24",
+      "source": "implemented_candidate",
+      "acceptance": "not_verified",
+      "dependency": null
+    },
+    {
+      "id": "F02-X24-009",
+      "class": "X24",
+      "source": "implemented_candidate",
+      "acceptance": "not_verified",
+      "dependency": null
+    },
+    {
+      "id": "F02-X24-010",
+      "class": "X24",
+      "source": "implemented_candidate",
+      "acceptance": "not_verified",
+      "dependency": null
+    },
+    {
+      "id": "F02-X24-011",
+      "class": "X24",
+      "source": "adapter_or_partial_candidate",
+      "acceptance": "not_verified",
+      "dependency": "File00 owner recovery"
+    },
+    {
+      "id": "F02-X24-012",
+      "class": "X24",
+      "source": "adapter_or_partial_candidate",
+      "acceptance": "not_verified",
+      "dependency": "File00 owner collision"
+    },
+    {
+      "id": "F02-X24-013",
+      "class": "X24",
+      "source": "implemented_candidate",
+      "acceptance": "not_verified",
+      "dependency": null
+    },
+    {
+      "id": "F02-X24-014",
+      "class": "X24",
+      "source": "implemented_candidate",
+      "acceptance": "not_verified",
+      "dependency": null
+    },
+    {
+      "id": "F02-X24-015",
+      "class": "X24",
+      "source": "adapter_or_partial_candidate",
+      "acceptance": "not_verified",
+      "dependency": "signed CAEP provider"
+    },
+    {
+      "id": "F02-X24-016",
+      "class": "X24",
+      "source": "adapter_or_partial_candidate",
+      "acceptance": "not_verified",
+      "dependency": "signed RISC provider"
+    },
+    {
+      "id": "F02-X24-017",
+      "class": "X24",
+      "source": "implemented_candidate",
+      "acceptance": "not_verified",
+      "dependency": null
+    },
+    {
+      "id": "F02-X24-018",
+      "class": "X24",
+      "source": "implemented_candidate",
+      "acceptance": "not_verified",
+      "dependency": null
+    },
+    {
+      "id": "F02-X24-019",
+      "class": "X24",
+      "source": "adapter_or_partial_candidate",
+      "acceptance": "not_verified",
+      "dependency": "live breach-prefix provider opt-in"
+    },
+    {
+      "id": "F02-X24-020",
+      "class": "X24",
+      "source": "adapter_or_partial_candidate",
+      "acceptance": "not_verified",
+      "dependency": "DPoP signed crypto provider"
+    },
+    {
+      "id": "F02-X24-021",
+      "class": "X24",
+      "source": "adapter_or_partial_candidate",
+      "acceptance": "not_verified",
+      "dependency": "trusted FIDO metadata"
+    },
+    {
+      "id": "F02-X24-022",
+      "class": "X24",
+      "source": "implemented_candidate",
+      "acceptance": "not_verified",
+      "dependency": null
+    },
+    {
+      "id": "F02-X24-023",
+      "class": "X24",
+      "source": "adapter_or_partial_candidate",
+      "acceptance": "not_verified",
+      "dependency": "FedCM real IdP"
+    },
+    {
+      "id": "F02-X24-024",
+      "class": "X24",
+      "source": "implemented_candidate",
+      "acceptance": "not_verified",
+      "dependency": null
+    }
+  ]
+}
