@@ -1,0 +1,34 @@
+name: File 02 v12 — Breach and DPoP fail-first security gates
+on:
+  pull_request:
+    paths:
+      - 'includes/class-sauth-password-safety.php'
+      - 'includes/class-sauth-dpop.php'
+      - 'tests/security/breach-prefix-provider-failfirst.php'
+      - 'tests/security/dpop-crypto-claim-failfirst.php'
+      - '.github/workflows/file02-v12-breach-dpop.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  password-and-dpop:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['7.4','8.3']
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: shivammathur/setup-php@2.37.2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: none
+      - name: Source and test syntax
+        run: php -l includes/class-sauth-password-safety.php && php -l includes/class-sauth-dpop.php && php -l tests/security/breach-prefix-provider-failfirst.php && php -l tests/security/dpop-crypto-claim-failfirst.php
+      - name: Password provider unavailable/malformed fail closed
+        run: php tests/security/breach-prefix-provider-failfirst.php
+      - name: DPoP crypto before once-only claim
+        run: php tests/security/dpop-crypto-claim-failfirst.php
+      - name: Preserve inherited DPoP replay contract
+        run: php tests/security/dpop-proof-and-replay-hardening.php
