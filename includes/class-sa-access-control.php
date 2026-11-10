@@ -103,7 +103,7 @@ final class SA_Access_Control {
 
 	public static function is_file02_page() {
 		if ( class_exists( 'SAUTH_Canonical_Routes' )
-			&& SAUTH_Canonical_Routes::SESSIONS === (string) get_query_var( SAUTH_Canonical_Routes::QUERY_VAR ) ) {
+			&& in_array( (string) get_query_var( SAUTH_Canonical_Routes::QUERY_VAR ), array( SAUTH_Canonical_Routes::SESSIONS, SAUTH_Canonical_Routes::SAFETY ), true ) ) {
 			return true;
 		}
 		if ( ! is_singular( 'page' ) ) { return false; }
@@ -124,6 +124,6 @@ final class SA_Access_Control {
 	}
 
 	public static function shortcodes() {
-		return array( 'sabri_auth_login','sabri_auth_signup','sabri_auth_verify_email','sabri_auth_risk_challenge','sabri_auth_complete_profile','sabri_auth_forgot_password','sabri_auth_reset_password','sabri_auth_sessions','sabri_auth_passkeys','sabri_auth_access_required','sabri_auth_google_account','sabri_auth_google_verify' );
+		return array( 'sabri_auth_login','sabri_auth_signup','sabri_auth_verify_email','sabri_auth_risk_challenge','sabri_auth_complete_profile','sabri_auth_forgot_password','sabri_auth_reset_password','sabri_auth_sessions','sabri_auth_account_safety','sabri_auth_passkeys','sabri_auth_access_required','sabri_auth_google_account','sabri_auth_google_verify' );
 	}
 }

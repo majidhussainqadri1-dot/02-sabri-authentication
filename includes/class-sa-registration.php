@@ -103,6 +103,10 @@ final class SA_Registration {
 
 	public function register() {
 		check_admin_referer( 'sa_register', 'sa_nonce' );
+		/* Enforce safety acknowledgement BEFORE File 00 creates an account. */
+		if ( ! SAUTH_Account_Safety::registration_acknowledged( $_POST ) ) {
+			$this->registration_redirect( 'error', 'Read and acknowledge the mandatory account safety rules before registering.' );
+		}
 		$trap = isset( $_POST['website'] ) ? trim( (string) wp_unslash( $_POST['website'] ) ) : '';
 		if ( '' !== $trap ) { $this->registration_redirect( 'error', 'Registration could not be completed.' ); }
 		if ( SAUTH_Operations::safe_mode() ) { $this->registration_redirect( 'error', 'Account registration is temporarily paused by Safe Mode. Public reading remains available.' ); }

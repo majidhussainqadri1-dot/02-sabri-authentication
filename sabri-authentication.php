@@ -37,6 +37,7 @@ define( 'SA_DIR', SAUTH_DIR );
 define( 'SA_URL', SAUTH_URL );
 
 require_once SAUTH_DIR . 'includes/class-sa-security.php';
+require_once SAUTH_DIR . 'includes/class-sauth-account-safety.php';
 require_once SAUTH_DIR . 'includes/class-sauth-provider-health.php';
 require_once SAUTH_DIR . 'includes/class-sauth-account-contract.php';
 require_once SAUTH_DIR . 'includes/class-sauth-event-outbox.php';
