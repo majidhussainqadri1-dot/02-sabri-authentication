@@ -29,6 +29,7 @@ jobs:
       - name: Password provider unavailable/malformed fail closed
         run: php tests/security/breach-prefix-provider-failfirst.php
       - name: DPoP crypto before once-only claim
+        if: always()
         run: php tests/security/dpop-crypto-claim-failfirst.php
       - name: Preserve inherited DPoP replay contract
         run: php tests/security/dpop-proof-and-replay-hardening.php
