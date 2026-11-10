@@ -12,6 +12,7 @@ on:
       - 'tests/security/v12-timeline-private-evidence-failfirst.php'
       - 'tests/security/v12-timeline-read-failure-failfirst.php'
       - 'tests/security/v12-ci-exitcode-audit.php'
+      - 'tests/security/v12-security-center-i18n-failfirst.php'
       - '.github/workflows/file02-v12-session3-boundaries.yml'
   workflow_dispatch:
 permissions:
@@ -30,6 +31,9 @@ jobs:
           php-version: ${{ matrix.php }}
           coverage: none
           tools: none
+      - name: F02 v12 Security Center and Collision Wizard locale/RTL check
+        if: always()
+        run: php -l tests/security/v12-security-center-i18n-failfirst.php && php tests/security/v12-security-center-i18n-failfirst.php
       - name: Audit that source-security regressions cannot false-green on string exit
         run: php -l tests/security/v12-ci-exitcode-audit.php && php tests/security/v12-ci-exitcode-audit.php
       - name: Lint all four fail-first fixtures
