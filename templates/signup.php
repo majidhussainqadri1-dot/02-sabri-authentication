@@ -110,7 +110,9 @@
 					<label class="sa-check"><input type="checkbox" name="accept_terms" value="1" required> I accept the current Terms of Use.</label>
 					<label class="sa-check"><input type="checkbox" name="accept_privacy" value="1" required> I have read and accept the Privacy Notice and identity-verification processing.</label>
 					<label class="sa-check"><input type="checkbox" name="accept_ethics" value="1" required> I accept the Islamic, professional and institutional Ethical Conduct Charter, including truthful identity and role declarations.</label>
-					<label class="sa-check"><input type="checkbox" name="accept_security_rules" value="1" required> I have read the mandatory security rules: keep passwords and codes private, recognize phishing, protect patient records and report suspicious access. <a href="<?php echo esc_url( SA_Security::page_url( 'safety' ) ); ?>" target="_blank" rel="noopener noreferrer">Read safety rules</a>.</label>
+					<p class="sa-data-note" id="sauth-safety-rules-link">Read the <a href="<?php echo esc_url( SA_Security::page_url( 'safety' ) ); ?>" target="_blank" rel="noopener noreferrer">mandatory account safety rules (opens in a new tab)</a> before continuing.</p>
+					<label class="sa-check"><input type="checkbox" name="accept_security_rules" value="1" aria-describedby="sauth-safety-rules-link" required> I have read the safety rules and will keep login credentials private, recognize phishing, protect patient records and report suspicious access.</label>
+					<input type="hidden" name="security_policy_version" value="<?php echo esc_attr( SAUTH_Account_Safety::POLICY_VERSION ); ?>">
 				</div>
 				<div class="sa-field-full">
 					<button class="sa-primary-button" type="submit">Create Account and Continue Verification</button>
