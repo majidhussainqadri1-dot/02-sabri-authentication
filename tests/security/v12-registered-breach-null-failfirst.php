@@ -13,7 +13,7 @@ function apply_filters($hook,$default,$prefix){return null;}
 require __DIR__.'/../../includes/class-sauth-password-safety.php';
 $password='f02-UniqueCorrectHorse-ProviderNull-2026';
 $r=SAUTH_Password_Safety::check($password);
-if(!is_wp_error($r)||$r->get_error_code()!=='sauth_password_breach_lookup_unavailable')fwrite(STDERR,"RED: configured breach provider null silently accepted password\n"); exit(1);
+if(!is_wp_error($r)||$r->get_error_code()!=='sauth_password_breach_lookup_unavailable'){fwrite(STDERR, "RED: configured breach provider null silently accepted password\n");exit(1);}
 $GLOBALS['providerRegistered']=false;
-if(true!==SAUTH_Password_Safety::check($password))fwrite(STDERR,"FAIL: no provider should preserve explicit local-only policy\n"); exit(1);
+if(true!==SAUTH_Password_Safety::check($password)){fwrite(STDERR, "FAIL: no provider should preserve explicit local-only policy\n");exit(1);}
 echo "PASS registered null-denying breach provider; unconfigured local-only policy (mock).\n";

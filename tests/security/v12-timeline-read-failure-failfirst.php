@@ -9,5 +9,5 @@ $wpdb=new Db();
 function absint($a){return abs((int)$a);}
 require __DIR__.'/../../includes/class-sauth-security-orchestrator.php';
 $r=SAUTH_Security_Orchestrator::timeline(17,30);
-if(!($r instanceof WP_Error)||$r->get_error_code()!=='sauth_timeline_unavailable')fwrite(STDERR,"RED: timeline storage error rendered as empty security activity\n"); exit(1);
+if(!($r instanceof WP_Error)||$r->get_error_code()!=='sauth_timeline_unavailable'){fwrite(STDERR, "RED: timeline storage error rendered as empty security activity\n");exit(1);}
 echo "PASS DB timeline error is explicit, not false empty activity (mock).\n";
