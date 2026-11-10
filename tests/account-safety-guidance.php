@@ -17,7 +17,10 @@ must( ! SAUTH_Account_Safety::registration_acknowledged( array( 'accept_security
 must( ! SAUTH_Account_Safety::registration_acknowledged( array( 'accept_security_rules' => array( '1' ) ) ), 'array injection blocked' );
 must( SAUTH_Account_Safety::registration_acknowledged( array( 'accept_security_rules' => '1' ) ), 'explicit acknowledgement accepted' );
 $GLOBALS['logged_in'] = false;
-must( false === strpos( SAUTH_Account_Safety::render(), '/membership-security/' ), 'anonymous private settings hidden' );
+$public = SAUTH_Account_Safety::render();
+must( false !== strpos( $public, 'اکاؤنٹ کی لازمی حفاظتی ہدایات' ), 'rules readable before signup' );
+must( false !== strpos( $public, 'OTP' ) && false !== strpos( $public, 'مریض' ), 'public guidance complete' );
+must( false === strpos( $public, '/membership-security/' ) && false === strpos( $public, '/account-passkeys/' ) && false === strpos( $public, '/account/sessions/' ), 'anonymous private account actions hidden' );
 $GLOBALS['logged_in'] = true;
 $html = SAUTH_Account_Safety::render();
 must( false !== strpos( $html, '/account/sessions/' ) && false !== strpos( $html, '/account-passkeys/' ), 'user security actions exist' );
