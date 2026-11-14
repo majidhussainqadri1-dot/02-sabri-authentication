@@ -68,7 +68,7 @@ f02_freeze_check( is_array( $data ), 'JSON output unavailable' );
 $fail = $data['tables']['sauth_rate_limits'] ?? array();
 $zero = $data['tables']['sauth_auth_outbox'] ?? array();
 $positive = $data['tables']['sauth_email_verifications'] ?? array();
-f02_freeze_check( ( $fail['exact_rows_status'] ?? '' ) === 'query_failed' && null === ( $fail['exact_rows'] ?? null ), 'SQL failure was falsely reported as zero' );
+f02_freeze_check( ( $fail['exact_rows_status'] ?? '' ) === 'query_failed' && null === ( $fail['exact_rows'] ?? null ), 'SQL failure was falsely reported as zero; observed=' . json_encode( $fail ) );
 f02_freeze_check( ( $zero['exact_rows_status'] ?? '' ) === 'verified' && ( $zero['exact_rows'] ?? null ) === '0', 'real zero was misclassified' );
 f02_freeze_check( ( $positive['exact_rows_status'] ?? '' ) === 'verified' && ( $positive['exact_rows'] ?? null ) === '12', 'valid aggregate was misclassified' );
 f02_freeze_check( ( $data['redacted_or_unavailable']['deployed_vs_repository_parity'] ?? '' ) === 'not_verified', 'false deployed parity claim' );
