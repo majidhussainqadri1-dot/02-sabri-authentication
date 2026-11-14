@@ -260,11 +260,14 @@
       "id": "F02-NFR-004",
       "source": [
         "includes/class-sauth-session-manager.php",
-        "includes/class-sauth-security-orchestrator.php"
+        "includes/class-sauth-security-orchestrator.php",
+        "tools/file02-staging-latency-analyzer.py"
       ],
-      "test": [],
+      "test": [
+        "tests/perf/v12-3-offline-staging-latency-regression.py"
+      ],
       "acceptance": "not_verified",
-      "gate": "needs measured p75/p95 staging load; candidate source presence only",
+      "gate": "Offline measurement tool/source regression only; real staging profile/approved budget/adequate sample and p75/p95 are STILL NOT VERIFIED",
       "class": "NFR",
       "source_state": "partial_acceptance_controls",
       "owner": "File02/QA",
@@ -780,5 +783,6 @@
       "owner": "File02+external-owner",
       "dependency": null
     }
-  ]
+  ],
+  "note_nfr004": "V12.3 offline metrics tooling added to candidate; this is NOT a captured lab/field latency measurement or production acceptance."
 }
