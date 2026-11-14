@@ -44,12 +44,15 @@ file02_safety_runtime_must(
     $path === SA_Security::page_url( 'safety' ),
     'canonical route and public URL'
 );
+$permalink_structure = (string) get_option( 'permalink_structure', '' );
+file02_safety_runtime_must( '' !== $permalink_structure, 'pretty permalinks prerequisite in disposable WordPress' );
 $rules = get_option( 'rewrite_rules', array() );
+$canonical_regex = '^account/safety/?$';
 file02_safety_runtime_must(
     is_array( $rules ) &&
-    isset( $rules['account/safety/?$'] ) &&
-    false !== strpos( (string) $rules['account/safety/?$'], SAUTH_Canonical_Routes::SAFETY ),
-    'registered canonical rewrite rule'
+    isset( $rules[ $canonical_regex ] ) &&
+    false !== strpos( (string) $rules[ $canonical_regex ], SAUTH_Canonical_Routes::SAFETY ),
+    'registered canonical rewrite rule with its exact leading caret'
 );
 $manifests = apply_filters( 'sabri_shell_route_manifests', array() );
 $route = $manifests['file02-authentication']['routes']['safety'] ?? array();
