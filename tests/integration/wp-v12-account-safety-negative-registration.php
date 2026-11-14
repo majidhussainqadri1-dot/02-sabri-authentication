@@ -39,6 +39,9 @@ $_POST = array(
 if ( 'array' === $variant ) {
     $_POST['accept_security_rules'] = array( '1' );
 }
+/* WP-CLI eval-file does not synthesize $_REQUEST from a test's $_POST.
+ * Real PHP form requests populate both; check_admin_referer reads $_REQUEST. */
+$_REQUEST = $_POST;
 $before = (int) count_users()['total_users'];
 $seen_redirect = false;
 add_filter( 'wp_redirect', function( $location ) use ( &$seen_redirect, $account_email, $before, $flow, $variant ) {
