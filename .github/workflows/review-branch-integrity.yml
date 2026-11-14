@@ -79,6 +79,10 @@ jobs:
           for test_file in "${tests[@]}"; do
             if [ -z "${seen[$test_file]+x}" ]; then php "$test_file"; seen[$test_file]=1; fi
           done
+      - name: Prove P00/P11 offline deployed-byte-parity governance
+        run: |
+          set -euo pipefail
+          python3 tests/perf/v12-3-offline-deployment-parity-regression.py
       - name: Validate JavaScript and CSS source
         run: |
           set -euo pipefail
