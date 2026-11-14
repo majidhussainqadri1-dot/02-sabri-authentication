@@ -314,9 +314,11 @@
       "requirement_ids": [
         "F02-NFR-004"
       ],
-      "test_paths": [],
+      "test_paths": [
+        "tests/perf/v12-3-offline-staging-latency-regression.py"
+      ],
       "production_acceptance": "not_verified",
-      "remaining_gate": "measured samples on production-like staged environment; NONE captured"
+      "remaining_gate": "Offline analyzer now tested; MUST supply actual permitted staging samples, exact device/network/cache profiles, approved budget and measured p75/p95; no field Core Web Vitals measurement exists"
     },
     {
       "id": "T25",
@@ -344,5 +346,6 @@
       "production_acceptance": "not_verified",
       "remaining_gate": "production-like staging restore and post-deploy parity"
     }
-  ]
+  ],
+  "note_t24": "No performance measurement has been made; analyzer and regression are only tooling."
 }
