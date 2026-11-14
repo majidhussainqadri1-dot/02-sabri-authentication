@@ -145,3 +145,14 @@ jobs:
           php -l file02/tests/integration/wp-v12-php-catalog-runtime.php
           /tmp/wp eval-file file02/tests/integration/wp-v12-account-safety-runtime.php --path=/tmp/wordpress
           /tmp/wp eval-file file02/tests/integration/wp-v12-php-catalog-runtime.php --path=/tmp/wordpress
+      - name: Rehearse exact SOURCE-CANDIDATE ZIP install without duplicate active File02
+        run: |
+          set -euo pipefail
+          bash file02/tools/build-package.sh "$RUNNER_TEMP/file02-zip-install"
+          artifact="$RUNNER_TEMP/file02-zip-install/02-sabri-authentication-1.4.0-SOURCE-CANDIDATE.zip"
+          test -s "$artifact"
+          unzip -t "$artifact" >/dev/null
+          /tmp/wp plugin deactivate sabri-authentication --path=/tmp/wordpress
+          /tmp/wp plugin install "$artifact" --path=/tmp/wordpress
+          /tmp/wp plugin activate 02-sabri-authentication --path=/tmp/wordpress
+          /tmp/wp eval '$installed=WP_PLUGIN_DIR."/02-sabri-authentication/sabri-authentication.php"; if(!is_file($installed)){fwrite(STDERR,"FAIL package folder/main file missing\n");exit(1);} if(!is_plugin_active("02-sabri-authentication/sabri-authentication.php")||is_plugin_active("sabri-authentication/sabri-authentication.php")){fwrite(STDERR,"FAIL more than one active File02 slug\n");exit(1);} if(!defined("SAUTH_VERSION")||SAUTH_VERSION!=="1.4.0"||!SAUTH_Activator::storage_ready()){fwrite(STDERR,"FAIL packaged File02 runtime or DB readiness\n");exit(1);} if(!SAUTH_Account_Contract::provider_available()){fwrite(STDERR,"FAIL packaged File00 contract\n");exit(1);} echo "PASS exact source ZIP installed/activated with one active File02 runtime. Existing old directory still requires a separate reviewed deployment transition.\n";' --path=/tmp/wordpress
