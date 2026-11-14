@@ -86,6 +86,10 @@ jobs:
           if css.count('{') != css.count('}'): raise SystemExit('CSS brace mismatch')
           if 'orange' in css.lower() or '#f97316' in css.lower(): raise SystemExit('superseded orange-primary token found')
           PY
+      - name: Verify offline NFR004 p75/p95 measurement governance
+        run: |
+          set -euo pipefail
+          python3 tests/perf/v12-3-offline-staging-latency-regression.py
 
   php-runtime:
     name: PHP ${{ matrix.php }} lint and cumulative regressions
