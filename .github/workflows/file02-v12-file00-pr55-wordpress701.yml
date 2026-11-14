@@ -149,6 +149,15 @@ jobs:
           set -euo pipefail
           php -l file02/tests/integration/wp-v12-account-safety-runtime.php
           /tmp/wp eval-file file02/tests/integration/wp-v12-account-safety-runtime.php --path=/tmp/wordpress
+      - name: V12.3 negative safety admission on real WordPress (both methods)
+        run: |
+          set -euo pipefail
+          php -l file02/tests/integration/wp-v12-account-safety-negative-registration.php
+          for method in password google; do
+            for variant in missing stale array; do
+              SAUTH_TEST_FLOW="$method" SAUTH_TEST_VARIANT="$variant" /tmp/wp eval-file file02/tests/integration/wp-v12-account-safety-negative-registration.php --path=/tmp/wordpress
+            done
+          done
       - name: Establish canonical File 00 application fixture for R341
         run: |
           set -euo pipefail
