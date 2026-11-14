@@ -188,6 +188,24 @@ jobs:
           cp "$a" "02-sabri-authentication-${RELEASE_VERSION}-SOURCE-CANDIDATE.zip"
           cp "$ma" "02-sabri-authentication-${RELEASE_VERSION}-MANIFEST.json"
           sha256sum "02-sabri-authentication-${RELEASE_VERSION}-SOURCE-CANDIDATE.zip" | tee CHECKSUMS.sha256
+      - name: Verify offline parity checker against the actual clean-extracted candidate archive
+        run: |
+          set -euo pipefail
+          python3 - "$RUNNER_TEMP/extract/02-sabri-authentication" "$RUNNER_TEMP/a/02-sabri-authentication-${RELEASE_VERSION}-MANIFEST.json" "$RUNNER_TEMP/parity-synthetic-snapshot.json" <<'PY'
+          import hashlib,json,pathlib,sys
+          root=pathlib.Path(sys.argv[1])
+          manifest=json.loads(pathlib.Path(sys.argv[2]).read_text(encoding='utf-8'))
+          entries={p.relative_to(root).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in root.rglob('*') if p.is_file()}
+          digest=hashlib.sha256()
+          for path in sorted(entries):
+              digest.update(path.encode('utf-8')+b'\\0'+entries[path].encode('ascii')+b'\\n')
+          source={'present':True,'main_php_sha256':entries['sabri-authentication.php'],'plugin_header_version':manifest['version'],'file_count':len(entries),'tree_sha256':digest.hexdigest(),'symlink_count_skipped':0,'read_error':False}
+          data={'schema':'sauth.live-reality-freeze.readonly.v1','plugins':{'File02-standard':{'active_site':False,'active_network':False,'source':{'present':False}},'File02-package':{'active_site':True,'active_network':False,'source':source}}}
+          pathlib.Path(sys.argv[3]).write_text(json.dumps(data,indent=2)+'\\n',encoding='utf-8')
+          PY
+          python3 tools/file02-offline-deployment-parity.py \\
+            --snapshot "$RUNNER_TEMP/parity-synthetic-snapshot.json" \\
+            --manifest "$RUNNER_TEMP/a/02-sabri-authentication-${RELEASE_VERSION}-MANIFEST.json"
       - name: Retain exact-head candidate artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
