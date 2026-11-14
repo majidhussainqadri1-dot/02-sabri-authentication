@@ -90,6 +90,10 @@ jobs:
         run: |
           set -euo pipefail
           python3 tests/perf/v12-3-offline-staging-latency-regression.py
+      - name: Prove offline deployed-tree versus release-manifest classification
+        run: |
+          set -euo pipefail
+          python3 tests/perf/v12-3-offline-deployment-parity-regression.py
 
   php-runtime:
     name: PHP ${{ matrix.php }} lint and cumulative regressions
