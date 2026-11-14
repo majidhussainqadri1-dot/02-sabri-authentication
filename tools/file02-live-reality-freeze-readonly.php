@@ -117,8 +117,20 @@ foreach ( $tables as $suffix ) {
             return array( 'name'=>$i['Key_name'], 'column'=>$i['Column_name'],
                 'order'=>(int)$i['Seq_in_index'], 'unique'=>0 === (int)$i['Non_unique'] );
         }, $indexes ),
-        'exact_rows' => $exact ? (int) $wpdb->get_var( 'SELECT COUNT(*) FROM `' . $table . '`' ) : null,
+        'exact_rows' => null,
+        'exact_rows_status' => $exact ? 'pending' : 'not_requested',
     );
+    if ( $exact ) {
+        // A failed/null SQL count is UNKNOWN, never a fabricated zero-row table.
+        $rows = $wpdb->get_var( 'SELECT COUNT(*) FROM `' . $table . '`' );
+        if ( null === $rows || '' !== (string) $wpdb->last_error
+            || ! is_scalar( $rows ) || ! preg_match( '/^(?:0|[1-9][0-9]*)$/D', (string) $rows ) ) {
+            $schema[ $suffix ]['exact_rows_status'] = 'query_failed';
+        } else {
+            $schema[ $suffix ]['exact_rows'] = (string) $rows;
+            $schema[ $suffix ]['exact_rows_status'] = 'verified';
+        }
+    }
 }
 $report = array(
     'schema'=>'sauth.live-reality-freeze.readonly.v1',
