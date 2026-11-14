@@ -18,7 +18,7 @@ function file02_safety_runtime_must( $ok, $message ) {
 file02_safety_runtime_must(
     class_exists( 'SAUTH_Account_Safety' ) &&
     class_exists( 'SAUTH_Canonical_Routes' ) &&
-    has_shortcode( 'sabri_auth_account_safety' ),
+    shortcode_exists( 'sabri_auth_account_safety' ),
     'account safety owner classes and registered shortcode'
 );
 file02_safety_runtime_must(
