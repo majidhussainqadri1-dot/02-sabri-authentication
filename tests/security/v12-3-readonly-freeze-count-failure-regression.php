@@ -28,7 +28,7 @@ class File02_Freeze_WPDB_Stub {
         $this->last_error = '';
         if ( false !== strpos( $sql, 'SHOW TABLES LIKE' ) ) {
             if ( preg_match( "/SHOW TABLES LIKE '(.+)'/D", $sql, $match ) ) {
-                return stripslashes( $match[1] );
+                return stripslashes( stripslashes( $match[1] ) ); // Mock wpdb->prepare() SQL quoting followed by LIKE escape removal.
             }
             return null;
         }
