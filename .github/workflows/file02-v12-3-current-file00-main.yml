@@ -99,6 +99,10 @@ jobs:
           /tmp/wp rewrite structure '/%postname%/' --path=/tmp/wordpress
           /tmp/wp rewrite flush --path=/tmp/wordpress
           /tmp/wp eval 'if ((string)get_option("permalink_structure","")!=="/%postname%/"){fwrite(STDERR,"FAIL disposable WP permalink setup\n");exit(1);} echo "PASS disposable pretty permalink configuration\n";' --path=/tmp/wordpress
+      - name: Confirm real disposable external-provider gates remain unverified
+        run: |
+          set -euo pipefail
+          /tmp/wp eval '$g=SAUTH_Operations::external_release_gate_summary(); if(!is_array($g)||count($g)!==8){fwrite(STDERR,"FAIL unexpected external gate registry\n");exit(1);} foreach($g as $key=>$status){if(($status["acceptance"]??"")!=="not_verified" || !in_array(($status["status"]??""),array("missing","registered_unverified"),true)){fwrite(STDERR,"FAIL false external provider acceptance: ".$key."\n");exit(1);}} foreach(array("file00_collision_owner","file00_recovery_owner") as $key){if(($g[$key]["status"]??"")!=="missing"){fwrite(STDERR,"FAIL unexpected synthetic File00 owner in disposable WP: ".$key."\n");exit(1);}} echo "PASS actual WordPress File00/02 external gates fail closed, no owner fabrication\n";' --path=/tmp/wordpress
       - name: V12.3 read-only deployed-state helper smoke test (disposable WP)
         run: |
           set -euo pipefail
