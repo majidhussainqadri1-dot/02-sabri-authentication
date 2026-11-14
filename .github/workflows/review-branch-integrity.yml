@@ -50,6 +50,7 @@ jobs:
           tests=(
             tests/security-unit.php
             tests/account-safety-guidance.php
+            tests/security/v12-3-48-source-traceability.php
             tests/cf01-assurance-unit.php
             tests/professional-reauthentication-unit.php
             tests/plan-harmonization-unit.php
