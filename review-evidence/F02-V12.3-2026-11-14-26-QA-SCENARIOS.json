@@ -1,0 +1,348 @@
+{
+  "schema": "sabri.file02.v12.3.qa-scenarios.v1",
+  "plan": "File02-V12.3-Comprehensive-Execution-Plan-v1.0.docx section 7, table '26 mandatory tests'",
+  "truth": "Source/test pointers and release handoff only; no browser/staging/live acceptance. Test paths only establish existence, not pass.",
+  "summary": {
+    "tests": 26,
+    "production_accepted": 0,
+    "real_staging_accepted": 0,
+    "requires_real_owner_or_browser": true
+  },
+  "scenarios": [
+    {
+      "id": "T01",
+      "scope": "registration, guardian, duplicate identity",
+      "requirement_ids": [
+        "F02-FR-001",
+        "F02-NFR-001"
+      ],
+      "test_paths": [
+        "tests/registration-authentication-unit.php",
+        "tests/r331-account-taxonomy-parity-regression.php"
+      ],
+      "production_acceptance": "not_verified",
+      "remaining_gate": "real File00 operator/negative collision"
+    },
+    {
+      "id": "T02",
+      "scope": "versioned account-safety admission",
+      "requirement_ids": [
+        "F02-FR-001",
+        "F02-NFR-010"
+      ],
+      "test_paths": [
+        "tests/account-safety-guidance.php",
+        "tests/integration/wp-v12-account-safety-runtime.php"
+      ],
+      "production_acceptance": "not_verified",
+      "remaining_gate": "real registration in staged browser, both methods"
+    },
+    {
+      "id": "T03",
+      "scope": "email verification and legacy reconciliation",
+      "requirement_ids": [
+        "F02-FR-002"
+      ],
+      "test_paths": [
+        "tests/r341-email-verification-legacy-reconciliation-regression.php"
+      ],
+      "production_acceptance": "not_verified",
+      "remaining_gate": "real signed mail/provider/replay/receipt"
+    },
+    {
+      "id": "T04",
+      "scope": "password login, autofill, risk",
+      "requirement_ids": [
+        "F02-FR-003",
+        "F02-FR-008"
+      ],
+      "test_paths": [
+        "tests/registration-authentication-unit.php",
+        "tests/r325-session-risk-assurance-regression.php"
+      ],
+      "production_acceptance": "not_verified",
+      "remaining_gate": "real browser, brute force, generic notices"
+    },
+    {
+      "id": "T05",
+      "scope": "draft account completion / suspended deny",
+      "requirement_ids": [
+        "F02-FR-009"
+      ],
+      "test_paths": [
+        "tests/r343-live-draft-completion-login-regression.php"
+      ],
+      "production_acceptance": "not_verified",
+      "remaining_gate": "File00 owner runtime and live completion"
+    },
+    {
+      "id": "T06",
+      "scope": "Google OAuth state/nonce/PKCE/collision",
+      "requirement_ids": [
+        "F02-FR-004"
+      ],
+      "test_paths": [
+        "tests/r304-google-auth-regression.php",
+        "tests/r323-google-oidc-containment-regression.php"
+      ],
+      "production_acceptance": "not_verified",
+      "remaining_gate": "real Google IdP and outage"
+    },
+    {
+      "id": "T07",
+      "scope": "Google link/unlink with fresh passkey",
+      "requirement_ids": [
+        "F02-FR-005"
+      ],
+      "test_paths": [
+        "tests/r340-passkey-assurance-cycle-regression.php"
+      ],
+      "production_acceptance": "not_verified",
+      "remaining_gate": "real sign in and File00 consumer"
+    },
+    {
+      "id": "T08",
+      "scope": "WebAuthn registration/auth and attestation",
+      "requirement_ids": [
+        "F02-X24-001",
+        "F02-X24-004"
+      ],
+      "test_paths": [
+        "tests/passkey-webauthn-unit.php"
+      ],
+      "production_acceptance": "not_verified",
+      "remaining_gate": "real browser/origin/cross-device"
+    },
+    {
+      "id": "T09",
+      "scope": "passkey revoke / backup / counter rollback",
+      "requirement_ids": [
+        "F02-X24-010"
+      ],
+      "test_paths": [
+        "tests/r305-passkey-lifecycle-regression.php"
+      ],
+      "production_acceptance": "not_verified",
+      "remaining_gate": "device loss and assurance invalidation"
+    },
+    {
+      "id": "T10",
+      "scope": "session listing and single/all revoke",
+      "requirement_ids": [
+        "F02-FR-007"
+      ],
+      "test_paths": [
+        "tests/r306-session-assurance-regression.php"
+      ],
+      "production_acceptance": "not_verified",
+      "remaining_gate": "real authenticated two-browser session"
+    },
+    {
+      "id": "T11",
+      "scope": "recovery expiry/replay/owner absent",
+      "requirement_ids": [
+        "F02-X24-011"
+      ],
+      "test_paths": [
+        "tests/recovery-once-claim-gate.php",
+        "tests/integration/recovery-owner-unavailable-mariadb.php"
+      ],
+      "production_acceptance": "not_verified",
+      "remaining_gate": "File00 canonical owner and live-ready reconciliation"
+    },
+    {
+      "id": "T12",
+      "scope": "collision case and uncertain owner outcome",
+      "requirement_ids": [
+        "F02-X24-012"
+      ],
+      "test_paths": [
+        "tests/integration/collision-once-mariadb-concurrency.php",
+        "tests/security/v12-collision-finalization-failfirst.php"
+      ],
+      "production_acceptance": "not_verified",
+      "remaining_gate": "real File00 collision owner denied/approved"
+    },
+    {
+      "id": "T13",
+      "scope": "timeline, not-me, PII and outage",
+      "requirement_ids": [
+        "F02-X24-007",
+        "F02-X24-008"
+      ],
+      "test_paths": [
+        "tests/security/v12-timeline-private-evidence-failfirst.php",
+        "tests/security/not-me-stepup-failfirst.php"
+      ],
+      "production_acceptance": "not_verified",
+      "remaining_gate": "real operator/consumer staging"
+    },
+    {
+      "id": "T14",
+      "scope": "emergency lockdown, risk and downgrade",
+      "requirement_ids": [
+        "F02-X24-009",
+        "F02-X24-010"
+      ],
+      "test_paths": [
+        "tests/security/lockdown-postcondition-failfirst.php"
+      ],
+      "production_acceptance": "not_verified",
+      "remaining_gate": "real locked account/recovery path"
+    },
+    {
+      "id": "T15",
+      "scope": "signed CAEP/RISC",
+      "requirement_ids": [
+        "F02-X24-015",
+        "F02-X24-016"
+      ],
+      "test_paths": [
+        "tests/security/shared-signal-strict-envelope.php",
+        "tests/integration/shared-signal-eventid-conflict-mariadb.php"
+      ],
+      "production_acceptance": "not_verified",
+      "remaining_gate": "real issuer trust and signature verifier"
+    },
+    {
+      "id": "T16",
+      "scope": "DPoP JOSE and replay",
+      "requirement_ids": [
+        "F02-X24-020"
+      ],
+      "test_paths": [
+        "tests/security/v12-dpop-htu-jwk-failfirst.php",
+        "tests/integration/dpop-replay-mariadb.php"
+      ],
+      "production_acceptance": "not_verified",
+      "remaining_gate": "approved crypto provider and access-token binding"
+    },
+    {
+      "id": "T17",
+      "scope": "FIDO metadata and FedCM IdP",
+      "requirement_ids": [
+        "F02-X24-021",
+        "F02-X24-023"
+      ],
+      "test_paths": [
+        "tests/security/fedcm-finish-guard-source.php",
+        "tests/modern-auth-24-unit.php"
+      ],
+      "production_acceptance": "not_verified",
+      "remaining_gate": "trusted FIDO metadata and real IdP/browser"
+    },
+    {
+      "id": "T18",
+      "scope": "privacy export/erasure and retained legacy",
+      "requirement_ids": [
+        "F02-NFR-002"
+      ],
+      "test_paths": [
+        "tests/r307-privacy-operations-regression.php"
+      ],
+      "production_acceptance": "not_verified",
+      "remaining_gate": "legal hold/staging data-owner and restore"
+    },
+    {
+      "id": "T19",
+      "scope": "object/field authorization and revoke",
+      "requirement_ids": [
+        "F02-NFR-001",
+        "F02-CEN-02"
+      ],
+      "test_paths": [
+        "tests/security-unit.php",
+        "tests/r311-security-boundary-regression.php"
+      ],
+      "production_acceptance": "not_verified",
+      "remaining_gate": "real user/role/guardian negative tests"
+    },
+    {
+      "id": "T20",
+      "scope": "XSS CSRF IDOR open redirect rate limit",
+      "requirement_ids": [
+        "F02-FR-010",
+        "F02-NFR-001"
+      ],
+      "test_paths": [
+        "tests/security-unit.php",
+        "tests/r311-security-boundary-regression.php"
+      ],
+      "production_acceptance": "not_verified",
+      "remaining_gate": "dynamic adversarial WP/DB/browser security"
+    },
+    {
+      "id": "T21",
+      "scope": "Urdu Arabic English language and bidi",
+      "requirement_ids": [
+        "F02-NFR-010"
+      ],
+      "test_paths": [
+        "tests/integration/wp-v12-php-catalog-runtime.php",
+        "tests/security/v12-i18n-source.php"
+      ],
+      "production_acceptance": "not_verified",
+      "remaining_gate": "real three-locale browser and mixed numeral correctness"
+    },
+    {
+      "id": "T22",
+      "scope": "keyboard/screenreader/zoom/a11y",
+      "requirement_ids": [
+        "F02-NFR-005"
+      ],
+      "test_paths": [
+        "tests/security/v12-green-rtl-source.php"
+      ],
+      "production_acceptance": "not_verified",
+      "remaining_gate": "independent WCAG 2.2 AA screenreader acceptance"
+    },
+    {
+      "id": "T23",
+      "scope": "responsive and slow network",
+      "requirement_ids": [
+        "F02-NFR-005"
+      ],
+      "test_paths": [
+        "tests/r308-route-ui-regression.php"
+      ],
+      "production_acceptance": "not_verified",
+      "remaining_gate": "320..1440px real browser & offline behavior"
+    },
+    {
+      "id": "T24",
+      "scope": "staging p75/p95 cold/warm performance",
+      "requirement_ids": [
+        "F02-NFR-004"
+      ],
+      "test_paths": [],
+      "production_acceptance": "not_verified",
+      "remaining_gate": "measured samples on production-like staged environment; NONE captured"
+    },
+    {
+      "id": "T25",
+      "scope": "fresh and 1.3.x upgrade migration",
+      "requirement_ids": [
+        "F02-NFR-007",
+        "F02-NFR-009"
+      ],
+      "test_paths": [
+        "tests/r334-passkey-dbdelta-migration-regression.php",
+        "tests/r335-passkey-index-reconciliation-regression.php"
+      ],
+      "production_acceptance": "not_verified",
+      "remaining_gate": "full supported upgrade matrix, backup, fault injection"
+    },
+    {
+      "id": "T26",
+      "scope": "rollback and exact deployed checksum parity",
+      "requirement_ids": [
+        "F02-NFR-007"
+      ],
+      "test_paths": [
+        "tests/r309-release-truth-regression.php"
+      ],
+      "production_acceptance": "not_verified",
+      "remaining_gate": "production-like staging restore and post-deploy parity"
+    }
+  ]
+}
