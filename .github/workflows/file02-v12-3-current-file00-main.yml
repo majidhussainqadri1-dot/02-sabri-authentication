@@ -99,6 +99,32 @@ jobs:
           /tmp/wp rewrite structure '/%postname%/' --path=/tmp/wordpress
           /tmp/wp rewrite flush --path=/tmp/wordpress
           /tmp/wp eval 'if ((string)get_option("permalink_structure","")!=="/%postname%/"){fwrite(STDERR,"FAIL disposable WP permalink setup\n");exit(1);} echo "PASS disposable pretty permalink configuration\n";' --path=/tmp/wordpress
+      - name: V12.3 read-only deployed-state helper smoke test (disposable WP)
+        run: |
+          set -euo pipefail
+          php -l file02/tools/file02-live-reality-freeze-readonly.php
+          if /tmp/wp eval-file file02/tools/file02-live-reality-freeze-readonly.php --path=/tmp/wordpress > "$RUNNER_TEMP/no-approval.json" 2>&1; then
+            echo "FAIL read-only helper unexpectedly ran without explicit operator opt-in" >&2
+            exit 1
+          fi
+          SAUTH_FREEZE_READONLY=AUTHORIZED /tmp/wp eval-file file02/tools/file02-live-reality-freeze-readonly.php --path=/tmp/wordpress > "$RUNNER_TEMP/file02-freeze-disposable.json"
+          python3 - "$RUNNER_TEMP/file02-freeze-disposable.json" <<'PY'
+          import json, sys
+          evidence=json.load(open(sys.argv[1],encoding='utf-8'))
+          assert evidence['schema']=='sauth.live-reality-freeze.readonly.v1'
+          assert evidence['runtime']['wordpress']=='7.0.1'
+          assert evidence['plugins']['File02-standard']['active_site'] is True
+          assert evidence['plugins']['File00']['active_site'] is True
+          assert evidence['plugins']['File02-standard']['source']['main_php_sha256']
+          assert evidence['plugins']['File02-standard']['source']['plugin_header_version']=='1.4.0'
+          assert evidence['plugins']['File00']['source']['plugin_header_version']=='1.2.44'
+          assert evidence['allowlisted_options']['sauth_db_version']=='1.4.0'
+          assert evidence['tables']['sauth_passkeys']['exists'] is True
+          assert evidence['redacted_or_unavailable']['deployed_vs_repository_parity']=='not_verified'
+          assert evidence['redacted_or_unavailable']['record_rows']=='not_collected'
+          assert evidence['tables']['sauth_passkeys']['exact_rows'] is None
+          print('PASS File02 V12.3 opted-in read-only metadata helper on disposable WP; no live claim')
+          PY
       - name: V12.3 negative safety admission on real WordPress (both methods)
         run: |
           set -euo pipefail
