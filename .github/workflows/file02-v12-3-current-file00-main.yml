@@ -93,6 +93,12 @@ jobs:
           set -euo pipefail
           /tmp/wp plugin activate sabri-authentication --path=/tmp/wordpress
           /tmp/wp eval 'if(!SAUTH_Account_Contract::provider_available()){fwrite(STDERR,"FAIL File00/02 account provider unavailable\n");exit(1);} if((string)get_option("sauth_db_version","")!==SAUTH_DB_VERSION || (string)get_option("sauth_passkey_schema_version","")!==SAUTH_Passkeys::SCHEMA_VERSION){fwrite(STDERR,"FAIL File02 schema contract\n");exit(1);} if(!SAUTH_Activator::storage_ready() || !SAUTH_Passkeys::installation_ready()){fwrite(STDERR,"FAIL File02 storage readiness\n");exit(1);} foreach(array("application"=>"profile_url","status"=>"verification_url","security"=>"security_url") as $owner=>$method){$expected=smc_page_url($owner,"/");$got=SA_Membership_Adapter::$method();if(!is_string($expected)||$expected!==$got){fwrite(STDERR,"FAIL File00/02 route ".$owner."\n");exit(1);}} echo "PASS File02 pinned to CURRENT File00 main, schema and canonical member routes\n";' --path=/tmp/wordpress
+      - name: Establish pretty-permalink prerequisite for canonical route test
+        run: |
+          set -euo pipefail
+          /tmp/wp rewrite structure '/%postname%/' --path=/tmp/wordpress
+          /tmp/wp rewrite flush --path=/tmp/wordpress
+          /tmp/wp eval 'if ((string)get_option("permalink_structure","")!=="/%postname%/"){fwrite(STDERR,"FAIL disposable WP permalink setup\n");exit(1);} echo "PASS disposable pretty permalink configuration\n";' --path=/tmp/wordpress
       - name: Run V12.3 account-safety WordPress runtime and translations
         run: |
           set -euo pipefail
