@@ -206,5 +206,32 @@
       "/account-passkeys/"
     ],
     "external_adapters": "DPoP signature verification, FIDO metadata, FedCM IdP verification and credential exchange remain fail-closed until configured and staging-accepted"
+  },
+  "v12_3_working_candidate": {
+    "governance": "Sabri Website Master Plan V12.3; File02 V12.3 Comprehensive Execution Plan v1.0",
+    "status": "draft_qa_in_progress_NOT_RELEASE_ACCEPTED",
+    "actual_branch": "agent/file02-v12-3-safety-integration-20261114",
+    "pull_request": 28,
+    "based_on_pr26_sha": "78792b29c5cc2a5d4ed0b961607f8073780742e4",
+    "integrated_pr27_sha": "7c53f6d7c1b49df9469b2b209c36a1360cc3341c",
+    "repository_main_at_review": "224c39bcb8c28f77504c7348dbad41226753c7e8",
+    "file00_current_main_at_review": "1fad051c86d530d558be3eb1890d3c6e67bce6e8",
+    "exact_final_candidate_commit": "must_resolve_from_branch_HEAD_at_review_or_packaging; not self-referential",
+    "requirements_48": {
+      "FR": 12,
+      "NFR": 10,
+      "CEN": 2,
+      "X24": 24,
+      "production_acceptances_verified": 0
+    },
+    "staging_accepted": false,
+    "live_deployed": false,
+    "live_retested": false,
+    "package_deployed_parity_verified": false,
+    "live_deployed_version": "UNVERIFIED",
+    "live_db_version": "UNVERIFIED",
+    "live_migration_state": "UNVERIFIED",
+    "source_traceability": "review-evidence/F02-V12.3-2026-11-14-48-ID-SOURCE-TRACEABILITY.json",
+    "source_only_notice": "Earlier candidate_branch and review_line fields are historical CI baseline identities, not this Draft PR's working head. Do not infer live from repo CI."
   }
 }

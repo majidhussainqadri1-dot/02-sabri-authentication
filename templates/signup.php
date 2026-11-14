@@ -110,6 +110,9 @@
 					<label class="sa-check"><input type="checkbox" name="accept_terms" value="1" required> <?php esc_html_e( 'I accept the current Terms of Use.', 'sabri-authentication' ); ?></label>
 					<label class="sa-check"><input type="checkbox" name="accept_privacy" value="1" required> <?php esc_html_e( 'I have read and accept the Privacy Notice and identity-verification processing.', 'sabri-authentication' ); ?></label>
 					<label class="sa-check"><input type="checkbox" name="accept_ethics" value="1" required> <?php esc_html_e( 'I accept the Islamic, professional and institutional Ethical Conduct Charter, including truthful identity and role declarations.', 'sabri-authentication' ); ?></label>
+					<p class="sa-data-note" id="sauth-safety-rules-link"><?php esc_html_e( 'Read the', 'sabri-authentication' ); ?> <a href="<?php echo esc_url( SA_Security::page_url( 'safety' ) ); ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'mandatory account safety rules (opens in a new tab)', 'sabri-authentication' ); ?></a> <?php esc_html_e( 'before continuing.', 'sabri-authentication' ); ?></p>
+					<label class="sa-check"><input type="checkbox" name="accept_security_rules" value="1" aria-describedby="sauth-safety-rules-link" required> <?php esc_html_e( 'I have read the safety rules and will keep login credentials private, recognize phishing, protect patient records and report suspicious access.', 'sabri-authentication' ); ?></label>
+					<input type="hidden" name="security_policy_version" value="<?php echo esc_attr( SAUTH_Account_Safety::POLICY_VERSION ); ?>">
 				</div>
 				<div class="sa-field-full">
 					<button class="sa-primary-button" type="submit"><?php esc_html_e( 'Create Account and Continue Verification', 'sabri-authentication' ); ?></button>

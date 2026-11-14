@@ -49,6 +49,11 @@ jobs:
           set -euo pipefail
           tests=(
             tests/security-unit.php
+            tests/account-safety-guidance.php
+            tests/security/v12-3-48-source-traceability.php
+            tests/security/v12-3-26-qa-scenario-register.php
+            tests/security/v12-3-live-freeze-readonly-guard.php
+            tests/security/v12-3-readonly-freeze-count-failure-regression.php
             tests/cf01-assurance-unit.php
             tests/professional-reauthentication-unit.php
             tests/plan-harmonization-unit.php
@@ -74,6 +79,10 @@ jobs:
           for test_file in "${tests[@]}"; do
             if [ -z "${seen[$test_file]+x}" ]; then php "$test_file"; seen[$test_file]=1; fi
           done
+      - name: Prove P00/P11 offline deployed-byte-parity governance
+        run: |
+          set -euo pipefail
+          python3 tests/perf/v12-3-offline-deployment-parity-regression.py
       - name: Validate JavaScript and CSS source
         run: |
           set -euo pipefail

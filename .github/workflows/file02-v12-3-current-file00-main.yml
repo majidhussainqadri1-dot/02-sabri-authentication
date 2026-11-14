@@ -1,0 +1,158 @@
+# V12.3 P09: current File00 main compatibility, independently pinned from PR55.
+# Disposable WordPress/MariaDB only. Never implies staging/live parity or owner signoff.
+name: File 02 V12.3 — Current File 00 main compatibility
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - agent/**
+      - audit/**
+
+permissions:
+  contents: read
+
+env:
+  FILE00_EXACT_MAIN_SHA: '1fad051c86d530d558be3eb1890d3c6e67bce6e8'
+  FILE00_VERSION: '1.2.44'
+  FILE02_VERSION: '1.4.0'
+  FILE02_DB_VERSION: '1.4.0'
+  FILE02_PASSKEY_SCHEMA: '1.1.0'
+
+jobs:
+  file00-main-wordpress-integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_DATABASE: wordpress
+          MARIADB_USER: wordpress
+          MARIADB_PASSWORD: wordpress
+          MARIADB_ROOT_PASSWORD: root
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - name: Checkout exact File02 candidate
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          path: file02
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Checkout exact current File00 repository main
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          repository: majidhussainqadri1-dot/00-sabri-membership-core
+          path: file00
+          persist-credentials: false
+          ref: ${{ env.FILE00_EXACT_MAIN_SHA }}
+      - name: Verify exact inputs before environment creation
+        run: |
+          set -euo pipefail
+          test "$(git -C file02 rev-parse HEAD)" = '${{ github.event.pull_request.head.sha || github.sha }}'
+          test "$(git -C file00 rev-parse HEAD)" = "$FILE00_EXACT_MAIN_SHA"
+          grep -Fq "Version: ${FILE00_VERSION}" file00/source/sabri-membership-core/sabri-membership-core.php
+          grep -Fq "Version: ${FILE02_VERSION}" file02/sabri-authentication.php
+          grep -Fq "SAUTH_DB_VERSION', '${FILE02_DB_VERSION}" file02/sabri-authentication.php
+          grep -Fq "const POLICY_VERSION = '2026-11-10'" file02/includes/class-sauth-account-safety.php
+      - name: PHP runtime
+        uses: shivammathur/setup-php@2.37.2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: none
+          extensions: mysqli,openssl
+      - name: Create disposable WordPress 7.0.1 and install exact sources
+        run: |
+          set -euo pipefail
+          curl -fsSL https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar -o /tmp/wp
+          chmod +x /tmp/wp
+          mkdir -p /tmp/wordpress
+          /tmp/wp core download --version=7.0.1 --path=/tmp/wordpress --quiet
+          test "$(/tmp/wp core version --path=/tmp/wordpress)" = '7.0.1'
+          /tmp/wp config create --dbname=wordpress --dbuser=wordpress --dbpass=wordpress --dbhost=127.0.0.1:3306 --path=/tmp/wordpress --skip-check --quiet
+          /tmp/wp config set WP_ENVIRONMENT_TYPE 'staging' --type=constant --path=/tmp/wordpress
+          /tmp/wp config set SMC_MASTER_KEY 'disposable-file00-exact-main-master-key' --type=constant --path=/tmp/wordpress
+          /tmp/wp config set SMC_MASTER_KEY_ID 'disposable-file00-main-key-id' --type=constant --path=/tmp/wordpress
+          /tmp/wp config set SA_MASTER_KEY 'disposable-file02-exact-branch-master-key' --type=constant --path=/tmp/wordpress
+          /tmp/wp core install --url=http://example.test --title='V12.3 File00 main pinned integration' --admin_user=admin --admin_password='Disposable-Integ-Password-2026!' --admin_email=admin@example.test --skip-email --path=/tmp/wordpress --quiet
+          cp -R file00/source/sabri-membership-core /tmp/wordpress/wp-content/plugins/sabri-membership-core
+          mkdir -p /tmp/wordpress/wp-content/plugins/sabri-authentication
+          rsync -a --exclude='.git' --exclude='.github' --exclude='tests' --exclude='tools' --exclude='review-evidence' file02/ /tmp/wordpress/wp-content/plugins/sabri-authentication/
+      - name: Establish File00 canonical schema and account authority
+        run: |
+          set -euo pipefail
+          /tmp/wp plugin activate sabri-membership-core --path=/tmp/wordpress
+          /tmp/wp eval 'wp_set_current_user(1); do_action("admin_init"); if((string)get_option("smc_db_version","")!==SMC_DB_VERSION){fwrite(STDERR,"FAIL canonical File00 migration\n");exit(1);} if(SMC_Completion::safe_mode()){fwrite(STDERR,"FAIL File00 remains in Safe Mode\n");exit(1);} if(!class_exists("SMC_Authentication_Contract_V11")){fwrite(STDERR,"FAIL File00 account provider\n");exit(1);} echo "PASS exact current File00 main canonical DB and account provider\n";' --path=/tmp/wordpress
+      - name: Activate File02 and verify cross-file version and route contracts
+        run: |
+          set -euo pipefail
+          /tmp/wp plugin activate sabri-authentication --path=/tmp/wordpress
+          /tmp/wp eval 'if(!SAUTH_Account_Contract::provider_available()){fwrite(STDERR,"FAIL File00/02 account provider unavailable\n");exit(1);} if((string)get_option("sauth_db_version","")!==SAUTH_DB_VERSION || (string)get_option("sauth_passkey_schema_version","")!==SAUTH_Passkeys::SCHEMA_VERSION){fwrite(STDERR,"FAIL File02 schema contract\n");exit(1);} if(!SAUTH_Activator::storage_ready() || !SAUTH_Passkeys::installation_ready()){fwrite(STDERR,"FAIL File02 storage readiness\n");exit(1);} foreach(array("application"=>"profile_url","status"=>"verification_url","security"=>"security_url") as $owner=>$method){$expected=smc_page_url($owner,"/");$got=SA_Membership_Adapter::$method();if(!is_string($expected)||$expected!==$got){fwrite(STDERR,"FAIL File00/02 route ".$owner."\n");exit(1);}} echo "PASS File02 pinned to CURRENT File00 main, schema and canonical member routes\n";' --path=/tmp/wordpress
+      - name: Establish pretty-permalink prerequisite for canonical route test
+        run: |
+          set -euo pipefail
+          /tmp/wp rewrite structure '/%postname%/' --path=/tmp/wordpress
+          /tmp/wp rewrite flush --path=/tmp/wordpress
+          /tmp/wp eval 'if ((string)get_option("permalink_structure","")!=="/%postname%/"){fwrite(STDERR,"FAIL disposable WP permalink setup\n");exit(1);} echo "PASS disposable pretty permalink configuration\n";' --path=/tmp/wordpress
+      - name: Confirm real disposable external-provider gates remain unverified
+        run: |
+          set -euo pipefail
+          /tmp/wp eval '$g=SAUTH_Operations::external_release_gate_summary(); if(!is_array($g)||count($g)!==8){fwrite(STDERR,"FAIL unexpected external gate registry\n");exit(1);} foreach($g as $key=>$status){if(($status["acceptance"]??"")!=="not_verified" || !in_array(($status["status"]??""),array("missing","registered_unverified"),true)){fwrite(STDERR,"FAIL false external provider acceptance: ".$key."\n");exit(1);}} foreach(array("file00_collision_owner","file00_recovery_owner") as $key){if(($g[$key]["status"]??"")!=="missing"){fwrite(STDERR,"FAIL unexpected synthetic File00 owner in disposable WP: ".$key."\n");exit(1);}} echo "PASS actual WordPress File00/02 external gates fail closed, no owner fabrication\n";' --path=/tmp/wordpress
+      - name: V12.3 read-only deployed-state helper smoke test (disposable WP)
+        run: |
+          set -euo pipefail
+          php -l file02/tools/file02-live-reality-freeze-readonly.php
+          if /tmp/wp eval-file file02/tools/file02-live-reality-freeze-readonly.php --path=/tmp/wordpress > "$RUNNER_TEMP/no-approval.json" 2>&1; then
+            echo "FAIL read-only helper unexpectedly ran without explicit operator opt-in" >&2
+            exit 1
+          fi
+          SAUTH_FREEZE_READONLY=AUTHORIZED /tmp/wp eval-file file02/tools/file02-live-reality-freeze-readonly.php --path=/tmp/wordpress > "$RUNNER_TEMP/file02-freeze-disposable.json"
+          python3 - "$RUNNER_TEMP/file02-freeze-disposable.json" <<'PY'
+          import json, sys
+          evidence=json.load(open(sys.argv[1],encoding='utf-8'))
+          assert evidence['schema']=='sauth.live-reality-freeze.readonly.v1'
+          assert evidence['runtime']['wordpress']=='7.0.1'
+          assert evidence['plugins']['File02-standard']['active_site'] is True
+          assert evidence['plugins']['File00']['active_site'] is True
+          assert evidence['plugins']['File02-standard']['source']['main_php_sha256']
+          assert evidence['plugins']['File02-standard']['source']['plugin_header_version']=='1.4.0'
+          assert evidence['plugins']['File00']['source']['plugin_header_version']=='1.2.44'
+          assert evidence['allowlisted_options']['sauth_db_version']=='1.4.0'
+          assert evidence['tables']['sauth_passkeys']['exists'] is True
+          assert evidence['redacted_or_unavailable']['deployed_vs_repository_parity']=='not_verified'
+          assert evidence['redacted_or_unavailable']['record_rows']=='not_collected'
+          assert evidence['tables']['sauth_passkeys']['exact_rows'] is None
+          print('PASS File02 V12.3 opted-in read-only metadata helper on disposable WP; no live claim')
+          PY
+      - name: V12.3 negative safety admission on real WordPress (both methods)
+        run: |
+          set -euo pipefail
+          php -l file02/tests/integration/wp-v12-account-safety-negative-registration.php
+          for method in password google; do
+            for variant in missing stale array; do
+              SAUTH_TEST_FLOW="$method" SAUTH_TEST_VARIANT="$variant" /tmp/wp eval-file file02/tests/integration/wp-v12-account-safety-negative-registration.php --path=/tmp/wordpress
+            done
+          done
+      - name: Run V12.3 account-safety WordPress runtime and translations
+        run: |
+          set -euo pipefail
+          php -l file02/tests/integration/wp-v12-account-safety-runtime.php
+          php -l file02/tests/integration/wp-v12-php-catalog-runtime.php
+          /tmp/wp eval-file file02/tests/integration/wp-v12-account-safety-runtime.php --path=/tmp/wordpress
+          /tmp/wp eval-file file02/tests/integration/wp-v12-php-catalog-runtime.php --path=/tmp/wordpress
+      - name: Rehearse exact SOURCE-CANDIDATE ZIP install without duplicate active File02
+        run: |
+          set -euo pipefail
+          bash file02/tools/build-package.sh "$RUNNER_TEMP/file02-zip-install"
+          artifact="$RUNNER_TEMP/file02-zip-install/02-sabri-authentication-1.4.0-SOURCE-CANDIDATE.zip"
+          test -s "$artifact"
+          unzip -t "$artifact" >/dev/null
+          /tmp/wp plugin deactivate sabri-authentication --path=/tmp/wordpress
+          /tmp/wp plugin install "$artifact" --path=/tmp/wordpress
+          /tmp/wp plugin activate 02-sabri-authentication --path=/tmp/wordpress
+          /tmp/wp eval '$installed=WP_PLUGIN_DIR."/02-sabri-authentication/sabri-authentication.php"; if(!is_file($installed)){fwrite(STDERR,"FAIL package folder/main file missing\n");exit(1);} if(!is_plugin_active("02-sabri-authentication/sabri-authentication.php")||is_plugin_active("sabri-authentication/sabri-authentication.php")){fwrite(STDERR,"FAIL more than one active File02 slug\n");exit(1);} if(!defined("SAUTH_VERSION")||SAUTH_VERSION!=="1.4.0"||!SAUTH_Activator::storage_ready()){fwrite(STDERR,"FAIL packaged File02 runtime or DB readiness\n");exit(1);} if(!SAUTH_Account_Contract::provider_available()){fwrite(STDERR,"FAIL packaged File00 contract\n");exit(1);} echo "PASS exact source ZIP installed/activated with one active File02 runtime. Existing old directory still requires a separate reviewed deployment transition.\n";' --path=/tmp/wordpress

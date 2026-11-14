@@ -1,0 +1,788 @@
+{
+  "schema": "sabri.file02.v12.3.traceability.v1",
+  "plan": "Sabri-Website-Master-Plan-V12.3.docx",
+  "plan_work_order": "File02-V12.3-Comprehensive-Execution-Plan-v1.0.docx",
+  "inspected_candidate_sha": "a2aa406b1238931aa767eed4f97f6a504c70878e",
+  "methodology": "Author-supplied V12.3 requirement identity, recorded source candidate, exact GitHub tree path existence; source/test paths are trace pointers only and NOT proof of behavior or independent production acceptance.",
+  "summary": {
+    "requirements": 48,
+    "source_implemented_candidate": 28,
+    "partial_or_owner_gated": 20,
+    "independently_verified_production_acceptances": 0
+  },
+  "requirements": [
+    {
+      "id": "F02-FR-001",
+      "source": [
+        "includes/class-sa-registration.php",
+        "includes/class-sauth-account-contract.php"
+      ],
+      "test": [
+        "tests/registration-authentication-unit.php",
+        "tests/r331-account-taxonomy-parity-regression.php",
+        "tests/account-safety-guidance.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "source+owner+CI+staging+live",
+      "class": "FR",
+      "source_state": "implemented_candidate",
+      "owner": "File02/File00",
+      "dependency": null
+    },
+    {
+      "id": "F02-FR-002",
+      "source": [
+        "includes/class-sauth-email-verification.php",
+        "includes/class-sauth-email-verification-reconciler.php"
+      ],
+      "test": [
+        "tests/r341-email-verification-legacy-reconciliation-regression.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "source+owner+CI+staging+live",
+      "class": "FR",
+      "source_state": "implemented_candidate",
+      "owner": "File02/File00",
+      "dependency": null
+    },
+    {
+      "id": "F02-FR-003",
+      "source": [
+        "includes/class-sa-registration.php",
+        "includes/class-sauth-login-risk.php"
+      ],
+      "test": [
+        "tests/security-unit.php",
+        "tests/r343-live-draft-completion-login-regression.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "source+owner+CI+staging+live",
+      "class": "FR",
+      "source_state": "implemented_candidate",
+      "owner": "File02/File00",
+      "dependency": null
+    },
+    {
+      "id": "F02-FR-004",
+      "source": [
+        "includes/class-sa-google-oauth.php",
+        "includes/class-sauth-google-registration.php"
+      ],
+      "test": [
+        "tests/r304-google-auth-regression.php",
+        "tests/r323-google-oidc-containment-regression.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "source+owner+CI+staging+live",
+      "class": "FR",
+      "source_state": "implemented_candidate",
+      "owner": "File02/File00",
+      "dependency": null
+    },
+    {
+      "id": "F02-FR-005",
+      "source": [
+        "includes/class-sa-google-oauth.php",
+        "templates/google-account.php"
+      ],
+      "test": [
+        "tests/r304-google-auth-regression.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "source+owner+CI+staging+live",
+      "class": "FR",
+      "source_state": "implemented_candidate",
+      "owner": "File02/File00",
+      "dependency": null
+    },
+    {
+      "id": "F02-FR-006",
+      "source": [
+        "includes/class-sa-registration.php",
+        "includes/class-sauth-security-orchestrator.php"
+      ],
+      "test": [
+        "tests/r303-registration-recovery-regression.php",
+        "tests/recovery-once-claim-gate.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "source+owner+CI+staging+live",
+      "class": "FR",
+      "source_state": "implemented_candidate",
+      "owner": "File02/File00",
+      "dependency": null
+    },
+    {
+      "id": "F02-FR-007",
+      "source": [
+        "includes/class-sauth-session-manager.php"
+      ],
+      "test": [
+        "tests/r306-session-assurance-regression.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "source+owner+CI+staging+live",
+      "class": "FR",
+      "source_state": "implemented_candidate",
+      "owner": "File02/File00",
+      "dependency": null
+    },
+    {
+      "id": "F02-FR-008",
+      "source": [
+        "includes/class-sauth-login-risk.php",
+        "includes/class-sauth-passkey-runtime.php"
+      ],
+      "test": [
+        "tests/r325-session-risk-assurance-regression.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "source+owner+CI+staging+live",
+      "class": "FR",
+      "source_state": "implemented_candidate",
+      "owner": "File02/File00",
+      "dependency": null
+    },
+    {
+      "id": "F02-FR-009",
+      "source": [
+        "includes/class-sauth-completion-resolver.php",
+        "includes/class-sa-membership-adapter.php"
+      ],
+      "test": [
+        "tests/r343-live-draft-completion-login-regression.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "source+owner+CI+staging+live",
+      "class": "FR",
+      "source_state": "implemented_candidate",
+      "owner": "File02/File00",
+      "dependency": null
+    },
+    {
+      "id": "F02-FR-010",
+      "source": [
+        "includes/class-sa-security.php",
+        "includes/class-sauth-canonical-routes.php"
+      ],
+      "test": [
+        "tests/r308-route-ui-regression.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "source+owner+CI+staging+live",
+      "class": "FR",
+      "source_state": "implemented_candidate",
+      "owner": "File02/File00",
+      "dependency": null
+    },
+    {
+      "id": "F02-FR-011",
+      "source": [
+        "includes/class-sauth-event-outbox.php",
+        "includes/class-sa-membership-adapter.php"
+      ],
+      "test": [
+        "tests/r307-privacy-operations-regression.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "source+owner+CI+staging+live",
+      "class": "FR",
+      "source_state": "implemented_candidate",
+      "owner": "File02/File00",
+      "dependency": null
+    },
+    {
+      "id": "F02-FR-012",
+      "source": [
+        "includes/class-sauth-provider-health.php",
+        "includes/class-sauth-provider-http-guard.php"
+      ],
+      "test": [
+        "tests/r314-google-provider-health-regression.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "source+owner+CI+staging+live",
+      "class": "FR",
+      "source_state": "implemented_candidate",
+      "owner": "File02/File00",
+      "dependency": null
+    },
+    {
+      "id": "F02-NFR-001",
+      "source": [
+        "includes/class-sa-access-control.php",
+        "includes/class-sa-membership-adapter.php"
+      ],
+      "test": [
+        "tests/security-unit.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "source+owner+CI+staging+live",
+      "class": "NFR",
+      "source_state": "partial_acceptance_controls",
+      "owner": "File02/QA",
+      "dependency": null
+    },
+    {
+      "id": "F02-NFR-002",
+      "source": [
+        "includes/class-sa-privacy.php",
+        "includes/class-sauth-privacy-jobs.php"
+      ],
+      "test": [
+        "tests/r307-privacy-operations-regression.php",
+        "tests/security/v12-timeline-private-evidence-failfirst.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "source+owner+CI+staging+live",
+      "class": "NFR",
+      "source_state": "partial_acceptance_controls",
+      "owner": "File02/QA",
+      "dependency": null
+    },
+    {
+      "id": "F02-NFR-003",
+      "source": [
+        "includes/class-sauth-event-outbox.php",
+        "includes/class-sauth-operations.php"
+      ],
+      "test": [
+        "tests/r327-privacy-outbox-pagination-regression.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "source+owner+CI+staging+live",
+      "class": "NFR",
+      "source_state": "partial_acceptance_controls",
+      "owner": "File02/QA",
+      "dependency": null
+    },
+    {
+      "id": "F02-NFR-004",
+      "source": [
+        "includes/class-sauth-session-manager.php",
+        "includes/class-sauth-security-orchestrator.php",
+        "tools/file02-staging-latency-analyzer.py"
+      ],
+      "test": [
+        "tests/perf/v12-3-offline-staging-latency-regression.py"
+      ],
+      "acceptance": "not_verified",
+      "gate": "Offline measurement tool/source regression only; real staging profile/approved budget/adequate sample and p75/p95 are STILL NOT VERIFIED",
+      "class": "NFR",
+      "source_state": "partial_acceptance_controls",
+      "owner": "File02/QA",
+      "dependency": null
+    },
+    {
+      "id": "F02-NFR-005",
+      "source": [
+        "templates/login.php",
+        "templates/signup.php",
+        "assets/css/authentication.css"
+      ],
+      "test": [
+        "tests/r308-route-ui-regression.php",
+        "tests/account-safety-guidance.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "requires browser keyboard/screen-reader WCAG 2.2 AA acceptance",
+      "class": "NFR",
+      "source_state": "partial_acceptance_controls",
+      "owner": "File02/QA",
+      "dependency": null
+    },
+    {
+      "id": "F02-NFR-006",
+      "source": [
+        "includes/class-sauth-operations.php",
+        "includes/class-sauth-event-outbox.php"
+      ],
+      "test": [
+        "tests/r307-privacy-operations-regression.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "requires redacted operational alerts and dashboards",
+      "class": "NFR",
+      "source_state": "partial_acceptance_controls",
+      "owner": "File02/QA",
+      "dependency": null
+    },
+    {
+      "id": "F02-NFR-007",
+      "source": [
+        "includes/class-sa-activator.php",
+        "includes/class-sauth-passkey-index-reconciler.php"
+      ],
+      "test": [
+        "tests/r334-passkey-dbdelta-migration-regression.php",
+        "tests/r335-passkey-index-reconciliation-regression.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "requires controlled staging backup/restore/rollback",
+      "class": "NFR",
+      "source_state": "partial_acceptance_controls",
+      "owner": "File02/QA",
+      "dependency": null
+    },
+    {
+      "id": "F02-NFR-008",
+      "source": [
+        "includes/class-sauth-operations.php",
+        "includes/class-sauth-provider-health.php"
+      ],
+      "test": [
+        "tests/r337-comprehensive-remediation-regression.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "requires operator runbook/actual provider readiness",
+      "class": "NFR",
+      "source_state": "partial_acceptance_controls",
+      "owner": "File02/QA",
+      "dependency": null
+    },
+    {
+      "id": "F02-NFR-009",
+      "source": [
+        "sabri-authentication.php",
+        "readme.txt"
+      ],
+      "test": [
+        "tests/integration/wp-v12-account-safety-runtime.php",
+        "tests/integration/wp-v12-php-catalog-runtime.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "WP7.0.1/PHP8.3 disposable CI plus fresh staged parity",
+      "class": "NFR",
+      "source_state": "partial_acceptance_controls",
+      "owner": "File02/QA",
+      "dependency": null
+    },
+    {
+      "id": "F02-NFR-010",
+      "source": [
+        "languages/sabri-authentication-ur.l10n.php",
+        "languages/sabri-authentication-ar.l10n.php",
+        "templates/signup.php"
+      ],
+      "test": [
+        "tests/integration/wp-v12-php-catalog-runtime.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "requires 3-locale real browser, RTL, dates and numbers acceptance",
+      "class": "NFR",
+      "source_state": "partial_acceptance_controls",
+      "owner": "File02/QA",
+      "dependency": null
+    },
+    {
+      "id": "F02-CEN-01",
+      "source": [
+        "includes/class-sauth-canonical-routes.php",
+        "assets/css/authentication.css"
+      ],
+      "test": [
+        "tests/integration/file25-visual-token-bridge-source.php",
+        "tests/integration/file26-authentication-noindex-source.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "File25/26/20 owner staging signoff",
+      "class": "CEN",
+      "source_state": "cross_file_contract_candidate",
+      "owner": "File02/File25/File26",
+      "dependency": null
+    },
+    {
+      "id": "F02-CEN-02",
+      "source": [
+        "includes/class-sa-membership-adapter.php",
+        "includes/class-sauth-security-orchestrator.php"
+      ],
+      "test": [
+        "tests/integration/file24-assurance-consumer-mock.php",
+        "tests/r343-live-draft-completion-login-regression.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "File00/24 independent owner contract runtime signoff",
+      "class": "CEN",
+      "source_state": "cross_file_contract_candidate",
+      "owner": "File02/File00/File24",
+      "dependency": null
+    },
+    {
+      "id": "F02-X24-001",
+      "source": [
+        "assets/js/authentication.js",
+        "templates/login.php"
+      ],
+      "test": [
+        "tests/modern-auth-24-unit.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "real browser conditional autofill",
+      "class": "X24",
+      "source_state": "implemented_candidate",
+      "owner": "File02+external-owner",
+      "dependency": null
+    },
+    {
+      "id": "F02-X24-002",
+      "source": [
+        "includes/class-sauth-modern-auth.php",
+        "includes/class-sauth-passkey-runtime.php"
+      ],
+      "test": [
+        "tests/modern-auth-24-unit.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "fresh session/fingerprint/browser acceptance",
+      "class": "X24",
+      "source_state": "implemented_candidate",
+      "owner": "File02+external-owner",
+      "dependency": null
+    },
+    {
+      "id": "F02-X24-003",
+      "source": [
+        "assets/js/authentication.js"
+      ],
+      "test": [
+        "tests/modern-auth-24-unit.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "real browser capability fallback",
+      "class": "X24",
+      "source_state": "implemented_candidate",
+      "owner": "File02+external-owner",
+      "dependency": null
+    },
+    {
+      "id": "F02-X24-004",
+      "source": [
+        "assets/js/authentication.js",
+        "includes/class-sauth-passkeys.php"
+      ],
+      "test": [
+        "tests/passkey-webauthn-unit.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "real cross-device hybrid passkey",
+      "class": "X24",
+      "source_state": "implemented_candidate",
+      "owner": "File02+external-owner",
+      "dependency": null
+    },
+    {
+      "id": "F02-X24-005",
+      "source": [
+        "includes/class-sauth-modern-auth.php",
+        "assets/js/authentication.js"
+      ],
+      "test": [
+        "tests/modern-auth-24-unit.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "supported browser mediation and reconciliation",
+      "class": "X24",
+      "source_state": "implemented_candidate",
+      "owner": "File02+external-owner",
+      "dependency": null
+    },
+    {
+      "id": "F02-X24-006",
+      "source": [
+        "includes/class-sauth-modern-auth.php",
+        "assets/js/authentication.js"
+      ],
+      "test": [
+        "tests/modern-auth-24-unit.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "credential label OS/browser contract",
+      "class": "X24",
+      "source_state": "implemented_candidate",
+      "owner": "File02+external-owner",
+      "dependency": null
+    },
+    {
+      "id": "F02-X24-007",
+      "source": [
+        "includes/class-sauth-security-orchestrator.php"
+      ],
+      "test": [
+        "tests/security/v12-timeline-private-evidence-failfirst.php",
+        "tests/security/v12-timeline-read-failure-failfirst.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "source+owner+CI+staging+live",
+      "class": "X24",
+      "source_state": "implemented_candidate",
+      "owner": "File02+external-owner",
+      "dependency": null
+    },
+    {
+      "id": "F02-X24-008",
+      "source": [
+        "includes/class-sauth-security-orchestrator.php"
+      ],
+      "test": [
+        "tests/security/not-me-stepup-failfirst.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "source+owner+CI+staging+live",
+      "class": "X24",
+      "source_state": "implemented_candidate",
+      "owner": "File02+external-owner",
+      "dependency": null
+    },
+    {
+      "id": "F02-X24-009",
+      "source": [
+        "includes/class-sauth-security-orchestrator.php"
+      ],
+      "test": [
+        "tests/security/lockdown-postcondition-failfirst.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "source+owner+CI+staging+live",
+      "class": "X24",
+      "source_state": "implemented_candidate",
+      "owner": "File02+external-owner",
+      "dependency": null
+    },
+    {
+      "id": "F02-X24-010",
+      "source": [
+        "includes/class-sauth-security-orchestrator.php",
+        "includes/class-sauth-passkey-runtime.php"
+      ],
+      "test": [
+        "tests/modern-auth-24-unit.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "strong-method downgrade and recovery browser test",
+      "class": "X24",
+      "source_state": "implemented_candidate",
+      "owner": "File02+external-owner",
+      "dependency": null
+    },
+    {
+      "id": "F02-X24-011",
+      "source": [
+        "includes/class-sauth-security-orchestrator.php"
+      ],
+      "test": [
+        "tests/security/v12-recovery-date-failfirst.php",
+        "tests/integration/recovery-owner-unavailable-mariadb.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "File00 canonical recovery owner must authorize and real DB concurrency pass",
+      "class": "X24",
+      "source_state": "adapter_or_partial_candidate",
+      "owner": "File02+external-owner",
+      "dependency": "File00 owner recovery"
+    },
+    {
+      "id": "F02-X24-012",
+      "source": [
+        "includes/class-sauth-security-orchestrator.php"
+      ],
+      "test": [
+        "tests/security/v12-collision-finalization-failfirst.php",
+        "tests/integration/collision-once-mariadb-concurrency.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "File00 collision owner and human-facing resolution acceptance",
+      "class": "X24",
+      "source_state": "adapter_or_partial_candidate",
+      "owner": "File02+external-owner",
+      "dependency": "File00 owner collision"
+    },
+    {
+      "id": "F02-X24-013",
+      "source": [
+        "includes/class-sauth-security-orchestrator.php"
+      ],
+      "test": [
+        "tests/security/shared-signal-risk-source-failclosed.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "risk thresholds real environment",
+      "class": "X24",
+      "source_state": "implemented_candidate",
+      "owner": "File02+external-owner",
+      "dependency": null
+    },
+    {
+      "id": "F02-X24-014",
+      "source": [
+        "includes/class-sauth-security-orchestrator.php"
+      ],
+      "test": [
+        "tests/modern-auth-24-unit.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "privacy-safe localized risk reasons",
+      "class": "X24",
+      "source_state": "implemented_candidate",
+      "owner": "File02+external-owner",
+      "dependency": null
+    },
+    {
+      "id": "F02-X24-015",
+      "source": [
+        "includes/class-sauth-shared-signals.php"
+      ],
+      "test": [
+        "tests/security/shared-signal-strict-envelope.php",
+        "tests/integration/shared-signal-containment-mariadb.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "signed CAEP provider cryptography and issuer trust",
+      "class": "X24",
+      "source_state": "adapter_or_partial_candidate",
+      "owner": "File02+external-owner",
+      "dependency": "signed CAEP provider"
+    },
+    {
+      "id": "F02-X24-016",
+      "source": [
+        "includes/class-sauth-shared-signals.php"
+      ],
+      "test": [
+        "tests/security/shared-signal-strict-envelope.php",
+        "tests/integration/shared-signal-eventid-conflict-mariadb.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "signed RISC provider cryptography and issuer trust",
+      "class": "X24",
+      "source_state": "adapter_or_partial_candidate",
+      "owner": "File02+external-owner",
+      "dependency": "signed RISC provider"
+    },
+    {
+      "id": "F02-X24-017",
+      "source": [
+        "includes/class-sauth-security-orchestrator.php"
+      ],
+      "test": [
+        "tests/integration/file24-assurance-consumer-mock.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "File24 actual consumer/actor assurance",
+      "class": "X24",
+      "source_state": "implemented_candidate",
+      "owner": "File02+external-owner",
+      "dependency": null
+    },
+    {
+      "id": "F02-X24-018",
+      "source": [
+        "includes/class-sauth-security-orchestrator.php"
+      ],
+      "test": [
+        "tests/security/not-me-stepup-failfirst.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "real native owner step-up policy approval",
+      "class": "X24",
+      "source_state": "implemented_candidate",
+      "owner": "File02+external-owner",
+      "dependency": null
+    },
+    {
+      "id": "F02-X24-019",
+      "source": [
+        "includes/class-sauth-password-safety.php"
+      ],
+      "test": [
+        "tests/security/breach-prefix-provider-failfirst.php",
+        "tests/security/v12-registered-breach-null-failfirst.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "opt-in real breach-prefix provider acceptance",
+      "class": "X24",
+      "source_state": "adapter_or_partial_candidate",
+      "owner": "File02+external-owner",
+      "dependency": "live breach-prefix provider opt-in"
+    },
+    {
+      "id": "F02-X24-020",
+      "source": [
+        "includes/class-sauth-dpop.php"
+      ],
+      "test": [
+        "tests/security/v12-dpop-htu-jwk-failfirst.php",
+        "tests/integration/dpop-replay-mariadb.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "real JOSE crypto/DPoP verification provider acceptance",
+      "class": "X24",
+      "source_state": "adapter_or_partial_candidate",
+      "owner": "File02+external-owner",
+      "dependency": "DPoP signed crypto provider"
+    },
+    {
+      "id": "F02-X24-021",
+      "source": [
+        "includes/class-sauth-fido-trust.php"
+      ],
+      "test": [
+        "tests/modern-auth-24-unit.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "real trusted FIDO metadata and attestation validation",
+      "class": "X24",
+      "source_state": "adapter_or_partial_candidate",
+      "owner": "File02+external-owner",
+      "dependency": "trusted FIDO metadata"
+    },
+    {
+      "id": "F02-X24-022",
+      "source": [
+        "includes/class-sauth-modern-auth.php",
+        "includes/class-sauth-canonical-routes.php"
+      ],
+      "test": [
+        "tests/modern-auth-24-unit.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "real verified related-origin manifest and relying party",
+      "class": "X24",
+      "source_state": "implemented_candidate",
+      "owner": "File02+external-owner",
+      "dependency": null
+    },
+    {
+      "id": "F02-X24-023",
+      "source": [
+        "includes/class-sauth-modern-auth.php"
+      ],
+      "test": [
+        "tests/security/fedcm-finish-guard-source.php",
+        "tests/integration/fedcm-claim-expiry-mariadb.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "real registered IdP server verifier and browser mediation",
+      "class": "X24",
+      "source_state": "adapter_or_partial_candidate",
+      "owner": "File02+external-owner",
+      "dependency": "FedCM real IdP"
+    },
+    {
+      "id": "F02-X24-024",
+      "source": [
+        "includes/class-sauth-modern-auth.php"
+      ],
+      "test": [
+        "tests/modern-auth-24-unit.php"
+      ],
+      "acceptance": "not_verified",
+      "gate": "metadata-only portability; no private keys",
+      "class": "X24",
+      "source_state": "implemented_candidate",
+      "owner": "File02+external-owner",
+      "dependency": null
+    }
+  ],
+  "note_nfr004": "V12.3 offline metrics tooling added to candidate; this is NOT a captured lab/field latency measurement or production acceptance."
+}
