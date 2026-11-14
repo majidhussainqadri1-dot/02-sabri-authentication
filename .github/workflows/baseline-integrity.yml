@@ -122,6 +122,7 @@ jobs:
             tests/security/v12-3-48-source-traceability.php
             tests/security/v12-3-26-qa-scenario-register.php
             tests/security/v12-3-live-freeze-readonly-guard.php
+            tests/security/v12-3-readonly-freeze-count-failure-regression.php
             tests/cf01-assurance-unit.php
             tests/professional-reauthentication-unit.php
             tests/plan-harmonization-unit.php
