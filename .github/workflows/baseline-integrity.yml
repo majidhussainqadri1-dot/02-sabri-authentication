@@ -174,8 +174,17 @@ jobs:
         run: |
           set -euo pipefail
           export SOURCE_DATE_EPOCH=1785984000
+          # NFR-007/008: the output directory can already contain unrelated files.
+          mkdir -p "$RUNNER_TEMP/a" "$RUNNER_TEMP/b"
+          printf '%s\n' 'preserve-existing-artifact' > "$RUNNER_TEMP/a/unrelated.txt"
+          touch -d '@1700000000' "$RUNNER_TEMP/a/unrelated.txt"
           bash tools/build-package.sh "$RUNNER_TEMP/a"
-          bash tools/build-package.sh "$RUNNER_TEMP/b"
+          test "$(cat "$RUNNER_TEMP/a/unrelated.txt")" = preserve-existing-artifact
+          test "$(stat -c %Y "$RUNNER_TEMP/a/unrelated.txt")" = 1700000000
+          # Relative paths must resolve from the caller's working directory.
+          (cd "$RUNNER_TEMP" && bash "$GITHUB_WORKSPACE/tools/build-package.sh" b)
+          test -z "$(find "$RUNNER_TEMP/a" "$RUNNER_TEMP/b" -maxdepth 1 -name '.sauth-build.*' -print)"
+          echo 'PASS unrelated output data and relative path preservation'
           a="$RUNNER_TEMP/a/02-sabri-authentication-${RELEASE_VERSION}-SOURCE-CANDIDATE.zip"
           b="$RUNNER_TEMP/b/02-sabri-authentication-${RELEASE_VERSION}-SOURCE-CANDIDATE.zip"
           ma="$RUNNER_TEMP/a/02-sabri-authentication-${RELEASE_VERSION}-MANIFEST.json"
