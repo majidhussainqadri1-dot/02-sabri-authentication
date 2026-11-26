@@ -125,6 +125,7 @@ final class SAUTH_Google_Registration {
 			SA_Google_OAuth::TOKEN_ENDPOINT,
 			array(
 				'timeout' => 15,
+				'redirection' => 0,
 				'limit_response_size' => 1048576,
 				'body' => array(
 					'code' => $code,
@@ -149,7 +150,7 @@ final class SAUTH_Google_Registration {
 		$token = array();
 		$verify = wp_remote_get(
 			add_query_arg( 'id_token', $id_token, SA_Google_OAuth::TOKENINFO_URL ),
-			array( 'timeout' => 15, 'limit_response_size' => 1048576 )
+			array( 'timeout' => 15, 'redirection' => 0, 'limit_response_size' => 1048576 )
 		);
 		$id_token = '';
 		if ( is_wp_error( $verify ) || 200 !== wp_remote_retrieve_response_code( $verify ) ) {
