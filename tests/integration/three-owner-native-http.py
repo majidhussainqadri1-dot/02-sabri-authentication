@@ -13,9 +13,12 @@ UA = "Sabri-Disposable-Integration/1.0"
 if os.environ.get("SAUTH_DISPOSABLE_THREE_OWNER_QA") != "1":
     raise SystemExit("Refusing non-disposable native test")
 password = os.environ.get("CI_NATIVE_TEST_PASSWORD", "")
+phase = sys.argv[1] if len(sys.argv) == 2 else ""
 page = os.environ.get("CI_NATIVE_LOGIN_PAGE", "")
-if not re.fullmatch(r"[a-f0-9]{48}", password) or not page.isdigit() or int(page) <= 0:
+if phase not in ("bootstrap", "activate") or not re.fullmatch(r"[a-f0-9]{48}", password):
     raise SystemExit("Disposable test prerequisites absent")
+if phase == "activate" and (not page.isdigit() or int(page) <= 0):
+    raise SystemExit("Native login page prerequisite absent")
 
 def safe_url(url):
     parts = urllib.parse.urlsplit(url)
@@ -64,6 +67,19 @@ def activation_link(url, html):
     return None
 
 try:
+    if phase == "bootstrap":
+        request("/wp-login.php")
+        request("/wp-login.php", {
+            "log": "founder", "pwd": password, "wp-submit": "Log In",
+            "redirect_to": ORIGIN + "/wp-admin/", "testcookie": "1",
+        })
+        if not any(c.name.startswith("wordpress_logged_in_") for c in jar):
+            raise RuntimeError("Native core login before File02 did not establish a real browser cookie")
+        url, html = request("/wp-admin/plugins.php")
+        if not activation_link(url, html):
+            raise RuntimeError("Native File00 admin bootstrap lacks existing activation authority")
+        print("PASS native core admin request triggered File00 deferred bootstrap")
+        sys.exit(0)
     url, html = request("/wp-admin/plugins.php")
     if activation_link(url, html):
         raise RuntimeError("Unauthenticated actor received activation link")
