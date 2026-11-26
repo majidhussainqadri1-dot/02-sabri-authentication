@@ -4,6 +4,10 @@ return [
   'project-id-version' => 'Sabri Authentication 1.4.0',
   'language' => 'ar',
   'messages' => [
+    'Read the' => 'اقرأ',
+    'mandatory account safety rules (opens in a new tab)' => 'قواعد أمان الحساب الإلزامية (تُفتح في علامة تبويب جديدة)',
+    'before continuing.' => 'قبل المتابعة.',
+    'I have read the safety rules and will keep login credentials private, recognize phishing, protect patient records and report suspicious access.' => 'لقد قرأت قواعد الأمان، وسأحافظ على سرية بيانات الدخول، وأحذر من التصيد، وأحمي سجلات المرضى، وأبلّغ عن أي وصول مشبوه.',
     'Secure Member Access' => 'دخول الأعضاء الآمن',
     'Access your account securely using a password, passkey, or verified Google sign-in.' => 'ادخل إلى حسابك بأمان باستخدام كلمة المرور أو مفتاح المرور أو تسجيل الدخول الموثّق عبر Google.',
     'Email or username' => 'البريد الإلكتروني أو اسم المستخدم',

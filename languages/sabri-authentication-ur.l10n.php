@@ -4,6 +4,10 @@ return [
   'project-id-version' => 'Sabri Authentication 1.4.0',
   'language' => 'ur',
   'messages' => [
+    'Read the' => 'پڑھیے',
+    'mandatory account safety rules (opens in a new tab)' => 'اکاؤنٹ کے لازمی حفاظتی قواعد (نئے ٹیب میں کھلیں گے)',
+    'before continuing.' => 'آگے بڑھنے سے پہلے۔',
+    'I have read the safety rules and will keep login credentials private, recognize phishing, protect patient records and report suspicious access.' => 'میں نے حفاظتی قواعد پڑھ لیے ہیں؛ میں داخلے کی اسناد خفیہ رکھوں گا/گی، جعلی پیغامات پہچانوں گا/گی، مریضوں کی معلومات محفوظ رکھوں گا/گی اور مشتبہ رسائی کی اطلاع دوں گا/گی۔',
     'Secure Member Access' => 'محفوظ رکنیت کا داخلہ',
     'Access your account securely using a password, passkey, or verified Google sign-in.' => 'پاس ورڈ، پاس کی یا تصدیق شدہ گوگل اکاؤنٹ سے محفوظ طریقے سے داخل ہوں۔',
     'Email or username' => 'ای میل یا صارف نام',

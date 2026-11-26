@@ -106,6 +106,10 @@ final class SA_Registration {
 
 	public function register() {
 		check_admin_referer( 'sa_register', 'sa_nonce' );
+		/* Require explicit current safety-policy acknowledgement before registration. */
+		if ( ! SAUTH_Account_Safety::registration_acknowledged( $_POST ) ) {
+			$this->registration_redirect( 'error', 'Read and acknowledge the mandatory account safety rules before registering.' );
+		}
 		$trap = isset( $_POST['website'] ) ? trim( (string) wp_unslash( $_POST['website'] ) ) : '';
 		if ( '' !== $trap ) { $this->registration_redirect( 'error', 'Registration could not be completed.' ); }
 		if ( SAUTH_Operations::safe_mode() ) { $this->registration_redirect( 'error', 'Account registration is temporarily paused by Safe Mode. Public reading remains available.' ); }
@@ -164,7 +168,7 @@ final class SA_Registration {
 			$reason_code = sanitize_key( (string) ( $result['reason_code'] ?? 'provider_rejected' ) );
 			SAUTH_Provider_Health::record_failure( 'membership', $reason_code, $latency );
 			SAUTH_Event_Outbox::emit( 'AccountAuthenticationFailed.v1', 0, 0, array( 'method' => 'registration', 'reason' => $reason_code ), 'security' );
-			if ( class_exists( 'SAUTH_Security_Orchestrator' ) && in_array( $reason_code, array( 'account_exists','duplicate_account','identity_collision','email_in_use','provider_collision' ), true ) ) {
+			if ( class_exists( 'SAUTH_Security_Orchestrator' ) && in_array( $reason_code, array( 'account_exists','duplicate_account','identity_collision','email_in_use','provider_collision','email_collision','phone_collision','account_collision' ), true ) ) {
 				$case = SAUTH_Security_Orchestrator::create_collision_case( (string) $payload['email'], $reason_code );
 				if ( is_array( $case ) && ! empty( $case['url'] ) ) { wp_safe_redirect( SA_Security::safe_redirect( (string) $case['url'], SA_Security::page_url( 'login', wp_login_url() ) ) ); exit; }
 			}
@@ -172,6 +176,11 @@ final class SA_Registration {
 		}
 		SAUTH_Provider_Health::record_success( 'membership', $latency );
 		$user_id = absint( $result['user_id'] );
+		/* Best-effort version receipt; File 00 remains the sole consent/identity owner. */
+		SA_Membership_Adapter::audit( 'account_security_rules_acknowledged', $user_id, array(
+			'policy_version' => SAUTH_Account_Safety::POLICY_VERSION,
+			'authentication_method' => $payload['authentication_method'],
+		) );
 		if ( 'google' === $payload['authentication_method'] ) {
 			$extended_locks = SA_Google_OAuth::acquire_link_locks( $payload['google_subject'], $user_id, $google_locks );
 			if ( empty( $extended_locks ) ) {

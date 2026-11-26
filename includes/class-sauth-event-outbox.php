@@ -49,7 +49,13 @@ final class SAUTH_Event_Outbox {
 		global $wpdb; $table = SAUTH_Activator::table( 'auth_outbox' ); $now = current_time( 'mysql', true );
 		/* Recover a worker that died after claiming a row. Event IDs are stable so
 		 * consumers must be idempotent; delivery semantics are at least once. */
-		$wpdb->query( $wpdb->prepare( "UPDATE {$table} SET status='retry', available_at=%s, last_error=%s, updated_at=%s WHERE status='dispatching' AND updated_at<%s", $now, 'dispatch_lease_expired', $now, gmdate( 'Y-m-d H:i:s', time() - self::DISPATCH_LEASE ) ) );
+		$cutoff = gmdate( 'Y-m-d H:i:s', time() - self::DISPATCH_LEASE );
+		/* An exhausted claim must reach the terminal queue, including older
+		 * stranded retry rows. Never terminate an unexpired active lease. */
+		$terminal = $wpdb->query( $wpdb->prepare( "UPDATE {$table} SET status='dead_letter', last_error=%s, updated_at=%s WHERE attempts>=%d AND (status IN ('pending','retry') OR (status='dispatching' AND updated_at<%s))", 'dispatch_attempts_exhausted', $now, self::MAX_ATTEMPTS, $cutoff ) );
+		if ( false === $terminal ) { return; }
+		$recovered = $wpdb->query( $wpdb->prepare( "UPDATE {$table} SET status='retry', available_at=%s, last_error=%s, updated_at=%s WHERE status='dispatching' AND updated_at<%s AND attempts<%d", $now, 'dispatch_lease_expired', $now, $cutoff, self::MAX_ATTEMPTS ) );
+		if ( false === $recovered ) { return; }
 		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$table} WHERE status IN ('pending','retry') AND attempts<%d AND available_at<=%s ORDER BY id ASC LIMIT %d", self::MAX_ATTEMPTS, $now, self::BATCH_SIZE ), ARRAY_A );
 		if ( ! is_array( $rows ) ) { return; }
 		foreach ( $rows as $row ) { self::dispatch_row( $row ); }
@@ -57,10 +63,17 @@ final class SAUTH_Event_Outbox {
 
 	private static function dispatch_row( array $row ) {
 		global $wpdb; $table = SAUTH_Activator::table( 'auth_outbox' ); $id = absint( $row['id'] ?? 0 ); if ( ! $id ) { return; }
-		$claimed = $wpdb->query( $wpdb->prepare( "UPDATE {$table} SET status='dispatching',attempts=attempts+1,updated_at=%s WHERE id=%d AND status IN ('pending','retry') AND attempts<%d", current_time( 'mysql', true ), $id, self::MAX_ATTEMPTS ) );
+		$observed_attempt = absint( $row['attempts'] ?? 0 );
+		$attempt = $observed_attempt + 1;
+		$now = current_time( 'mysql', true );
+		$claimed = $wpdb->query( $wpdb->prepare( "UPDATE {$table} SET status='dispatching',attempts=attempts+1,updated_at=%s WHERE id=%d AND status IN ('pending','retry') AND attempts=%d AND attempts<%d AND available_at<=%s", $now, $id, $observed_attempt, self::MAX_ATTEMPTS, $now ) );
 		if ( 1 !== (int) $claimed ) { return; }
+		/* Fence the claim generation and reread the payload after claiming.
+		 * The batch selection may predate a privacy or retry update. */
+		$row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id=%d AND status='dispatching' AND attempts=%d", $id, $attempt ), ARRAY_A );
+		if ( ! is_array( $row ) || '' !== (string) $wpdb->last_error ) { return; }
 		$decoded = json_decode( (string) $row['payload_json'], true );
-		if ( ! is_array( $decoded ) ) { self::retry_or_dead_letter( $id, absint( $row['attempts'] ?? 0 ) + 1, 'payload_decode_invalid' ); return; }
+		if ( ! is_array( $decoded ) ) { self::retry_or_dead_letter( $id, $attempt, 'payload_decode_invalid' ); return; }
 		$meta = isset( $decoded['sauth_event_meta'] ) && is_array( $decoded['sauth_event_meta'] ) ? $decoded['sauth_event_meta'] : array();
 		unset( $decoded['sauth_event_meta'] );
 		$producer_version = sanitize_text_field( (string) ( $meta['producer_version'] ?? '' ) );
@@ -72,16 +85,16 @@ final class SAUTH_Event_Outbox {
 			do_action( 'sauth_event', $event );
 			do_action( 'sauth_event_' . sanitize_key( str_replace( '.', '_', $event['event_name'] ) ), $event );
 			$published_at = current_time( 'mysql', true );
-			$updated = $wpdb->update( $table, array( 'status' => 'published', 'published_at' => $published_at, 'last_error' => '', 'updated_at' => $published_at ), array( 'id' => $id, 'status' => 'dispatching' ), array( '%s','%s','%s','%s' ), array( '%d','%s' ) );
-			if ( 1 !== (int) $updated || 'published' !== (string) $wpdb->get_var( $wpdb->prepare( "SELECT status FROM {$table} WHERE id=%d", $id ) ) ) { self::retry_or_dead_letter( $id, absint( $row['attempts'] ?? 0 ) + 1, 'publish_state_persist_failed' ); }
+			$updated = $wpdb->update( $table, array( 'status' => 'published', 'published_at' => $published_at, 'last_error' => '', 'updated_at' => $published_at ), array( 'id' => $id, 'status' => 'dispatching', 'attempts' => $attempt ), array( '%s','%s','%s','%s' ), array( '%d','%s','%d' ) );
+			if ( 1 !== (int) $updated || 'published' !== (string) $wpdb->get_var( $wpdb->prepare( "SELECT status FROM {$table} WHERE id=%d", $id ) ) ) { self::retry_or_dead_letter( $id, $attempt, 'publish_state_persist_failed' ); }
 		} catch ( Throwable $error ) {
-			self::retry_or_dead_letter( $id, absint( $row['attempts'] ?? 0 ) + 1, 'observer_' . substr( hash( 'sha256', get_class( $error ) . '|' . $error->getMessage() ), 0, 20 ) );
+			self::retry_or_dead_letter( $id, $attempt, 'observer_' . substr( hash( 'sha256', get_class( $error ) . '|' . $error->getMessage() ), 0, 20 ) );
 		}
 	}
 
 	private static function retry_or_dead_letter( $id, $attempts, $reason ) {
 		global $wpdb; $attempts = max( 1, absint( $attempts ) ); $status = $attempts >= self::MAX_ATTEMPTS ? 'dead_letter' : 'retry'; $delay = min( HOUR_IN_SECONDS, (int) pow( 2, min( $attempts, 10 ) ) * MINUTE_IN_SECONDS );
-		$wpdb->update( SAUTH_Activator::table( 'auth_outbox' ), array( 'status' => $status, 'available_at' => gmdate( 'Y-m-d H:i:s', time() + $delay ), 'last_error' => substr( sanitize_key( (string) $reason ), 0, 120 ), 'updated_at' => current_time( 'mysql', true ) ), array( 'id' => absint( $id ), 'status' => 'dispatching' ), array( '%s','%s','%s','%s' ), array( '%d','%s' ) );
+		$wpdb->update( SAUTH_Activator::table( 'auth_outbox' ), array( 'status' => $status, 'available_at' => gmdate( 'Y-m-d H:i:s', time() + $delay ), 'last_error' => substr( sanitize_key( (string) $reason ), 0, 120 ), 'updated_at' => current_time( 'mysql', true ) ), array( 'id' => absint( $id ), 'status' => 'dispatching', 'attempts' => $attempts ), array( '%s','%s','%s','%s' ), array( '%d','%s','%d' ) );
 	}
 
 	private static function sanitize_payload( array $payload, $depth = 0 ) {

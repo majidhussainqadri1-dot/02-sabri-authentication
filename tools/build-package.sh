@@ -8,16 +8,42 @@ if [[ -z "$VERSION" ]]; then
   exit 1
 fi
 
+# Do not remove a caller-supplied directory or unrelated artifacts.
 OUTPUT_DIR="${1:-$ROOT/dist}"
-PACKAGE_ROOT="$OUTPUT_DIR/package"
+if [[ -L "$OUTPUT_DIR" ]]; then
+  echo 'Refusing a symbolic-link output directory.' >&2
+  exit 1
+fi
+mkdir -p -- "$OUTPUT_DIR"
+OUTPUT_DIR="$(cd -- "$OUTPUT_DIR" && pwd -P)"
+if [[ "$OUTPUT_DIR" == / || "$OUTPUT_DIR" == "$ROOT" ]]; then
+  echo 'Choose a separate build output directory.' >&2
+  exit 1
+fi
+ARCHIVE_NAME="02-sabri-authentication-${VERSION}-SOURCE-CANDIDATE.zip"
+MANIFEST_NAME="02-sabri-authentication-${VERSION}-MANIFEST.json"
+CHECKSUMS_NAME="CHECKSUMS.sha256"
+check_destinations() {
+  local name target
+  for name in "$ARCHIVE_NAME" "$MANIFEST_NAME" "$CHECKSUMS_NAME"; do
+    target="$OUTPUT_DIR/$name"
+    if [[ -L "$target" || ( -e "$target" && ! -f "$target" ) ]]; then
+      echo "Unsafe build destination: $name" >&2
+      return 1
+    fi
+  done
+}
+check_destinations
+# The temporary directory is created by this invocation; cleanup is confined to it.
+STAGE_DIR="$(mktemp -d "$OUTPUT_DIR/.sauth-build.XXXXXXXX")"
+trap 'rm -rf -- "$STAGE_DIR"' EXIT
+PACKAGE_ROOT="$STAGE_DIR/package"
 PLUGIN_DIR="$PACKAGE_ROOT/02-sabri-authentication"
-ARCHIVE="$OUTPUT_DIR/02-sabri-authentication-${VERSION}-SOURCE-CANDIDATE.zip"
-MANIFEST="$OUTPUT_DIR/02-sabri-authentication-${VERSION}-MANIFEST.json"
-CHECKSUMS="$OUTPUT_DIR/CHECKSUMS.sha256"
+ARCHIVE="$STAGE_DIR/$ARCHIVE_NAME"
+MANIFEST="$STAGE_DIR/$MANIFEST_NAME"
+CHECKSUMS="$STAGE_DIR/$CHECKSUMS_NAME"
 SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-1767225600}"
-
-rm -rf "$OUTPUT_DIR"
-mkdir -p "$PLUGIN_DIR"
+mkdir -p -- "$PLUGIN_DIR"
 
 cd "$ROOT"
 RUNTIME_PATHS=(
@@ -94,16 +120,20 @@ manifest_path.write_text(manifest_text, encoding='utf-8')
 PY
 
 find "$PACKAGE_ROOT" -exec touch -h -d "@$SOURCE_DATE_EPOCH" {} +
-find "$OUTPUT_DIR" -maxdepth 1 -type f -exec touch -h -d "@$SOURCE_DATE_EPOCH" {} +
+touch -h -d "@$SOURCE_DATE_EPOCH" "$MANIFEST"
 
 cd "$PACKAGE_ROOT"
 LC_ALL=C find '02-sabri-authentication' -type f -print | LC_ALL=C sort | zip -X -q -@ "$ARCHIVE"
 
-cd "$OUTPUT_DIR"
-sha256sum "$(basename "$ARCHIVE")" "$(basename "$MANIFEST")" > "$CHECKSUMS"
+cd "$STAGE_DIR"
+sha256sum "$ARCHIVE_NAME" "$MANIFEST_NAME" > "$CHECKSUMS"
 zip -T "$ARCHIVE" >/dev/null
-
-rm -rf "$PACKAGE_ROOT"
-printf 'Package: %s\n' "$ARCHIVE"
-printf 'Manifest: %s\n' "$MANIFEST"
-printf 'Checksums: %s\n' "$CHECKSUMS"
+sha256sum --check "$CHECKSUMS" >/dev/null
+# Publish only validated named outputs. Never touch unrelated files.
+check_destinations
+for name in "$ARCHIVE_NAME" "$MANIFEST_NAME" "$CHECKSUMS_NAME"; do
+  mv -fT -- "$STAGE_DIR/$name" "$OUTPUT_DIR/$name"
+done
+printf 'Package: %s\n' "$OUTPUT_DIR/$ARCHIVE_NAME"
+printf 'Manifest: %s\n' "$OUTPUT_DIR/$MANIFEST_NAME"
+printf 'Checksums: %s\n' "$OUTPUT_DIR/$CHECKSUMS_NAME"

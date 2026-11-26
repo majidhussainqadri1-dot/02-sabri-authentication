@@ -6,6 +6,8 @@ defined( 'ABSPATH' ) || exit;
 final class SAUTH_DPoP {
 	const CONTRACT_VERSION = '1.0.0';
 	const MAX_AGE = 300;
+	// Cover the entire symmetric accepted issuance window plus cleanup margin.
+	const REPLAY_RETENTION = 2 * self::MAX_AGE + 60;
 	const REPLAY_EXPIRE_HOOK = 'sauth_dpop_replay_expire';
 
 	public static function init() {
@@ -59,7 +61,7 @@ final class SAUTH_DPoP {
 		if ( ! add_option( $replay_key, time(), '', false ) ) {
 			return new WP_Error( 'sauth_dpop_replay', 'DPoP proof replayed.' );
 		}
-		if ( function_exists( 'wp_schedule_single_event' ) ) { wp_schedule_single_event( time() + self::MAX_AGE + 60, self::REPLAY_EXPIRE_HOOK, array( $replay_key ) ); }
+		if ( function_exists( 'wp_schedule_single_event' ) ) { wp_schedule_single_event( time() + self::REPLAY_RETENTION, self::REPLAY_EXPIRE_HOOK, array( $replay_key ) ); }
 		return array( 'result'=>'allow','jkt'=>$thumbprint,'jti'=>$jti,'iat'=>$iat,'alg'=>$alg );
 	}
 
@@ -79,10 +81,17 @@ final class SAUTH_DPoP {
 		$key = (string) $key;
 		if ( ! preg_match( '/^sauth_dpop_[a-f0-9]{64}$/D', $key ) ) { return; }
 		$claimed_at = get_option( $key, false );
-		if ( is_numeric( $claimed_at )
-			&& (int) $claimed_at > 0
-			&& (int) $claimed_at + self::MAX_AGE + 60 <= time() ) {
+		if ( ! is_numeric( $claimed_at ) || (int) $claimed_at <= 0 ) { return; }
+		$due = (int) $claimed_at + self::REPLAY_RETENTION;
+		if ( $due <= time() ) {
 			delete_option( $key );
+			return;
+		}
+		// An older candidate may have queued a cleanup too early. Retain the
+		// marker and requeue its scoped cleanup if no future event remains.
+		if ( function_exists( 'wp_next_scheduled' ) && function_exists( 'wp_schedule_single_event' )
+			&& false === wp_next_scheduled( self::REPLAY_EXPIRE_HOOK, array( $key ) ) ) {
+			wp_schedule_single_event( $due, self::REPLAY_EXPIRE_HOOK, array( $key ) );
 		}
 	}
 

@@ -45,7 +45,7 @@ jobs:
           php tests/r307-privacy-operations-regression.php
           php tests/r308-route-ui-regression.php
           php tests/r309-release-truth-regression.php
-          for extra in tests/r31*-regression.php tests/r32*-regression.php tests/r33*-regression.php tests/r34*-regression.php; do [ -e "$extra" ] && php "$extra"; done
+          for extra in tests/r31*-regression.php tests/r32*-regression.php tests/r33*-regression.php tests/r35*-regression.php tests/r34*-regression.php; do [ -e "$extra" ] && php "$extra"; done
           grep -Fq "SAUTH_Storage_Router::init();" sabri-authentication.php
           grep -Fq "storage_ready()" includes/class-sa-activator.php
           grep -Fq "table_indexes_ready" includes/class-sa-activator.php

@@ -35,6 +35,7 @@ final class SA_Plugin {
 		add_shortcode( 'sabri_auth_forgot_password', array( $this, 'forgot_shortcode' ) );
 		add_shortcode( 'sabri_auth_reset_password', array( $this, 'reset_shortcode' ) );
 		add_shortcode( 'sabri_auth_sessions', array( 'SAUTH_Session_Manager', 'render' ) );
+		add_shortcode( 'sabri_auth_account_safety', array( 'SAUTH_Account_Safety', 'render' ) );
 		add_shortcode( 'sabri_auth_access_required', array( $this, 'access_shortcode' ) );
 		add_shortcode( 'sabri_auth_google_account', array( $this, 'google_account_shortcode' ) );
 		add_shortcode( 'sabri_auth_google_verify', array( $this, 'google_verify_shortcode' ) );
@@ -183,7 +184,7 @@ final class SA_Plugin {
 	private function signed_in_card() {
 		$user       = wp_get_current_user();
 		$logout_url = wp_logout_url( home_url( '/' ) );
-		return '<div class="sa-auth-shell"><div class="sa-auth-card sa-signed-in"><h2>' . esc_html__( 'You are signed in', 'sabri-authentication' ) . '</h2><p>' . esc_html( $user->display_name ) . '</p><a class="sa-primary-button" href="' . esc_url( SA_Membership_Adapter::profile_url() ) . '">Membership Profile</a><a class="sa-secondary-button" href="' . esc_url( home_url( '/account-security/' ) ) . '">Account Security</a><a class="sa-secondary-button" href="' . esc_url( SAUTH_Passkeys::manager_url() ) . '">Passkeys &amp; Security Keys</a><a class="sa-secondary-button" href="' . esc_url( SA_Security::page_url( 'sessions' ) ) . '">Active Sessions</a><a class="sa-secondary-button" href="' . esc_url( SA_Security::page_url( 'google_account', SA_Membership_Adapter::profile_url() ) ) . '">Google Account Security</a><a class="sa-text-link" href="' . esc_url( $logout_url ) . '">Log Out</a></div></div>';
+		return '<div class="sa-auth-shell"><div class="sa-auth-card sa-signed-in"><h2>' . esc_html__( 'You are signed in', 'sabri-authentication' ) . '</h2><p>' . esc_html( $user->display_name ) . '</p><a class="sa-primary-button" href="' . esc_url( SA_Membership_Adapter::profile_url() ) . '">Membership Profile</a><a class="sa-secondary-button" href="' . esc_url( home_url( '/account-security/' ) ) . '">Account Security</a><a class="sa-secondary-button" href="' . esc_url( SAUTH_Passkeys::manager_url() ) . '">Passkeys &amp; Security Keys</a><a class="sa-secondary-button" href="' . esc_url( SA_Security::page_url( 'sessions' ) ) . '">Active Sessions</a><a class="sa-secondary-button" href="' . esc_url( SA_Security::page_url( 'safety' ) ) . '">Account Safety</a><a class="sa-secondary-button" href="' . esc_url( SA_Security::page_url( 'google_account', SA_Membership_Adapter::profile_url() ) ) . '">Google Account Security</a><a class="sa-text-link" href="' . esc_url( $logout_url ) . '">Log Out</a></div></div>';
 	}
 
 	private function template( $name, array $vars ) {

@@ -1,0 +1,131 @@
+name: File02 — Native three-owner authenticated activation
+on:
+  pull_request:
+  push:
+    branches:
+      - agent/**
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-login-and-activation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_DATABASE: wordpress
+          MARIADB_USER: wordpress
+          MARIADB_PASSWORD: wordpress
+          MARIADB_ROOT_PASSWORD: root
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          path: file02
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          repository: majidhussainqadri1-dot/00-sabri-membership-core
+          ref: 5a8fea59e660f35f9a36c3c5a9956253825a824f
+          path: file00
+          persist-credentials: false
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          repository: majidhussainqadri1-dot/01-sabri-platform-foundation
+          ref: 93e14e6e4062097e3c96386b76a43ad96885a575
+          path: file01
+          persist-credentials: false
+      - uses: shivammathur/setup-php@2.37.2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: none
+          extensions: mysqli,openssl
+      - name: Verify exact sources and create isolated WordPress
+        run: |
+          set -euo pipefail
+          test "$(git -C file02 rev-parse HEAD)" = '${{ github.event.pull_request.head.sha || github.sha }}'
+          test "$(git -C file00 rev-parse HEAD)" = 5a8fea59e660f35f9a36c3c5a9956253825a824f
+          test "$(git -C file01 rev-parse HEAD)" = 93e14e6e4062097e3c96386b76a43ad96885a575
+          curl -fsSL https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar -o /tmp/wp
+          chmod +x /tmp/wp
+          mkdir /tmp/wordpress
+          /tmp/wp core download --version=7.0.1 --path=/tmp/wordpress --quiet
+          test "$(/tmp/wp core version --path=/tmp/wordpress)" = 7.0.1
+          /tmp/wp config create --dbname=wordpress --dbuser=wordpress --dbpass=wordpress --dbhost=127.0.0.1:3306 --path=/tmp/wordpress --skip-check --quiet
+          /tmp/wp config set WP_ENVIRONMENT_TYPE staging --type=constant --path=/tmp/wordpress
+          /tmp/wp config set SMC_FOUNDER_USER_ID 1 --raw --type=constant --path=/tmp/wordpress
+          /tmp/wp config set SMC_MASTER_KEY disposable-file00-three-owner-key --type=constant --path=/tmp/wordpress
+          /tmp/wp config set SMC_MASTER_KEY_ID disposable-three-owner-key-id --type=constant --path=/tmp/wordpress
+          /tmp/wp config set SA_MASTER_KEY disposable-file02-three-owner-key --type=constant --path=/tmp/wordpress
+          pass="$(openssl rand -hex 24)"
+          echo "::add-mask::$pass"
+          printf 'CI_NATIVE_TEST_PASSWORD=%s\n' "$pass" >> "$GITHUB_ENV"
+          /tmp/wp core install --url=http://127.0.0.1:8765 --title='Disposable native integration' --admin_user=founder --admin_password="$pass" --admin_email=founder@example.test --skip-email --path=/tmp/wordpress --quiet
+          # WP-CLI core installation may normalize away the test port. Verify
+          # and configure the actual stored origin in this disposable DB only.
+          /tmp/wp eval '
+            global $wpdb;
+            if(wp_get_environment_type()!=="staging" || DB_NAME!=="wordpress" || DB_HOST!=="127.0.0.1:3306" || realpath(ABSPATH)!=="/tmp/wordpress" || wp_parse_url((string)get_option("siteurl"),PHP_URL_HOST)!=="127.0.0.1"){throw new RuntimeException("Refusing non-disposable origin setup");}
+            $expected="http://127.0.0.1:8765";
+            foreach(array("home","siteurl") as $key){
+              $before=(string)$wpdb->get_var($wpdb->prepare("SELECT option_value FROM {$wpdb->options} WHERE option_name=%s",$key));
+              if(wp_parse_url($before,PHP_URL_HOST)!=="127.0.0.1"){throw new RuntimeException("Non-loopback stored origin");}
+              echo "Disposable ".$key." prior port=".wp_json_encode(wp_parse_url($before,PHP_URL_PORT))."\n";
+              update_option($key,$expected);
+              $after=(string)$wpdb->get_var($wpdb->prepare("SELECT option_value FROM {$wpdb->options} WHERE option_name=%s",$key));
+              if($after!==$expected){throw new RuntimeException("Stored loopback origin not established");}
+            }
+            echo "PASS exact stored disposable origin configured\n";
+          ' --path=/tmp/wordpress
+          cp -R file00/source/sabri-membership-core /tmp/wordpress/wp-content/plugins/sabri-membership-core
+          mkdir /tmp/wordpress/wp-content/plugins/sabri-authentication /tmp/wordpress/wp-content/plugins/sabri-platform-foundation
+          rsync -a --exclude='.git' --exclude='.github' --exclude='tests' --exclude='tools' --exclude='review-evidence' file02/ /tmp/wordpress/wp-content/plugins/sabri-authentication/
+          rsync -a --exclude='.git' --exclude='.github' file01/ /tmp/wordpress/wp-content/plugins/sabri-platform-foundation/
+      - name: Native authenticated File00 deferred migration then File02 and File01 activation (loopback only)
+        env:
+          SAUTH_DISPOSABLE_THREE_OWNER_QA: '1'
+        run: |
+          set -euo pipefail
+          /tmp/wp plugin activate sabri-membership-core --path=/tmp/wordpress
+          # File00 deliberately defers protected bootstrap to authenticated
+          # admin_init; use the normal core login before File02 is activated.
+          # Test-only fixed read-only claims endpoint, never part of a plugin ZIP.
+          cp file02/tests/integration/three-owner-native-claims.php /tmp/wordpress/sauth-native-claims-ci.php
+          php -S 127.0.0.1:8765 -t /tmp/wordpress > "$RUNNER_TEMP/native-wp-server.log" 2>&1 &
+          server=$!
+          trap 'kill "$server" 2>/dev/null || true; rm -f /tmp/wordpress/sauth-native-claims-ci.php' EXIT
+          for i in $(seq 1 25); do
+            if curl -fsS --max-time 3 http://127.0.0.1:8765/ >/dev/null; then break; fi
+            sleep 1
+          done
+          python3 file02/tests/integration/three-owner-native-http.py bootstrap
+          /tmp/wp eval '
+            global $wpdb;
+            $fixture=get_user_by("login","founder");
+            $stored=$wpdb->get_var($wpdb->prepare("SELECT option_value FROM {$wpdb->options} WHERE option_name=%s","siteurl"));
+            $status=array(
+              "environment_staging"=>wp_get_environment_type()==="staging",
+              "stored_siteurl_exact"=>$stored==="http://127.0.0.1:8765",
+              "canonical_founder"=>smc_is_founder(1),
+              "fixture_admin_role"=>$fixture instanceof WP_User && in_array("administrator",(array)$fixture->roles,true),
+              "native_activation_cap"=>user_can(1,"activate_plugins"),
+              "schema_current"=>(string)get_option("smc_db_version","")===SMC_DB_VERSION,
+              "safe_mode_clear"=>!SMC_Completion::safe_mode()
+            );
+            echo "READ-ONLY after native bootstrap: ".wp_json_encode($status)."\n";
+            if(in_array(false,$status,true)){throw new RuntimeException("Native File00 bootstrap prerequisites unverified");}
+          ' --path=/tmp/wordpress
+          /tmp/wp plugin activate sabri-authentication --path=/tmp/wordpress
+          /tmp/wp eval 'if(!SAUTH_Account_Contract::provider_available() || !SAUTH_Passkeys::authentication_ready() || is_plugin_active("sabri-platform-foundation/sabri-platform-foundation.php")){fwrite(STDERR,"Three-owner native admission prerequisites not met\n");exit(1);} echo "PASS native File00/02 prerequisites and File01 inactive\n";' --url=http://127.0.0.1:8765 --path=/tmp/wordpress
+          login_page="$(/tmp/wp eval 'echo absint(get_option("sauth_page_map",array())["login"]??0);' --path=/tmp/wordpress)"
+          test "$login_page" -gt 0
+          export CI_NATIVE_LOGIN_PAGE="$login_page"
+          python3 file02/tests/integration/three-owner-native-http.py activate
+          /tmp/wp eval 'if(!is_plugin_active("sabri-platform-foundation/sabri-platform-foundation.php") || !class_exists("SPF_Authorization") || !defined("SPF_VERSION") || SPF_VERSION!=="2.0.2" || (string)get_option("spf_schema_version")!==SPF_SCHEMA_VERSION || !SAUTH_Account_Contract::provider_available() || !SAUTH_Activator::storage_ready()){fwrite(STDERR,"Native activation/schema postcondition not established\n");exit(1);} echo "PASS exact three-owner native activation and schema postconditions (disposable only)\n";' --path=/tmp/wordpress

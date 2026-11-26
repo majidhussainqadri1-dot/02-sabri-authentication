@@ -6,6 +6,7 @@ defined( 'ABSPATH' ) || exit;
 final class SAUTH_Canonical_Routes {
 	const QUERY_VAR      = 'sauth_canonical_route';
 	const SESSIONS       = 'account_sessions';
+	const SAFETY         = 'account_safety';
 	const SECURITY       = 'account_security';
 	const RESOLVE        = 'resolve_account';
 	const RELATED_ORIGIN = 'related_origin_webauthn';
@@ -15,6 +16,7 @@ final class SAUTH_Canonical_Routes {
 		add_filter( 'query_vars', array( __CLASS__, 'query_vars' ) );
 		add_action( 'template_redirect', array( __CLASS__, 'redirect_legacy_route' ), 1 );
 		add_action( 'template_redirect', array( __CLASS__, 'render' ), 5 );
+		add_action( 'template_redirect', array( __CLASS__, 'render_safety' ), 6 );
 		add_filter( 'sabri_shell_route_manifests', array( __CLASS__, 'shell_manifest' ), 99 );
 		add_filter( 'spf_module_manifests', array( __CLASS__, 'foundation_manifest' ), 99 );
 		add_filter( 'sauth_canonical_route_url', array( __CLASS__, 'route_url' ), 10, 2 );
@@ -23,12 +25,14 @@ final class SAUTH_Canonical_Routes {
 
 	public static function register() {
 		add_rewrite_rule( '^account/sessions/?$', 'index.php?' . self::QUERY_VAR . '=' . self::SESSIONS, 'top' );
+		add_rewrite_rule( '^account/safety/?$', 'index.php?' . self::QUERY_VAR . '=' . self::SAFETY, 'top' );
 		add_rewrite_rule( '^account-security/?$', 'index.php?' . self::QUERY_VAR . '=' . self::SECURITY, 'top' );
 		add_rewrite_rule( '^resolve-account/?$', 'index.php?' . self::QUERY_VAR . '=' . self::RESOLVE, 'top' );
 		add_rewrite_rule( '^\\.well-known/webauthn/?$', 'index.php?' . self::QUERY_VAR . '=' . self::RELATED_ORIGIN, 'top' );
-		if ( SAUTH_VERSION !== (string) get_option( 'sauth_rewrite_version', '' ) ) {
+		if ( SAUTH_VERSION !== (string) get_option( 'sauth_rewrite_version', '' ) || '1' !== (string) get_option( 'sauth_safety_route_ready', '' ) ) {
 			flush_rewrite_rules( false );
 			update_option( 'sauth_rewrite_version', SAUTH_VERSION, false );
+			update_option( 'sauth_safety_route_ready', '1', false );
 		}
 	}
 
@@ -41,6 +45,7 @@ final class SAUTH_Canonical_Routes {
 	public static function route_url( $url, $key ) {
 		$routes = array(
 			'sessions' => '/account/sessions/',
+			'safety' => '/account/safety/',
 			'security' => '/account-security/',
 			'resolve_account' => '/resolve-account/',
 			'related_origin_webauthn' => '/.well-known/webauthn',
@@ -95,6 +100,19 @@ final class SAUTH_Canonical_Routes {
 		exit;
 	}
 
+	/** Public educational guidance; personalized actions remain restricted in the shortcode. */
+	public static function render_safety() {
+		if ( self::SAFETY !== (string) get_query_var( self::QUERY_VAR ) ) { return; }
+		status_header( 200 );
+		nocache_headers();
+		header( 'X-Robots-Tag: noindex, noarchive, nosnippet', true );
+		header( 'Referrer-Policy: no-referrer', true );
+		get_header();
+		echo '<main id="main" class="sauth-canonical-route">' . do_shortcode( '[sabri_auth_account_safety]' ) . '</main>';
+		get_footer();
+		exit;
+	}
+
 	public static function shell_manifest( $manifests ) {
 		$manifests = is_array( $manifests ) ? $manifests : array();
 		if ( ! isset( $manifests['file02-authentication'] ) || ! is_array( $manifests['file02-authentication'] ) ) {
@@ -121,6 +139,7 @@ final class SAUTH_Canonical_Routes {
 		$routes['related_origin_webauthn'] = array(
 			'owner'=>'File 02','route'=>'/.well-known/webauthn','access'=>'public-json','index'=>'noindex','cache'=>'no-store','layout'=>'none',
 		);
+		$routes['safety'] = array( 'owner' => 'File 02', 'route' => '/account/safety/', 'access' => 'public', 'index' => 'noindex', 'cache' => 'no-store', 'layout' => 'single-column-account', 'shortcode' => '[sabri_auth_account_safety]' );
 		$manifest['routes'] = $routes;
 		$manifests['file02-authentication'] = $manifest;
 		return $manifests;
@@ -136,6 +155,7 @@ final class SAUTH_Canonical_Routes {
 		$manifests['file02-authentication']['php_prefix'] = 'SAUTH_';
 		$manifests['file02-authentication']['version'] = SAUTH_VERSION;
 		$manifests['file02-authentication']['canonical_sessions_route'] = '/account/sessions/';
+		$manifests['file02-authentication']['canonical_safety_route'] = '/account/safety/';
 		$manifests['file02-authentication']['canonical_security_route'] = '/account-security/';
 		$manifests['file02-authentication']['canonical_collision_route'] = '/resolve-account/';
 		$manifests['file02-authentication']['related_origin_manifest'] = '/.well-known/webauthn';

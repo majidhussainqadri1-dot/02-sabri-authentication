@@ -36,23 +36,32 @@ final class SAUTH_Storage_Router {
 			$wpdb->prefix . 'sa_auth_risk_challenges' => SAUTH_Activator::table( 'risk_challenges' ),
 			$wpdb->prefix . 'sa_auth_attempts'        => SAUTH_Activator::table( 'auth_attempts' ),
 		);
+		/* Rewrite only SQL table-identifier positions. Protect literals, quoted
+		 * identifiers and comments first; match a complete legacy name, never
+		 * a prefix of a different module's table. WordPress uses MySQL escaping. */
+		$names = array();
+		$lookup = array();
 		foreach ( $map as $legacy => $canonical ) {
-			if ( '' === $canonical || $legacy === $canonical ) {
-				continue;
-			}
-
-			/* Rewrite only SQL table-identifier positions. Broad string replacement
-			 * can corrupt literal values, JSON or diagnostic text that merely contains
-			 * a legacy table name. */
-			$pattern = '/\b(FROM|JOIN|UPDATE|INTO|TABLE)\s+`?' . preg_quote( $legacy, '/' ) . '`?/i';
-			$query = preg_replace_callback(
-				$pattern,
-				static function ( $matches ) use ( $canonical ) {
-					return strtoupper( (string) $matches[1] ) . ' `' . $canonical . '`';
-				},
-				$query
-			);
+			if ( '' === $canonical || $legacy === $canonical ) { continue; }
+			$names[] = preg_quote( $legacy, '~' );
+			$lookup[ strtolower( $legacy ) ] = $canonical;
 		}
+		if ( ! $names ) { return $query; }
+		$alternatives = implode( '|', $names );
+		$protected = <<<'SQL'
+'(?:\\[\s\S]|''|[^'\\])*'|"(?:\\[\s\S]|""|[^"\\])*"|`(?:``|[^`])*`|/\*[\s\S]*?(?:\*/|$)|--(?=\s|$)[^\r\n]*|\#[^\r\n]*
+SQL;
+		$pattern = '~\b(FROM|JOIN|UPDATE|INTO|TABLE)\s+(?:`(' . $alternatives . ')`|(' . $alternatives . ')(?![a-z0-9_$\x80-\xff`\.]))|' . $protected . '~i';
+		$routed = preg_replace_callback(
+			$pattern,
+			static function ( $matches ) use ( $lookup ) {
+				if ( empty( $matches[1] ) ) { return $matches[0]; }
+				$name = strtolower( ! empty( $matches[2] ) ? $matches[2] : ( $matches[3] ?? '' ) );
+				return isset( $lookup[ $name ] ) ? strtoupper( $matches[1] ) . ' `' . $lookup[ $name ] . '`' : $matches[0];
+			},
+			$query
+		);
+		if ( is_string( $routed ) ) { $query = $routed; }
 		return $query;
 	}
 

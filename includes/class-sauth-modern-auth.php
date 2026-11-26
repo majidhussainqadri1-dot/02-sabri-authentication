@@ -245,15 +245,51 @@ final class SAUTH_Modern_Auth {
 		if ( ! SA_Membership_Adapter::sign_in_allowed( $membership, $completion ) ) {
 			wp_send_json_error( array( 'code'=>'membership_not_eligible' ), 403 );
 		}
-		wp_set_current_user( $user_id );
-		wp_set_auth_cookie( $user_id, false, is_ssl() );
-		if ( ! SAUTH_Login_Risk::record_successful_login( $user_id, 'fedcm', 0 ) ) {
-			SAUTH_Session_Manager::revoke_user_sessions( $user_id, 'fedcm_risk_store_failed' );
-			wp_clear_auth_cookie();
+		// A federated identity response is not a local passkey step-up.
+		// Apply the same local adaptive-risk policy used by Google sign-in.
+		$risk = SAUTH_Login_Risk::evaluate( $user_id, $completion );
+		if ( 'allow' !== ( $risk['action'] ?? '' ) ) {
+			SAUTH_Login_Risk::record_failure( $user_id, 'fedcm_local_risk_rejected', absint( $risk['score'] ?? 100 ) );
+			wp_send_json_error( array( 'code'=>'fedcm_local_risk_rejected' ), 403 );
+		}
+		$resolution = SAUTH_Completion_Resolver::resolve( $user_id, home_url( '/' ), $completion );
+		if ( 'allow' !== ( $resolution['result'] ?? '' ) ) {
+			wp_send_json_error( array( 'code'=>'fedcm_completion_unverified' ), 403 );
+		}
+		$destination = SA_Security::safe_redirect( (string) ( $resolution['destination'] ?? '' ), '' );
+		if ( '' === $destination ) { wp_send_json_error( array( 'code'=>'fedcm_completion_unverified' ), 403 ); }
+		/* Use the same explicit WordPress token and File02 registry postcondition
+		 * as the native password/Google sign-in flows. A cookie alone is not
+		 * evidence of a successfully persisted session. */
+		if ( ! class_exists( 'WP_Session_Tokens' ) || ! class_exists( 'SAUTH_Session_Manager' ) ) {
 			wp_send_json_error( array( 'code'=>'fedcm_session_unverified' ), 503 );
 		}
+		$duration = (int) apply_filters( 'auth_cookie_expiration', 2 * DAY_IN_SECONDS, $user_id, false );
+		$expiration = time() + min( YEAR_IN_SECONDS, max( HOUR_IN_SECONDS, $duration ) );
+		$session_token = (string) WP_Session_Tokens::get_instance( $user_id )->create( $expiration );
+		if ( '' === $session_token ) { self::fail_fedcm_session( $user_id, 'fedcm_session_token_create_failed' ); }
+		wp_set_current_user( $user_id );
+		wp_set_auth_cookie( $user_id, false, is_ssl(), $session_token );
+		if ( ! SAUTH_Session_Manager::session_binding_ready( $user_id, $session_token ) ) {
+			$session_token = '';
+			self::fail_fedcm_session( $user_id, 'fedcm_session_projection_failed' );
+		}
+		$session_token = '';
+		if ( ! SAUTH_Login_Risk::record_successful_login( $user_id, 'fedcm', absint( $risk['score'] ?? 100 ) ) ) {
+			self::fail_fedcm_session( $user_id, 'fedcm_risk_store_failed' );
+		}
 		SA_Membership_Adapter::audit( 'fedcm_server_verified_sign_in', $user_id );
-		wp_send_json_success( array( 'redirect'=>home_url( '/' ) ) );
+		wp_send_json_success( array( 'redirect'=>$destination ) );
+	}
+
+	/** No successful response may survive an unverified session postcondition. */
+	private static function fail_fedcm_session( $user_id, $reason ) {
+		$revoked = SAUTH_Session_Manager::revoke_user_sessions( $user_id, $reason );
+		wp_clear_auth_cookie();
+		wp_set_current_user( 0 );
+		if ( ! $revoked && class_exists( 'SAUTH_Operations' ) ) { SAUTH_Operations::enter_safe_mode(); }
+		SA_Membership_Adapter::audit( 'fedcm_session_establishment_failed', $user_id, array( 'reason'=>$reason ) );
+		wp_send_json_error( array( 'code'=>'fedcm_session_unverified' ), 503 );
 	}
 
 	/** Retire only our bounded non-autoloaded FedCM replay-claim options. */

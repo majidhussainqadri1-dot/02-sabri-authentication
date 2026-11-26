@@ -37,20 +37,12 @@ final class SA_Security {
 			$now
 		);
 		$result = $wpdb->query( $sql );
-		if ( false === $result ) {
-			$key = 'sauth_fallback_' . substr( $bucket, 0, 32 );
-			$state = get_transient( $key );
-			$now_ts = time();
-			if ( ! is_array( $state ) || empty( $state['expires'] ) || (int) $state['expires'] <= $now_ts ) { $state = array( 'hits' => 0, 'expires' => $now_ts + $window ); }
-			$state['hits']++;
-			$ttl = max( 1, (int) $state['expires'] - $now_ts );
-			$stored = set_transient( $key, $state, $ttl );
-			$verified = get_transient( $key );
-			if ( false === $stored || ! is_array( $verified ) || (int) ( $verified['hits'] ?? -1 ) !== (int) $state['hits'] || (int) ( $verified['expires'] ?? 0 ) !== (int) $state['expires'] ) { return true; }
-			return $state['hits'] > $limit;
-		}
+		// A transient read/modify/write is not an atomic security counter.
+		// If the canonical write fails, refuse the protected attempt until
+		// storage is repaired rather than admitting an uncounted request.
+		if ( false === $result || '' !== (string) $wpdb->last_error ) { return true; }
 		$hits_raw = $wpdb->get_var( $wpdb->prepare( "SELECT hits FROM {$table} WHERE bucket_hash = %s", $bucket ) );
-		if ( null === $hits_raw || '' !== (string) $wpdb->last_error ) { return true; }
+		if ( '' !== (string) $wpdb->last_error || ! ( ( is_int( $hits_raw ) && $hits_raw >= 1 ) || ( is_string( $hits_raw ) && 1 === preg_match( '/^[1-9][0-9]*$/D', $hits_raw ) ) ) ) { return true; }
 		$hits = (int) $hits_raw;
 		if ( 1 === wp_rand( 1, 100 ) ) {
 			$wpdb->query( $wpdb->prepare( "DELETE FROM {$table} WHERE expires_at < %s", gmdate( 'Y-m-d H:i:s', time() - DAY_IN_SECONDS ) ) );
@@ -68,7 +60,28 @@ final class SA_Security {
 
 	public static function safe_redirect( $url, $fallback = null ) {
 		$fallback = func_num_args() < 2 ? home_url( '/' ) : (string) $fallback;
-		return wp_validate_redirect( (string) $url, $fallback );
+		$validated = self::local_redirect( $url );
+		return '' !== $validated ? $validated : self::local_redirect( $fallback );
+	}
+
+	/** Authentication destinations are local even when another plugin widens
+	 * WordPress' global allowed_redirect_hosts filter. Match scheme/host/port. */
+	private static function local_redirect( $url ) {
+		if ( ! is_string( $url ) || '' === $url || preg_match( '/[\x00-\x20\x7f\\\\]/', $url ) || 0 === strpos( $url, '//' ) ) { return ''; }
+		$url = wp_validate_redirect( $url, '' );
+		if ( ! is_string( $url ) || '' === $url || preg_match( '/[\x00-\x20\x7f\\\\]/', $url ) || 0 === strpos( $url, '//' ) ) { return ''; }
+		$target = parse_url( $url );
+		$home = parse_url( home_url( '/' ) );
+		if ( ! is_array( $target ) || ! is_array( $home ) || empty( $home['host'] ) || empty( $home['scheme'] ) || isset( $target['user'] ) || isset( $target['pass'] ) ) { return ''; }
+		if ( ! isset( $target['host'], $target['scheme'] ) ) {
+			return ! isset( $target['host'] ) && ! isset( $target['scheme'] ) && ! isset( $target['port'] ) && 0 === strpos( $url, '/' ) ? $url : '';
+		}
+		$scheme = strtolower( $target['scheme'] );
+		$home_scheme = strtolower( $home['scheme'] );
+		if ( ! in_array( $scheme, array( 'http', 'https' ), true ) || $scheme !== $home_scheme || strcasecmp( $target['host'], $home['host'] ) !== 0 ) { return ''; }
+		$port = (int) ( $target['port'] ?? ( 'https' === $scheme ? 443 : 80 ) );
+		$home_port = (int) ( $home['port'] ?? ( 'https' === $home_scheme ? 443 : 80 ) );
+		return $port > 0 && $port === $home_port ? $url : '';
 	}
 
 	public static function master_key_ready() {

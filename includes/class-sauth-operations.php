@@ -252,6 +252,7 @@ final class SAUTH_Operations {
 		$hooks = array(
 			'file00_collision_owner' => 'sauth_resolve_collision_case_v1',
 			'file00_recovery_owner' => 'sauth_apply_recovery_change_v1',
+			'file00_lockdown_recovery_owner' => 'sauth_lockdown_recovery_authorize_v1',
 			'fedcm_identity_verifier' => 'sauth_fedcm_verify_token_v1',
 			'dpop_signature' => 'sauth_dpop_verify_signature_v1',
 			'fido_metadata' => 'sauth_fido_metadata_lookup_v1',

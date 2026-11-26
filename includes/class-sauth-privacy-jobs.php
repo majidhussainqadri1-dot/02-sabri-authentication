@@ -54,13 +54,20 @@ final class SAUTH_Privacy_Jobs {
 	public static function register_job( $user_id, $job_key ) {
 		$user_id = absint( $user_id );
 		$job_key = sanitize_key( (string) $job_key );
-		if ( ! self::can_enqueue( $user_id ) || '' === $job_key ) {
+		if ( ! self::can_enqueue( $user_id ) || ! self::owned_job_key( $job_key ) ) {
 			return false;
 		}
 		$keys = get_user_meta( $user_id, self::JOB_INDEX_META, true );
-		$keys = is_array( $keys ) ? $keys : array();
+		if ( '' === $keys ) { $keys = array(); }
+		if ( ! is_array( $keys ) || count( $keys ) > self::MAX_INDEXED_JOBS ) { return false; }
+		foreach ( $keys as $existing ) {
+			if ( ! self::owned_job_key( $existing ) ) { return false; }
+		}
+		if ( in_array( $job_key, $keys, true ) ) { return true; }
+		// Never evict an older still-indexed job to admit a new one. The caller
+		// deletes the new unindexed transient and stops enqueueing on rejection.
+		if ( count( $keys ) >= self::MAX_INDEXED_JOBS ) { return false; }
 		$keys[] = $job_key;
-		$keys = array_slice( array_values( array_unique( array_filter( array_map( 'sanitize_key', $keys ) ) ) ), -self::MAX_INDEXED_JOBS );
 		update_user_meta( $user_id, self::JOB_INDEX_META, $keys );
 		return $keys === get_user_meta( $user_id, self::JOB_INDEX_META, true );
 	}
@@ -68,7 +75,7 @@ final class SAUTH_Privacy_Jobs {
 	public static function forget_job( $user_id, $job_key ) {
 		$user_id = absint( $user_id );
 		$job_key = sanitize_key( (string) $job_key );
-		if ( ! $user_id || '' === $job_key ) {
+		if ( ! $user_id || ! self::owned_job_key( $job_key ) ) {
 			return;
 		}
 		$keys = get_user_meta( $user_id, self::JOB_INDEX_META, true );
@@ -89,14 +96,22 @@ final class SAUTH_Privacy_Jobs {
 			return false;
 		}
 		$keys = get_user_meta( $user_id, self::JOB_INDEX_META, true );
-		$keys = is_array( $keys ) ? array_slice( array_values( array_unique( array_map( 'sanitize_key', $keys ) ) ), 0, self::MAX_INDEXED_JOBS ) : array();
+		if ( '' === $keys ) { return true; }
+		// An unexpected index must not authorize deletion of other modules' data.
+		if ( ! is_array( $keys ) || count( $keys ) > self::MAX_INDEXED_JOBS ) { return false; }
+		$remaining = array();
 		foreach ( $keys as $key ) {
-			if ( '' !== $key ) {
-				delete_transient( $key );
-			}
+			if ( ! self::owned_job_key( $key ) ) { $remaining[] = $key; continue; }
+			delete_transient( $key );
+			if ( false !== get_transient( $key ) ) { $remaining[] = $key; }
+		}
+		if ( $remaining ) {
+			// Retain evidence even if the index update itself fails; keep the barrier.
+			update_user_meta( $user_id, self::JOB_INDEX_META, $remaining );
+			return false;
 		}
 		delete_user_meta( $user_id, self::JOB_INDEX_META );
-		return '' === (string) get_user_meta( $user_id, self::JOB_INDEX_META, true );
+		return '' === get_user_meta( $user_id, self::JOB_INDEX_META, true );
 	}
 
 	/** Start erasure before any File 02 deletion. Leaves the barrier raised on failure. */
@@ -126,10 +141,16 @@ final class SAUTH_Privacy_Jobs {
 		if ( ! $user_id ) {
 			return false;
 		}
+		if ( ! self::purge_jobs( $user_id ) ) { return false; }
 		delete_user_meta( $user_id, self::EPOCH_META );
-		delete_user_meta( $user_id, self::JOB_INDEX_META );
+		if ( '' !== get_user_meta( $user_id, self::EPOCH_META, true ) ) { return false; }
 		delete_user_meta( $user_id, self::ACTIVE_META );
-		return '' === (string) get_user_meta( $user_id, self::ACTIVE_META, true )
-			&& '' === (string) get_user_meta( $user_id, self::EPOCH_META, true );
+		return '' === get_user_meta( $user_id, self::ACTIVE_META, true )
+			&& '' === get_user_meta( $user_id, self::EPOCH_META, true )
+			&& '' === get_user_meta( $user_id, self::JOB_INDEX_META, true );
+	}
+
+	private static function owned_job_key( $key ) {
+		return is_string( $key ) && 1 === preg_match( '/^sauth_(?:password_recovery_job_|email_verification_resend_job_)[a-f0-9]{64}$/D', $key );
 	}
 }

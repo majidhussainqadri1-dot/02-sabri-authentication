@@ -1,3 +1,20 @@
+## V12.3 P11 package-folder transition guard — 14 November 2026
+
+**DISPOSABLE TEST PASS; STAGING/LIVE ACCEPTANCE NOT PERFORMED.** Source plugin path in current File02 integration tests is `wp-content/plugins/sabri-authentication/sabri-authentication.php`. The deterministic 1.4.0 SOURCE-CANDIDATE ZIP deliberately installs under `wp-content/plugins/02-sabri-authentication/sabri-authentication.php` (see `tools/build-package.sh` and `RELEASE-LOCK.json.package_folder`). WordPress distinguishes these directories as separate plugin identities. This is a deployment-identity risk, **not proof of a current live bug**.
+
+- [x] Exact candidate ZIP can install and activate on disposable WordPress 7.0.1/MariaDB 11.4 using the `02-sabri-authentication` folder **after** explicitly deactivating the `sabri-authentication` source installation. The CI test asserts only one File02 slug is active and the installed 1.4.0 DB/account provider remains ready.
+- [ ] Obtain **actual live active File02 path** and deployed bytes from authorized Hostinger P00; never infer it from old test fixtures.
+- [ ] On an isolated restored staging clone, identify all currently installed File02 plugin directories, network/site activation and residual content. Preserve site/network plugin activation and database row evidence.
+- [ ] Approved operator must design a reversible folder transition or same-directory update **without two active File02 copies**, lost account hooks, orphaned cron registrations or version/schema marker false positives. ZIP extraction alone does not grant permission to change active plugin identity.
+- [ ] Exercise legacy 1.3.x → 1.4.0 one-way DB migration and passkey 1.0.1 → 1.1.0 with actual installed folder identity; test real sessions, encrypted data, options, safe mode, canonical pages and restoration.
+- [ ] Capture clean staging archive SHA-256, manifest, SBOM, restored backup/rollback command and post-activation plugin-path/digest parity.
+- [ ] Require File00/24/Founder authorization before Production GO. If plugin identity is uncertain, halt and perform Deployment-Parity Audit.
+- [ ] After deployment (only if authorized), re-freeze actual folder/hash/options/schema and execute real live sign-in/recovery/safety re-test. No claim of Resolved without final live parity.
+
+The disposable ZIP install assertion **does not** test a site/network-activated Hostinger in-place upgrade, persistent browser sessions, CDN/cache behavior, real Google/WebAuthn providers or irreversible recovery data changes.
+
+---
+
 ## Additional v12 candidate acceptance barriers — 10 November 2026 Draft PR #26
 
 - [ ] On a clone and actual configured custom breached-password callback, unavailable or null response must prevent a password change; opt-in HIBP remains disabled unless approved, and no raw/full hash can leave the environment.
