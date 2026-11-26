@@ -178,9 +178,14 @@ require_markers(
         "completion_loop_prevented",
         "canonical_completion_route",
         "MAX_REPEAT_VISITS",
-        "wp_validate_redirect",
+        "SA_Security::safe_redirect",
         "missing_steps",
     ),
+)
+
+require_markers(
+    "includes/class-sa-security.php",
+    ("wp_validate_redirect", "local_redirect", "home_port", "home_scheme"),
 )
 
 require_markers(
