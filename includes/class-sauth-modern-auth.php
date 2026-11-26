@@ -245,6 +245,19 @@ final class SAUTH_Modern_Auth {
 		if ( ! SA_Membership_Adapter::sign_in_allowed( $membership, $completion ) ) {
 			wp_send_json_error( array( 'code'=>'membership_not_eligible' ), 403 );
 		}
+		// A federated identity response is not a local passkey step-up.
+		// Apply the same local adaptive-risk policy used by Google sign-in.
+		$risk = SAUTH_Login_Risk::evaluate( $user_id, $completion );
+		if ( 'allow' !== ( $risk['action'] ?? '' ) ) {
+			SAUTH_Login_Risk::record_failure( $user_id, 'fedcm_local_risk_rejected', absint( $risk['score'] ?? 100 ) );
+			wp_send_json_error( array( 'code'=>'fedcm_local_risk_rejected' ), 403 );
+		}
+		$resolution = SAUTH_Completion_Resolver::resolve( $user_id, home_url( '/' ), $completion );
+		if ( 'allow' !== ( $resolution['result'] ?? '' ) ) {
+			wp_send_json_error( array( 'code'=>'fedcm_completion_unverified' ), 403 );
+		}
+		$destination = SA_Security::safe_redirect( (string) ( $resolution['destination'] ?? '' ), '' );
+		if ( '' === $destination ) { wp_send_json_error( array( 'code'=>'fedcm_completion_unverified' ), 403 ); }
 		/* Use the same explicit WordPress token and File02 registry postcondition
 		 * as the native password/Google sign-in flows. A cookie alone is not
 		 * evidence of a successfully persisted session. */
@@ -262,11 +275,11 @@ final class SAUTH_Modern_Auth {
 			self::fail_fedcm_session( $user_id, 'fedcm_session_projection_failed' );
 		}
 		$session_token = '';
-		if ( ! SAUTH_Login_Risk::record_successful_login( $user_id, 'fedcm', 0 ) ) {
+		if ( ! SAUTH_Login_Risk::record_successful_login( $user_id, 'fedcm', absint( $risk['score'] ?? 100 ) ) ) {
 			self::fail_fedcm_session( $user_id, 'fedcm_risk_store_failed' );
 		}
 		SA_Membership_Adapter::audit( 'fedcm_server_verified_sign_in', $user_id );
-		wp_send_json_success( array( 'redirect'=>home_url( '/' ) ) );
+		wp_send_json_success( array( 'redirect'=>$destination ) );
 	}
 
 	/** No successful response may survive an unverified session postcondition. */

@@ -13,14 +13,21 @@ class F02Response extends Exception {
     public function __construct($ok, $data) { parent::__construct($ok ? 'ok' : 'error'); $this->ok=$ok; $this->data=$data; }
 }
 class WP_User { public $ID = 17; }
-class SA_Security { public static function client_fingerprint() { return 'client-A'; } }
+class SA_Security { public static function client_fingerprint() { return 'client-A'; } public static function safe_redirect($url,$fallback){return strpos($url,'https://example.test/')===0?$url:$fallback;} }
+class SAUTH_Completion_Resolver { public static function resolve($id,$url,$state){return $GLOBALS['completion_resolution'];} }
+$GLOBALS['completion_resolution']=['result'=>'allow','destination'=>'https://example.test/complete/'];
 class SAUTH_Account_Contract { public static function completion_state($user, $context) { return array('result'=>'allow'); } }
 class SA_Membership_Adapter {
     public static function membership_assertion($user, $scope, $purpose) { return array('result'=>'allow'); }
     public static function sign_in_allowed($assertion, $completion) { return true; }
     public static function audit($event, $id) { return true; }
 }
-class SAUTH_Login_Risk { public static function record_successful_login($id, $method, $risk) { ++$GLOBALS['risk_writes']; return $GLOBALS['risk_ready']; } }
+class SAUTH_Login_Risk {
+ public static function evaluate($id,$completion){return $GLOBALS['local_risk'];}
+ public static function record_failure($id,$reason,$score){++$GLOBALS['risk_denials'];}
+ public static function record_successful_login($id,$method,$risk){++$GLOBALS['risk_writes'];$GLOBALS['risk_score_written']=$risk;return $GLOBALS['risk_ready'];}
+}
+$GLOBALS['local_risk']=['action'=>'allow','score'=>25];$GLOBALS['risk_denials']=0;
 class WP_Session_Tokens {
  public static function get_instance($id){return new self();}
  public function create($expiry){return 'synthetic-session-id';}
@@ -92,6 +99,8 @@ f02_assert(!$GLOBALS['fedcm_deleted'] && !$GLOBALS['fedcm_claims'],'missing veri
 $GLOBALS['fedcm_verifier_registered']=true;
 $valid=f02_attempt($GLOBALS['fedcm_nonce']);
 f02_assert($valid->ok,'first verified FedCM callback was denied');
+f02_assert($valid->data['redirect']==='https://example.test/complete/','canonical account completion route ignored');
+f02_assert($GLOBALS['risk_score_written']===25,'local risk score not recorded');
 $replay=f02_attempt($GLOBALS['fedcm_nonce']);
 f02_assert(!$replay->ok,'FedCM nonce replay succeeded after a cached concurrent read');
 f02_assert($GLOBALS['fedcm_verified']===1,'server IdP verifier executed for a replay');
@@ -119,4 +128,16 @@ $GLOBALS['binding_ready']=true;$GLOBALS['risk_ready']=false;
 $failedRisk=f02_attempt($GLOBALS['fedcm_nonce']);
 f02_assert(!$failedRisk->ok&&($failedRisk->data['code']??'')==='fedcm_session_unverified','unverified risk persistence received success');
 f02_assert($GLOBALS['actor']===0&&$GLOBALS['clears']===2&&$GLOBALS['revokes']===2,'risk failure left authenticated actor');
-echo "PASS: FedCM nonce isolation, once-only claim and session/risk postcondition failure containment (mock).\n";
+$GLOBALS['fedcm_id']='00000000-0000-4000-8000-000000000004';
+$GLOBALS['risk_ready']=true;$GLOBALS['local_risk']=['action'=>'challenge','score'=>70];
+$cookies=$GLOBALS['fedcm_cookies'];$writes=$GLOBALS['risk_writes'];
+$challenged=f02_attempt($GLOBALS['fedcm_nonce']);
+f02_assert(!$challenged->ok&&($challenged->data['code']??'')==='fedcm_local_risk_rejected','local step-up bypassed');
+f02_assert($GLOBALS['fedcm_cookies']===$cookies&&$GLOBALS['risk_writes']===$writes&&$GLOBALS['risk_denials']===1,'risk rejection created local session/trust');
+$GLOBALS['fedcm_id']='00000000-0000-4000-8000-000000000005';
+$GLOBALS['local_risk']=['action'=>'allow','score'=>25];
+$GLOBALS['completion_resolution']=['result'=>'unknown','destination'=>''];
+$unknown=f02_attempt($GLOBALS['fedcm_nonce']);
+f02_assert(!$unknown->ok&&($unknown->data['code']??'')==='fedcm_completion_unverified','unverified completion accepted');
+f02_assert($GLOBALS['fedcm_cookies']===$cookies,'unknown completion issued session');
+echo "PASS: FedCM nonce isolation, once-only claim, local risk, completion and session postconditions (mock).\n";
