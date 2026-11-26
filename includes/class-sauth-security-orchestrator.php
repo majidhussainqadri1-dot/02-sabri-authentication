@@ -417,7 +417,7 @@ final class SAUTH_Security_Orchestrator {
 		);
 		if ( 1 !== (int) $claim ) { return new WP_Error( 'sauth_collision_state_race', 'Account-resolution state changed.' ); }
 		$result = apply_filters( 'sauth_resolve_collision_case_v1', null, $payload, array( 'case'=>$public_id, 'fingerprint'=>SA_Security::client_fingerprint() ) );
-		if ( ! is_array( $result ) || 'allow' !== (string) ( $result['result'] ?? '' ) || empty( $result['user_id'] ) ) {
+		if ( ! is_array( $result ) || 'allow' !== ( $result['result'] ?? null ) || ! is_int( $result['user_id'] ?? null ) || $result['user_id'] <= 0 ) {
 			return new WP_Error( 'sauth_collision_owner_verification_required', 'Canonical identity verification is required before an account can be resolved.' );
 		}
 		$changed = $wpdb->update(
@@ -519,6 +519,10 @@ final class SAUTH_Security_Orchestrator {
 		// Never route collision cases through the generic recovery handler, which lacks
 		// that flow's 600-second proof lifetime and owner-specific decision contract.
 		if ( 'collision_resolution' === (string) $row['change_kind'] ) { return new WP_Error( 'sauth_collision_dedicated_flow_required', 'Use the protected account-resolution flow.' ); }
+		// Do not send corrupted or unknown operation kinds or invalid subjects to the canonical owner.
+		if ( ! in_array( (string) $row['change_kind'], array( 'email_change','phone_change','provider_unlink','passkey_remove','recovery_contact' ), true ) || ! is_scalar( $row['user_id'] ?? null ) || ! preg_match( '/^[1-9][0-9]*$/D', (string) $row['user_id'] ) || (string) (int) $row['user_id'] !== (string) $row['user_id'] ) {
+			return new WP_Error( 'sauth_recovery_scope_invalid', 'Canonical recovery scope is invalid.' );
+		}
 		$payload_json=SA_Security::decrypt((string)$row['payload_ciphertext']);
 		$payload=is_string($payload_json)?json_decode($payload_json,true):null;
 		if(!is_array($payload)){return new WP_Error('sauth_recovery_payload_invalid','Recovery change payload is unreadable.');}
