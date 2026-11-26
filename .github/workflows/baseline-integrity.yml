@@ -123,6 +123,7 @@ jobs:
           tests=(
             tests/security-unit.php
             tests/account-safety-guidance.php
+            tests/security/external-provider-operability-truth.php
             tests/security/v12-3-48-source-traceability.php
             tests/security/v12-3-26-qa-scenario-register.php
             tests/security/v12-3-live-freeze-readonly-guard.php
