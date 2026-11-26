@@ -125,13 +125,13 @@ final class SAUTH_Security_Orchestrator {
 	public static function emergency_lockdown( $user_id, $reason='user_request' ) {
 		$user_id=absint($user_id);
 		if(!$user_id){return false;}
-		$state=array('active'=>true,'reason'=>sanitize_key($reason),'started_at'=>time());
+		$state=array('active'=>true,'reason'=>sanitize_key($reason),'started_at'=>time(),'generation'=>strtolower(wp_generate_uuid4()));
 		update_user_meta($user_id,self::LOCKDOWN_META,$state);
 		update_user_meta($user_id,self::COMPROMISE_META,array('started_at'=>time(),'expires_at'=>time()+7*DAY_IN_SECONDS,'reason'=>sanitize_key($reason)));
 		// Read-back is authoritative: update_user_meta() may also return false
 		// when an identical value was already present. Never claim success
 		// unless the persisted lockdown and compromise watch are effective.
-		$lockdown_persisted = self::authentication_blocked($user_id);
+		$lockdown_persisted = $state === get_user_meta($user_id,self::LOCKDOWN_META,true);
 		$watch_persisted = self::compromise_watch($user_id);
 		$sessions = SAUTH_Session_Manager::revoke_user_sessions($user_id,'emergency_lockdown');
 		$assurance_invalidated = !class_exists('SAUTH_Passkey_Runtime') || true === SAUTH_Passkey_Runtime::invalidate_user_assurance($user_id);
@@ -141,20 +141,38 @@ final class SAUTH_Security_Orchestrator {
 		return $lockdown_persisted && $watch_persisted && true === $sessions && $assurance_invalidated;
 	}
 
+	/** Atomically replace only the exact lockdown state that was authorized.
+	 * Retain an inactive generation rather than an unconditional metadata delete.
+	 * WordPress update_metadata applies the nonempty previous value as a SQL
+	 * predicate. A concurrent new lockdown is not released by an older decision.
+	 */
+	private static function release_lockdown_generation( $user_id, array $expected ) {
+		if ( true !== ( $expected['active'] ?? null ) ) { return false; }
+		$released = array( 'active'=>false, 'generation'=>(string)($expected['generation'] ?? ''), 'released_at'=>time() );
+		if ( true !== update_user_meta( $user_id, self::LOCKDOWN_META, $released, $expected ) ) { return false; }
+		return $released === get_user_meta( $user_id, self::LOCKDOWN_META, true );
+	}
+
 	public static function clear_lockdown( $user_id ) {
-		$user_id=absint($user_id);
-		if(!$user_id || !self::smart_step_up($user_id,'lockdown_release')){return false;}
-		delete_user_meta($user_id,self::LOCKDOWN_META);
+		if ( ! is_int($user_id) || $user_id <= 0 ) { return false; }
+		$state = get_user_meta($user_id,self::LOCKDOWN_META,true);
+		if(!is_array($state) || true !== ($state['active'] ?? null) || !self::smart_step_up($user_id,'lockdown_release')){return false;}
+		if ( ! self::release_lockdown_generation($user_id,$state) ) { return false; }
 		self::timeline_event($user_id,'emergency_lockdown_released','high');
 		return !self::authentication_blocked($user_id);
 	}
 
 	public static function clear_lockdown_by_canonical_recovery( $user_id, array $evidence=array() ) {
-		$user_id = absint( $user_id );
-		if ( ! $user_id || ! self::authentication_blocked( $user_id ) ) { return false; }
-		$authorized = true === apply_filters( 'sauth_lockdown_recovery_authorize_v1', false, $user_id, $evidence );
-		if ( ! $authorized ) { return false; }
-		delete_user_meta( $user_id, self::LOCKDOWN_META );
+		if ( ! is_int($user_id) || $user_id <= 0 || (class_exists('SAUTH_Operations') && SAUTH_Operations::safe_mode()) ) { return false; }
+		$state = get_user_meta($user_id,self::LOCKDOWN_META,true);
+		if ( ! is_array($state) || true !== ($state['active'] ?? null) ) { return false; }
+		$generation = $state['generation'] ?? null;
+		// Legacy lockdowns without a generation require supervised re-issuance,
+		// never interpret an unbound historical approval as authority.
+		if ( ! is_string($generation) || ! preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/D',$generation) ) { return false; }
+		$context = array('contract_version'=>'1.0.0','lockdown_generation'=>$generation);
+		$authorized = true === apply_filters( 'sauth_lockdown_recovery_authorize_v1', false, $user_id, $evidence, $context );
+		if ( ! $authorized || ! self::release_lockdown_generation($user_id,$state) ) { return false; }
 		self::timeline_event( $user_id, 'emergency_lockdown_released', 'critical', array( 'method'=>'canonical_privileged_recovery' ) );
 		SA_Membership_Adapter::audit( 'authentication_emergency_lockdown_recovered', $user_id );
 		return ! self::authentication_blocked( $user_id );
