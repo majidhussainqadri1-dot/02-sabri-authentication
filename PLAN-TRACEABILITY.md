@@ -1,3 +1,66 @@
+# 26 Nov 2026 — Twenty scoped review passes, File02 V12.3
+
+**Scope and truth:** this session performed 20 distinct targeted source/contract review domains against initial exact draft PR28 HEAD e3be6e75dbe42781a0d9f9d5944b8440ac0e737a (11/11 prior workflows independently rechecked), followed by targeted patches and regression runs. These are NOT twenty independent whole-repository exhaustive reviews or a claim that every source line or every one of the 48 requirements was accepted. Governing Master Plan V12.3 File02 pages 129–132, lines 6190–6327: all 48 IDs re-extracted and compared to the trace register (12 FR, 10 NFR, 2 CEN, 24 X24). Retain 28 implemented-candidate / 20 partial, owner-dependent or acceptance controls; independent production acceptance 0/48. No coding percentage inferred.
+
+| Pass | Scope and actual source evidence | Disposition |
+|---|---|---|
+| 01 | Plan identity, exact PR28 and 48-ID source/test register | 48 IDs re-extracted; acceptance remains unverified |
+| 02 | Registration + File00 Account Contract (class-sa-registration.php, class-sauth-account-contract.php:25–112; signup fields) | source contract exists; native dual-version compatibility; full adult/minor and identity owner acceptance open |
+| 03 | Email verification/reconciliation (class-sauth-email-verification.php:316–427; reconciler) | token claim, provider handoff and replay state observed; actual delivery and end-to-end email acceptance open |
+| 04 | Password login, reset, downgrade (class-sa-registration.php:56–106, 312–377; security orchestrator) | native hash, bounded input, rate gates and membership recheck; real recovery owner and complete negative cases open |
+| 05 | Google OAuth/link/registration (class-sa-google-oauth.php:482–505, class-sauth-google-registration.php:313–331) | issuer/nonce/audience/time/email checks exist; real OAuth and provider acceptance open |
+| 06 | Session/risk (class-sauth-session-manager.php:77–160,257–272; class-sauth-login-risk.php:83–158) | fail-closed projection, risk gates; earlier CLI actor limitation still open; app password compatibility must be rehearsed |
+| 07 | Passkeys/AAL receipt (class-sauth-passkey-runtime.php:385–419,489 onwards) | epoch/current actor/session controls remain; actual device/cross-origin ceremony open |
+| 08 | FedCM finish (class-sauth-modern-auth.php:196–258 at initial head) | found missing session postcondition; corrected and mocked negative/positive tests green |
+| 09 | DPoP (class-sauth-dpop.php:10,64,78–96) | full-window replay retention retained; real JOSE verifier open |
+| 10 | CAEP/RISC, lockdown/recovery/collision (class-sauth-shared-signals.php and security orchestrator functions 125–163,327–544) | typed, bounded owner adapters; three File00 owner hooks and real signed issuer remain open |
+| 11 | HIBP, FIDO, key boundary (password safety 23–78, FIDO trust assess, class-sa-security.php:74–116) | prefix-only opt-in, no attestation=none hardware claim; actual provider trust/metadata remain open |
+| 12 | Private routes, access, cache/index (class-sa-access-control.php:81–127; canonical routes render 68–115; plugin assets) | found missing Security Center and collision route/shortcode classification; fixed + 14 mock assertions |
+| 13 | Outbox terminal recovery (class-sauth-event-outbox.php:48–56; activator schema 243–270) | final expired/stranded attempts not dead-lettered; fixed |
+| 14 | Outbox concurrency + privacy (class-sauth-event-outbox.php:58–85; class-sa-privacy.php:201–240; privacy jobs) | stale batch claims/finalization insufficiently fenced; fixed generation/due-time/reread. In-flight observer and downstream erasure acceptance still open |
+| 15 | Provider health and operational diagnostics (provider-http-guard, operations external_release_gate_summary, storage/safe mode) | no false acceptance from registration; actual monitoring, legal retention and repair procedures open |
+| 16 | Schema/activation/migration/backup (class-sa-activator, passkey-index-reconciler, build-package.sh) | material schema, safer staged package; real disposable integration; Hostinger backup/restore and exact deployed bytes open |
+| 17 | File20/25 UI and localization (actual File20 map, CSS, login/signup, JS, 131 entries each Urdu/Arabic catalog) | page-map/source tokens and translated catalogs present; browser keyboard/RTL/zoom/a11y unverified |
+| 18 | Performance and reliability tooling (latency analyzer: 40–116, bounded sample + approved budget) | offline evidence only; no real measured staging profile or p75/p95 |
+| 19 | Cross-owner current exact HEADs (00,01-B,06,19,20,24,25,26) | pinned interfaces reviewed; 19 File19 mock and 14 File20 source checks; full five-owner native and real provider acceptance open |
+| 20 | Release/reproducibility/live freeze (exact CI runs, candidate artifacts, read-only plugin and selected DB marker queries) | separate repository, staging and live truth; draft, no deployment or release approval |
+
+## Four source defects and regression evidence
+
+1. Private-route classification: `class-sa-access-control.php` omitted both canonical Security Center and collision routes and their two registered shortcodes; `SA_Plugin::assets` depends on this classifier, as do early privacy headers and robots. RED-only commit d87c4d6535dbdf729aa2f98dbf9cec525e48b697, run 45770157103/job 139740593471 proves "FAIL: canonical page account_security". Fix 6ddcb3ae62e43e8dcbeb11fb0c794d493b1d129d preserves ordinary public pages and adds 14 isolated classification/robots assertions. Real browser/cache/CDN remains unverified.
+2. Outbox exhausted final claim: old expired dispatching rows became retry even when attempts exhausted, which the next selection excluded. Correct terminal recovery for expired final claims and already stranded exhausted pending/retry rows; fresh dispatching lease remains intact. No schema change.
+3. Outbox claim generation: original claim used stale selected rows and only status for finalization; new claim checks attempt generation and due time, rereads claimed payload and fences completion/retry to that attempt. At-least-once semantics preserved, not exactly-once. Two new source fixtures passed on 7.4/8.3; outbox 7 SQL/mock checks and private routes 14. Outbox source and actual SQL verified at 82e9aef9c5cb89346d7f58792cf247fad43bb5b2, all 11/11 workflows success. Dual File00 real WP/MariaDB run 45770330667, jobs 139741162475 and 139741162791 each passed six assertions: two exhausted terminal rows, fresh lease, nonfinal retry, deferred claim and stale worker. Disposable fixtures explicitly guarded; no real notifications, identities or live changes. The RED suite stopped on route failure before outbox RED; do not claim separate observed outbox RED.
+4. FedCM finish session persistence: unlike password native session setup, previous FedCM recorded successful risk state and returned success without explicit session registry postcondition. Code commit 962e023b703d9af0d28f9c3d0f20c6b83755a049 creates explicit native token, checks binding before risk success, revokes/clears actor on failed binding or risk write, enters Safe Mode on containment failure. Existing mock expanded to test both negative postconditions and ordering; dedicated run 45770643524 PHP7.4 and 8.3 both SUCCESS, job 139742175279 log confirms. Real approved IdP and browser acceptance NOT proven; FedCM risk score policy, canonical completion routing and assurance strength should receive native owner review, no external provider enabled.
+
+## Cross-owner exact pins rechecked
+
+File00 draft 7b4b92e9639fdcfa1ecfa9f3ae7d1b2622d7ca48; File01-B draft 93e14e6e4062097e3c96386b76a43ad96885a575; File06 PR21 65d7542e7b14410b73d3c20d52650a84f6a92c15 and PR22 d419a8def42c312feddb4588eec7bbf14e2df8b9 remain separate; File19 main 3cd8f01a4614e96c0104d0ff82faa4ad3f02f4e4; File20 draft 5f5513402e6d2d82dc5decaf51f515be05fb2a82; File24 draft c8864c2052117051ae7877d678f1a98773df5298; File25 main 347a4ff4d4c233c5ea6cd82c7786ee5398ea9d1e; File26 main 1b064c6ea9f81195611ed001d5457e8ced65460a. Exact File19 current_assurance, File20 compatibility sa_page_map keys, File24 sauth/session_assurance, File06 via File00 consent assurance re-read. File01 producer manifest exists but native consumer and installation not fully accepted. Prior 3 owner hooks remain unresolved; no ownership fabricated.
+
+**Additional release review points, not corrected/confirmed live bugs:** File02 explicitly disables WordPress application passwords; current WPVibe connection must be tested in staging and a separate authorized Hostinger recovery route verified before installing. Never disable authentication controls merely to retain access. `SA_Security::safe_redirect` delegates WordPress redirect allowlist; explicit same-origin scheme/host/port behavior needs negative tests with other plugin allowlist filters. FIDO metadata verification/issuer validation and outbox downstream privacy races require owner-reviewed acceptance. No claims of additional tested fixes.
+
+## Exact tested code and observed workflow status
+
+Code HEAD `962e023b703d9af0d28f9c3d0f20c6b83755a049`, counts {"success":12}. Artifact observation [{"id":15093702592,"digest":"sha256:29933834a9c92e6467f20966c7f703a91415f2ecb8c741a8200f3002f38a9c3c","head":"962e023b703d9af0d28f9c3d0f20c6b83755a049"}]. This report commit is distinct documentation-only HEAD.
+| Workflow | Run | observed |
+|---|---|---|
+| File 02 recovery one-time claim regression | 45770643540 | success |
+| File 02 v12 DPoP proof and replay hardening | 45770643559 | success |
+| File 02 Review Branch Integrity | 45770643514 | success |
+| File 02 Release Integrity | 45770643418 | success |
+| File 02 FedCM one-time RP nonce and replay | 45770643524 | success |
+| File 02 v12 — Breach and DPoP fail-first security gates | 45770643500 | success |
+| File02 v12 — Session 3 fail-first boundary regressions | 45770643456 | success |
+| File 02 Canonical Storage and Documentation | 45770643506 | success |
+| File 02 V12.3 — Current File 00 main and candidate compatibility | 45770643652 | success |
+| File 02 v12 — File24 assurance and File26 non-index native source contracts | 45770643600 | success |
+| File 02 Current File 00 1.2.44 Integration | 45770643974 | success |
+| File 02 v12 — File 00 PR55 / WordPress 7.0.1 Real Integration | 45770643534 | success |
+
+## Live reality
+Current read-only WPVibe plugin list again shows only File01-B 2.0.1 active among Sabri custom modules; File00/02 absent. Selected sauth/smc version/schema/Safe Mode options returned 0 rows. Repository Main 224c39bcb8c28f77504c7348dbad41226753c7e8 (1.3.4), draft candidate 1.4.0 DB1.4.0 passkey1.1.0. Deployed File02 not found; DB marker not found; migration state unverified; Live verification inventory only. No live writes, no merge, no deployment, no production defect declared resolved. Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔ All remaining 20 plan acceptance/partial gates remain open. Full independent whole-repository reviews, real 5-owner acceptance and staged backup/restore are outstanding.
+
+---
+
 > **Final observed 26 November exact-code-head result:** `bfbdd36ee09b98a1fe00d77f9cae29b1e24ab43b` completed **11/11 GitHub workflows SUCCESS, 0 failed**, including both PHP versions, DPoP full retention and inherited regression, both File00 matrix versions, actual WP/MariaDB legacy integration, cross-file consumers, deterministic packaging and release integrity. Artifact 15082915721, run 45744349781, GitHub artifact digest `sha256:5157fe265cab66d59e4d81fe30d55ee0a3a90bc469e9612fde29d0fd364b408c` (artifact-container digest, not a claimed individual plugin ZIP checksum). This closes the prior observation of 10 successes/one in progress on the exact code head; the later documentation commits are not that tested HEAD. No staging/live or full 48-ID acceptance claim. Draft, no-go until remaining owner/provider/staging/restore gates.
 
 # 26 November 2026 — V12.3 exact source execution and cross-owner audit
