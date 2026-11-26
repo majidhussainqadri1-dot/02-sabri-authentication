@@ -169,6 +169,13 @@ jobs:
           php -l file02/tests/integration/wp-v12-php-catalog-runtime.php
           /tmp/wp eval-file file02/tests/integration/wp-v12-account-safety-runtime.php --path=/tmp/wordpress
           /tmp/wp eval-file file02/tests/integration/wp-v12-php-catalog-runtime.php --path=/tmp/wordpress
+      - name: Real disposable outbox lease recovery and claim fencing
+        env:
+          SAUTH_DISPOSABLE_OUTBOX_QA: '1'
+        run: |
+          set -euo pipefail
+          php -l file02/tests/integration/wp-outbox-lease-review.php
+          /tmp/wp eval-file file02/tests/integration/wp-outbox-lease-review.php --path=/tmp/wordpress
       - name: Rehearse exact SOURCE-CANDIDATE ZIP install without duplicate active File02
         run: |
           set -euo pipefail
