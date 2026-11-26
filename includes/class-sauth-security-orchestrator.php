@@ -520,7 +520,7 @@ final class SAUTH_Security_Orchestrator {
 		// that flow's 600-second proof lifetime and owner-specific decision contract.
 		if ( 'collision_resolution' === (string) $row['change_kind'] ) { return new WP_Error( 'sauth_collision_dedicated_flow_required', 'Use the protected account-resolution flow.' ); }
 		// Do not send corrupted or unknown operation kinds or invalid subjects to the canonical owner.
-		if ( ! in_array( (string) $row['change_kind'], array( 'email_change','phone_change','provider_unlink','passkey_remove','recovery_contact' ), true ) || ! is_scalar( $row['user_id'] ?? null ) || ! preg_match( '/^[1-9][0-9]*$/D', (string) $row['user_id'] ) || (string) (int) $row['user_id'] !== (string) $row['user_id'] ) {
+		if ( ! is_string( $row['change_kind'] ?? null ) || ! in_array( $row['change_kind'], array( 'email_change','phone_change','provider_unlink','passkey_remove','recovery_contact' ), true ) || ( ! is_int( $row['user_id'] ?? null ) && ! is_string( $row['user_id'] ?? null ) ) || ! preg_match( '/^[1-9][0-9]*$/D', (string) $row['user_id'] ) || (string) (int) $row['user_id'] !== (string) $row['user_id'] ) {
 			return new WP_Error( 'sauth_recovery_scope_invalid', 'Canonical recovery scope is invalid.' );
 		}
 		$payload_json=SA_Security::decrypt((string)$row['payload_ciphertext']);
@@ -531,11 +531,21 @@ final class SAUTH_Security_Orchestrator {
 		if ( false === has_filter( 'sauth_apply_recovery_change_v1' ) ) {
 			return new WP_Error( 'sauth_recovery_owner_unavailable', 'Canonical recovery authorization is temporarily unavailable.' );
 		}
+		if ( ! is_string( $row['public_id'] ?? null ) || ! preg_match( '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/D', $row['public_id'] ) || ! is_string( $public_id ) || ! hash_equals( $row['public_id'], $public_id ) ) {
+			return new WP_Error( 'sauth_recovery_reference_invalid', 'Canonical recovery reference is invalid.' );
+		}
 		// Atomic one-time claim: a competing worker must never reach the owner.
 		// Keep uncertain outcomes in processing for manual reconciliation.
 		$claim=$wpdb->update(SAUTH_Activator::table('recovery_changes'),array('status'=>'processing','updated_at'=>current_time('mysql',true)),array('public_id'=>$public_id,'status'=>'pending'),array('%s','%s'),array('%s','%s'));
 		if(1!==(int)$claim){return new WP_Error('sauth_recovery_state_race','Recovery change state changed.');}
-		$result=apply_filters('sauth_apply_recovery_change_v1',null,(string)$row['change_kind'],absint($row['user_id']),$payload);
+		// The stable, opaque stored operation reference is necessary for owner-side
+		// idempotency and supervised reconciliation. It is not identity evidence
+		// or permission; the canonical owner must independently authorize it.
+		$owner_context = array(
+			'request_id' => (string) $row['public_id'],
+			'contract_version' => '1.0.0',
+		);
+		$result=apply_filters('sauth_apply_recovery_change_v1',null,(string)$row['change_kind'],absint($row['user_id']),$payload,$owner_context);
 		if(true!==$result){return new WP_Error('sauth_recovery_handler_unavailable','Canonical owner did not approve or handle the recovery change.');}
 		$updated=$wpdb->update(SAUTH_Activator::table('recovery_changes'),array('status'=>'applied','updated_at'=>current_time('mysql',true)),array('public_id'=>$public_id,'status'=>'processing'),array('%s','%s'),array('%s','%s'));
 		if ( 1 !== (int)$updated ) {

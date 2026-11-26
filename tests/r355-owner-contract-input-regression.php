@@ -10,7 +10,7 @@ function sanitize_text_field($v){return (string)$v;}
 function current_time($t,$g=false){return gmdate('Y-m-d H:i:s');}
 function has_filter($k){return 10;}
 $GLOBALS['calls']=0;$GLOBALS['owner_result']=null;
-function apply_filters($hook,...$args){++$GLOBALS['calls'];return $GLOBALS['owner_result'];}
+function apply_filters($hook,...$args){++$GLOBALS['calls'];$GLOBALS['last_owner_args']=$args;return $GLOBALS['owner_result'];}
 class MockDB{
  public $row=[],$updates=0;
  function prepare($q,...$a){return $q;}
@@ -22,7 +22,7 @@ require __DIR__.'/../includes/class-sauth-security-orchestrator.php';
 function need($v,$label){if(!$v){fwrite(STDERR,"FAIL ".$label.PHP_EOL);exit(1);}}
 $id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 $base=['public_id'=>$id,'status'=>'pending','change_kind'=>'email_change','user_id'=>'17','apply_after'=>'2000-01-01 00:00:00','created_at'=>gmdate('Y-m-d H:i:s',time()-15),'owner_token_ciphertext'=>'proof','payload_ciphertext'=>'{}','fingerprint_hash'=>'fixture'];
-foreach([['change_kind'=>'unknown'],['user_id'=>-17],['user_id'=>0],['user_id'=>'17x'],['user_id'=>[]]] as $override){
+foreach([['change_kind'=>'unknown'],['user_id'=>-17],['user_id'=>0],['user_id'=>'17x'],['user_id'=>[]],['user_id'=>true],['user_id'=>17.0]] as $override){
  $wpdb->row=array_replace($base,$override);$wpdb->updates=0;$GLOBALS['calls']=0;
  $res=SAUTH_Security_Orchestrator::apply_recovery_change($id,'proof');
  need($res instanceof WP_Error&&$res->get_error_code()==='sauth_recovery_scope_invalid'&&$wpdb->updates===0&&$GLOBALS['calls']===0,'invalid recovery scope denied before claim');
@@ -32,4 +32,11 @@ foreach([-17,0,'17',true,[17],1.5] as $uid){
  $res=SAUTH_Security_Orchestrator::resolve_collision_case($id,'proof');
  need($res instanceof WP_Error&&$res->get_error_code()==='sauth_collision_owner_verification_required'&&$wpdb->updates===1&&$wpdb->row['status']==='processing'&&$GLOBALS['calls']===1,'malformed owner result not finalized');
 }
-echo "PASS 11 strict owner contract input/output checks (mock only)".PHP_EOL;
+$wpdb->row=array_replace($base,['public_id'=>'not-an-opaque-reference']);$wpdb->updates=0;$GLOBALS['calls']=0;
+$res=SAUTH_Security_Orchestrator::apply_recovery_change($id,'proof');
+need($res instanceof WP_Error&&$res->get_error_code()==='sauth_recovery_reference_invalid'&&$wpdb->updates===0&&$GLOBALS['calls']===0,'malformed persisted reference denied');
+$wpdb->row=$base;$wpdb->updates=0;$GLOBALS['calls']=0;$GLOBALS['owner_result']=false;
+$res=SAUTH_Security_Orchestrator::apply_recovery_change($id,'proof');
+need($res instanceof WP_Error&&$wpdb->row['status']==='processing'&&$GLOBALS['calls']===1,'declined owner outcome remains processing');
+need($GLOBALS['last_owner_args'][4]===['request_id'=>$id,'contract_version'=>'1.0.0'],'exact stored operation reference delivered without bearer proof');
+echo "PASS 16 strict owner contract input/output and reference checks (mock only)".PHP_EOL;
