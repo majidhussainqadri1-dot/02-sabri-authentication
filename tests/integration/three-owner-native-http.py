@@ -1,5 +1,6 @@
 """Disposable-only native form journey; no test hooks or session synthesis."""
 import http.cookiejar
+import json
 import os
 import re
 import sys
@@ -108,6 +109,30 @@ try:
     if activation_link(url, html):
         raise RuntimeError("File01 still inactive on native plugins page")
     print("PASS native File01 activation request completed; independent WP-CLI DB postcondition follows")
+    expected = {
+        "register_manifest", "register_contract", "acknowledge_contract",
+        "map_route", "repair_owned_mapping", "set_flag", "system_check",
+        "arbitrary_unregistered_action",
+    }
+    def claims():
+        _, body = request("/sauth-native-claims-ci.php")
+        result = json.loads(body)
+        if not isinstance(result, dict) or set(result.get("decisions", {})) != expected:
+            raise RuntimeError("Native fixed decision inventory unavailable")
+        return result
+    founder = claims()
+    if founder.get("actor") != "founder" or founder.get("session_present") is not True:
+        raise RuntimeError("Native Founder cookie not retained by all three modules")
+    if any(founder["decisions"][key] is not (key != "arbitrary_unregistered_action") for key in expected):
+        raise RuntimeError("Native Founder decision matrix differs from canonical policy")
+    print("PASS actual authenticated Founder: seven scoped decisions allowed, unknown action denied")
+    jar.clear()
+    guest = claims()
+    if guest.get("actor") != "guest" or guest.get("session_present") is not False:
+        raise RuntimeError("Fresh guest context did not remain unauthenticated")
+    if any(guest["decisions"][key] is not False for key in expected):
+        raise RuntimeError("Guest received a protected File01 decision")
+    print("PASS actual guest: all eight fixed decisions denied; no mutation executed")
 except Exception as exc:
     # No response bodies, credentials, session cookies, or nonce values in logs.
     print("FAIL native three-owner journey: " + type(exc).__name__ + ": " + (

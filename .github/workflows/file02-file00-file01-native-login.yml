@@ -96,9 +96,11 @@ jobs:
           /tmp/wp plugin activate sabri-membership-core --path=/tmp/wordpress
           # File00 deliberately defers protected bootstrap to authenticated
           # admin_init; use the normal core login before File02 is activated.
+          # Test-only fixed read-only claims endpoint, never part of a plugin ZIP.
+          cp file02/tests/integration/three-owner-native-claims.php /tmp/wordpress/sauth-native-claims-ci.php
           php -S 127.0.0.1:8765 -t /tmp/wordpress > "$RUNNER_TEMP/native-wp-server.log" 2>&1 &
           server=$!
-          trap 'kill "$server" 2>/dev/null || true' EXIT
+          trap 'kill "$server" 2>/dev/null || true; rm -f /tmp/wordpress/sauth-native-claims-ci.php' EXIT
           for i in $(seq 1 25); do
             if curl -fsS --max-time 3 http://127.0.0.1:8765/ >/dev/null; then break; fi
             sleep 1
