@@ -126,6 +126,8 @@ final class SAUTH_Completion_Resolver {
 		}
 		$state['last_seen'] = time();
 		set_transient( $key, $state, self::LOOP_TTL );
+		$persisted = get_transient( $key );
+		if ( $persisted !== $state ) { return array( 'blocked' => true, 'count' => (int) $state['count'] ); }
 		return array( 'blocked' => (int) $state['count'] > self::MAX_REPEAT_VISITS, 'count' => (int) $state['count'] );
 	}
 
