@@ -168,7 +168,7 @@ final class SA_Registration {
 			$reason_code = sanitize_key( (string) ( $result['reason_code'] ?? 'provider_rejected' ) );
 			SAUTH_Provider_Health::record_failure( 'membership', $reason_code, $latency );
 			SAUTH_Event_Outbox::emit( 'AccountAuthenticationFailed.v1', 0, 0, array( 'method' => 'registration', 'reason' => $reason_code ), 'security' );
-			if ( class_exists( 'SAUTH_Security_Orchestrator' ) && in_array( $reason_code, array( 'account_exists','duplicate_account','identity_collision','email_in_use','provider_collision' ), true ) ) {
+			if ( class_exists( 'SAUTH_Security_Orchestrator' ) && in_array( $reason_code, array( 'account_exists','duplicate_account','identity_collision','email_in_use','provider_collision','email_collision','phone_collision','account_collision' ), true ) ) {
 				$case = SAUTH_Security_Orchestrator::create_collision_case( (string) $payload['email'], $reason_code );
 				if ( is_array( $case ) && ! empty( $case['url'] ) ) { wp_safe_redirect( SA_Security::safe_redirect( (string) $case['url'], SA_Security::page_url( 'login', wp_login_url() ) ) ); exit; }
 			}

@@ -55,6 +55,21 @@ final class SAUTH_Account_Contract {
 		return self::normalize_result( $result, 'registration' );
 	}
 
+	/** Optional narrow File00 decision, not a substitute for generic recovery. */
+	public static function existing_email_collision( array $payload, array $context, $commit = false ) {
+		$provider = self::provider_class();
+		if ( '' === $provider || ! self::provider_available()
+			|| ! is_bool($commit) || ! is_callable(array($provider,'resolve_existing_email_collision_v1')) ) {
+			return array('result'=>'deny');
+		}
+		try {
+			$result = call_user_func(array($provider,'resolve_existing_email_collision_v1'),$payload,$context,$commit);
+		} catch ( Throwable $error ) {
+			return array('result'=>'unknown');
+		}
+		return is_array($result) ? $result : array('result'=>'unknown');
+	}
+
 	public static function mark_email_verified( $user_id, $email, array $context = array() ) {
 		$provider = self::provider_class();
 		if ( '' === $provider || ! self::provider_available() ) {

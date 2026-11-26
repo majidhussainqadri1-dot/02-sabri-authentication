@@ -141,16 +141,23 @@ final class SAUTH_Security_Orchestrator {
 		return $lockdown_persisted && $watch_persisted && true === $sessions && $assurance_invalidated;
 	}
 
-	/** Atomically replace only the exact lockdown state that was authorized.
-	 * Retain an inactive generation rather than an unconditional metadata delete.
-	 * WordPress update_metadata applies the nonempty previous value as a SQL
-	 * predicate. A concurrent new lockdown is not released by an older decision.
+	/** Atomically replace only the exact File02-owned state that was authorized.
+	 * No unconditional delete or missing-row upsert: if the generation changed,
+	 * was erased, or is ambiguous, do not release it. Invalidate WP meta cache
+	 * after the bounded write and verify the sole persisted state.
 	 */
 	private static function release_lockdown_generation( $user_id, array $expected ) {
-		if ( true !== ( $expected['active'] ?? null ) ) { return false; }
+		global $wpdb;
+		if ( true !== ( $expected['active'] ?? null ) || ! isset( $wpdb->usermeta ) ) { return false; }
+		wp_cache_delete( $user_id, 'user_meta' );
+		if ( array($expected) !== get_user_meta( $user_id, self::LOCKDOWN_META, false ) ) { return false; }
 		$released = array( 'active'=>false, 'generation'=>(string)($expected['generation'] ?? ''), 'released_at'=>time() );
-		if ( true !== update_user_meta( $user_id, self::LOCKDOWN_META, $released, $expected ) ) { return false; }
-		return $released === get_user_meta( $user_id, self::LOCKDOWN_META, true );
+		$changed = $wpdb->query( $wpdb->prepare(
+			"UPDATE {$wpdb->usermeta} SET meta_value=%s WHERE user_id=%d AND meta_key=%s AND BINARY meta_value=BINARY %s LIMIT 1",
+			maybe_serialize($released), $user_id, self::LOCKDOWN_META, maybe_serialize($expected)
+		) );
+		wp_cache_delete( $user_id, 'user_meta' );
+		return 1 === $changed && '' === (string)$wpdb->last_error && array($released) === get_user_meta( $user_id, self::LOCKDOWN_META, false );
 	}
 
 	public static function clear_lockdown( $user_id ) {
@@ -390,6 +397,18 @@ final class SAUTH_Security_Orchestrator {
 		);
 	}
 
+	private static function existing_email_collision_subject( array $payload, array $context, $commit ) {
+		if ( 'email_collision' !== ($payload['reason'] ?? null)
+			|| ! class_exists('SAUTH_Account_Contract') || ! is_callable(array('SAUTH_Account_Contract','existing_email_collision'))
+			|| ! function_exists('get_current_user_id') ) { return 0; }
+		$user_id = get_current_user_id();
+		if ( ! is_int($user_id) || $user_id <= 0 || ! self::smart_step_up($user_id,'existing_email_collision',array('phishing_resistant'=>true,'max_age'=>300)) ) { return 0; }
+		$decision = SAUTH_Account_Contract::existing_email_collision($payload,$context,$commit);
+		return is_array($decision) && 'allow' === ($decision['result'] ?? null)
+			&& 'same_account_no_merge' === ($decision['scope'] ?? null)
+			&& $user_id === ($decision['user_id'] ?? null) ? $user_id : 0;
+	}
+
 	public static function resolve_collision_case( $public_id, $owner_token ) {
 		global $wpdb;
 		if ( class_exists( 'SAUTH_Operations' ) && SAUTH_Operations::safe_mode() ) {
@@ -420,7 +439,13 @@ final class SAUTH_Security_Orchestrator {
 		// pending and usable if a verified File 00 adapter becomes available.
 		// A registered owner that fails AFTER claim remains processing, because
 		// its side effects cannot be safely inferred or replayed here.
-		if ( false === has_filter( 'sauth_resolve_collision_case_v1' ) ) {
+		// An authenticated human may resolve only the SAME already verified
+		// email account through the narrow File00 native decision. No sign-in,
+		// merge, contact change or lost-factor recovery is granted here.
+		$self_context = array( 'contract_version'=>'1.0.0', 'case'=>$public_id, 'fingerprint'=>SA_Security::client_fingerprint() );
+		$self_subject = self::existing_email_collision_subject($payload,$self_context,false);
+		$legacy_owner = false !== has_filter( 'sauth_resolve_collision_case_v1' );
+		if ( ! $self_subject && ! $legacy_owner ) {
 			return new WP_Error( 'sauth_collision_owner_unavailable', 'Account-resolution verification is temporarily unavailable.' );
 		}
 		/* File 00/canonical identity owner must make the final decision. File 02
@@ -434,7 +459,12 @@ final class SAUTH_Security_Orchestrator {
 			array( '%s','%s' ), array( '%s','%s' )
 		);
 		if ( 1 !== (int) $claim ) { return new WP_Error( 'sauth_collision_state_race', 'Account-resolution state changed.' ); }
-		$result = apply_filters( 'sauth_resolve_collision_case_v1', null, $payload, array( 'case'=>$public_id, 'fingerprint'=>SA_Security::client_fingerprint() ) );
+		if ( $self_subject ) {
+			$confirmed = self::existing_email_collision_subject($payload,$self_context,true);
+			$result = $confirmed === $self_subject ? array('result'=>'allow','user_id'=>$confirmed) : null;
+		} else {
+			$result = apply_filters( 'sauth_resolve_collision_case_v1', null, $payload, array( 'case'=>$public_id, 'fingerprint'=>SA_Security::client_fingerprint() ) );
+		}
 		if ( ! is_array( $result ) || 'allow' !== ( $result['result'] ?? null ) || ! is_int( $result['user_id'] ?? null ) || $result['user_id'] <= 0 ) {
 			return new WP_Error( 'sauth_collision_owner_verification_required', 'Canonical identity verification is required before an account can be resolved.' );
 		}
