@@ -28,7 +28,7 @@ jobs:
       matrix:
         owner:
           - {label: main-1.2.44, sha: '1fad051c86d530d558be3eb1890d3c6e67bce6e8', version: '1.2.44'}
-          - {label: draft-1.2.47, sha: '7b4b92e9639fdcfa1ecfa9f3ae7d1b2622d7ca48', version: '1.2.47'}
+          - {label: draft-1.2.47, sha: '5a8fea59e660f35f9a36c3c5a9956253825a824f', version: '1.2.47'}
     env:
       FILE00_PINNED_SHA: ${{ matrix.owner.sha }}
       FILE00_VERSION: ${{ matrix.owner.version }}
@@ -176,6 +176,12 @@ jobs:
           set -euo pipefail
           php -l file02/tests/integration/wp-outbox-lease-review.php
           /tmp/wp eval-file file02/tests/integration/wp-outbox-lease-review.php --path=/tmp/wordpress
+      - name: Actual disposable DB lockdown state fencing and guest owner denial
+        env:
+          SAUTH_DISPOSABLE_RECOVERY_QA: '1'
+        run: |
+          set -euo pipefail
+          /tmp/wp eval-file file02/tests/integration/wp-recovery-owner-storage-review.php --path=/tmp/wordpress
       - name: Rehearse exact SOURCE-CANDIDATE ZIP install without duplicate active File02
         run: |
           set -euo pipefail

@@ -32,7 +32,7 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           repository: majidhussainqadri1-dot/00-sabri-membership-core
-          ref: 7b4b92e9639fdcfa1ecfa9f3ae7d1b2622d7ca48
+          ref: 5a8fea59e660f35f9a36c3c5a9956253825a824f
           path: file00
           persist-credentials: false
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
@@ -51,7 +51,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git -C file02 rev-parse HEAD)" = '${{ github.event.pull_request.head.sha || github.sha }}'
-          test "$(git -C file00 rev-parse HEAD)" = 7b4b92e9639fdcfa1ecfa9f3ae7d1b2622d7ca48
+          test "$(git -C file00 rev-parse HEAD)" = 5a8fea59e660f35f9a36c3c5a9956253825a824f
           test "$(git -C file01 rev-parse HEAD)" = 93e14e6e4062097e3c96386b76a43ad96885a575
           curl -fsSL https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar -o /tmp/wp
           chmod +x /tmp/wp
