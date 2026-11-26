@@ -178,7 +178,12 @@ final class SAUTH_Security_Orchestrator {
 		// never interpret an unbound historical approval as authority.
 		if ( ! is_string($generation) || ! preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/D',$generation) ) { return false; }
 		$context = array('contract_version'=>'1.0.0','lockdown_generation'=>$generation);
-		$authorized = true === apply_filters( 'sauth_lockdown_recovery_authorize_v1', false, $user_id, $evidence, $context );
+		try {
+			$authorized = true === apply_filters( 'sauth_lockdown_recovery_authorize_v1', false, $user_id, $evidence, $context );
+		} catch ( Throwable $error ) {
+			// The independent owner outcome is unknown. Leave containment intact.
+			return false;
+		}
 		if ( ! $authorized || ! self::release_lockdown_generation($user_id,$state) ) { return false; }
 		self::timeline_event( $user_id, 'emergency_lockdown_released', 'critical', array( 'method'=>'canonical_privileged_recovery' ) );
 		SA_Membership_Adapter::audit( 'authentication_emergency_lockdown_recovered', $user_id );
@@ -414,9 +419,7 @@ final class SAUTH_Security_Orchestrator {
 		if ( class_exists( 'SAUTH_Operations' ) && SAUTH_Operations::safe_mode() ) {
 			return new WP_Error( 'sauth_safe_mode_active', 'High-risk account resolution is paused by Safe Mode.' );
 		}
-		$public_id = strtolower( sanitize_text_field( (string) $public_id ) );
-		$owner_token = (string) $owner_token;
-		if ( ! preg_match( '/^[0-9a-f-]{36}$/', $public_id ) || strlen( $owner_token ) > 512 ) {
+		if ( ! self::valid_recovery_reference($public_id) || ! self::valid_recovery_proof($owner_token) ) {
 			return new WP_Error( 'sauth_collision_case_invalid', 'Account-resolution case is invalid.' );
 		}
 		$row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM " . SAUTH_Activator::table( 'recovery_changes' ) . " WHERE public_id=%s AND change_kind='collision_resolution'", $public_id ), ARRAY_A );
@@ -431,7 +434,7 @@ final class SAUTH_Security_Orchestrator {
 			return new WP_Error( 'sauth_collision_fingerprint_mismatch', 'Account-resolution context changed.' );
 		}
 		$expected = SA_Security::decrypt( (string) $row['owner_token_ciphertext'] );
-		if ( false === $expected || ! hash_equals( (string) $expected, $owner_token ) ) { return new WP_Error( 'sauth_collision_proof_invalid', 'Account-resolution proof is invalid.' ); }
+		if ( ! self::valid_recovery_proof($expected) || ! hash_equals( $expected, $owner_token ) ) { return new WP_Error( 'sauth_collision_proof_invalid', 'Account-resolution proof is invalid.' ); }
 		$payload_json = SA_Security::decrypt( (string) $row['payload_ciphertext'] );
 		$payload = json_decode( (string) $payload_json, true );
 		if ( ! is_array( $payload ) ) { return new WP_Error( 'sauth_collision_payload_invalid', 'Account-resolution case is unreadable.' ); }
@@ -459,11 +462,16 @@ final class SAUTH_Security_Orchestrator {
 			array( '%s','%s' ), array( '%s','%s' )
 		);
 		if ( 1 !== (int) $claim ) { return new WP_Error( 'sauth_collision_state_race', 'Account-resolution state changed.' ); }
-		if ( $self_subject ) {
-			$confirmed = self::existing_email_collision_subject($payload,$self_context,true);
-			$result = $confirmed === $self_subject ? array('result'=>'allow','user_id'=>$confirmed) : null;
-		} else {
-			$result = apply_filters( 'sauth_resolve_collision_case_v1', null, $payload, array( 'case'=>$public_id, 'fingerprint'=>SA_Security::client_fingerprint() ) );
+		try {
+			if ( $self_subject ) {
+				$confirmed = self::existing_email_collision_subject($payload,$self_context,true);
+				$result = $confirmed === $self_subject ? array('result'=>'allow','user_id'=>$confirmed) : null;
+			} else {
+				$result = apply_filters( 'sauth_resolve_collision_case_v1', null, $payload, array( 'case'=>$public_id, 'fingerprint'=>SA_Security::client_fingerprint() ) );
+			}
+		} catch ( Throwable $error ) {
+			// A claimed operation cannot be retried on an unknown owner outcome.
+			return new WP_Error('sauth_collision_reconciliation_required','Account-resolution owner outcome is uncertain; supervised reconciliation is required before further action.');
 		}
 		if ( ! is_array( $result ) || 'allow' !== ( $result['result'] ?? null ) || ! is_int( $result['user_id'] ?? null ) || $result['user_id'] <= 0 ) {
 			return new WP_Error( 'sauth_collision_owner_verification_required', 'Canonical identity verification is required before an account can be resolved.' );
@@ -533,12 +541,20 @@ final class SAUTH_Security_Orchestrator {
 		return array('public_id'=>$public_id,'owner_token'=>$token,'apply_after'=>$now+$delay);
 	}
 
+	private static function valid_recovery_reference( $value ) {
+		return is_string($value) && 1 === preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/D',$value);
+	}
+	private static function valid_recovery_proof( $value ) {
+		return is_string($value) && '' !== $value && strlen($value) <= 512;
+	}
+
 	public static function cancel_recovery_change( $user_id, $public_id, $owner_token ) {
 		global $wpdb;
+		if ( ! is_int($user_id) || $user_id <= 0 || ! self::valid_recovery_reference($public_id) || ! self::valid_recovery_proof($owner_token) ) { return false; }
 		$row=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.SAUTH_Activator::table('recovery_changes').' WHERE public_id=%s AND user_id=%d',$public_id,absint($user_id)),ARRAY_A);
 		if(!is_array($row)||'pending'!==(string)$row['status']){return false;}
 		$expected=SA_Security::decrypt((string)$row['owner_token_ciphertext']);
-		if(false===$expected||!hash_equals((string)$expected,(string)$owner_token)){return false;}
+		if(!self::valid_recovery_proof($expected)||!hash_equals($expected,$owner_token)){return false;}
 		$updated=$wpdb->update(SAUTH_Activator::table('recovery_changes'),array('status'=>'cancelled','updated_at'=>current_time('mysql',true)),array('public_id'=>$public_id,'user_id'=>absint($user_id),'status'=>'pending'),array('%s','%s'),array('%s','%d','%s'));
 		return 1===(int)$updated;
 	}
@@ -548,6 +564,8 @@ final class SAUTH_Security_Orchestrator {
 		if ( class_exists( 'SAUTH_Operations' ) && SAUTH_Operations::safe_mode() ) {
 			return new WP_Error( 'sauth_safe_mode_active', 'High-risk account resolution is paused by Safe Mode.' );
 		}
+		if ( ! self::valid_recovery_reference($public_id) ) { return new WP_Error('sauth_recovery_reference_invalid','Canonical recovery reference is invalid.'); }
+		if ( ! self::valid_recovery_proof($owner_token) ) { return new WP_Error('sauth_recovery_token_invalid','Recovery change token is invalid.'); }
 		$row=$wpdb->get_row($wpdb->prepare('SELECT * FROM '.SAUTH_Activator::table('recovery_changes').' WHERE public_id=%s',$public_id),ARRAY_A);
 		if(!is_array($row)||'pending'!==(string)$row['status']){return new WP_Error('sauth_recovery_not_ready','Recovery change is not ready.');}
 		// Database stores UTC. An unreadable/invalid cooling-off date must
@@ -562,7 +580,7 @@ final class SAUTH_Security_Orchestrator {
 			return new WP_Error('sauth_recovery_not_ready','Recovery cooling-off time has not been verified as elapsed.');
 		}
 		$expected=SA_Security::decrypt((string)$row['owner_token_ciphertext']);
-		if(false===$expected||!hash_equals((string)$expected,(string)$owner_token)){return new WP_Error('sauth_recovery_token_invalid','Recovery change token is invalid.');}
+		if(!self::valid_recovery_proof($expected)||!hash_equals($expected,$owner_token)){return new WP_Error('sauth_recovery_token_invalid','Recovery change token is invalid.');}
 		// Collision resolution has a dedicated short-lived, fingerprint-bound owner flow.
 		// Never route collision cases through the generic recovery handler, which lacks
 		// that flow's 600-second proof lifetime and owner-specific decision contract.
@@ -593,7 +611,11 @@ final class SAUTH_Security_Orchestrator {
 			'request_id' => (string) $row['public_id'],
 			'contract_version' => '1.0.0',
 		);
-		$result=apply_filters('sauth_apply_recovery_change_v1',null,(string)$row['change_kind'],absint($row['user_id']),$payload,$owner_context);
+		try {
+			$result=apply_filters('sauth_apply_recovery_change_v1',null,(string)$row['change_kind'],absint($row['user_id']),$payload,$owner_context);
+		} catch ( Throwable $error ) {
+			return new WP_Error('sauth_recovery_reconciliation_required','The canonical owner outcome is uncertain; manual reconciliation is required.');
+		}
 		if(true!==$result){return new WP_Error('sauth_recovery_handler_unavailable','Canonical owner did not approve or handle the recovery change.');}
 		$updated=$wpdb->update(SAUTH_Activator::table('recovery_changes'),array('status'=>'applied','updated_at'=>current_time('mysql',true)),array('public_id'=>$public_id,'status'=>'processing'),array('%s','%s'),array('%s','%s'));
 		if ( 1 !== (int)$updated ) {
