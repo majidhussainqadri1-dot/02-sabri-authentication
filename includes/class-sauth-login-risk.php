@@ -91,10 +91,10 @@ final class SAUTH_Login_Risk {
 		if ( ! is_array( $device ) || empty( $device['last_seen_at'] ) || strtotime( (string) $device['last_seen_at'] ) < time() - self::TRUST_TTL ) { $score += 50; $reasons[] = 'new_device'; }
 		$network_hash = self::network_hash();
 		$known_network = $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . self::device_table() . " WHERE user_id=%d AND network_hash=%s AND status='trusted'", $user_id, $network_hash ) );
-		if ( null === $known_network && '' !== (string) $wpdb->last_error ) { return array( 'action' => 'deny', 'score' => 100, 'reason_code' => 'risk_storage_unavailable' ); }
+		if ( ! self::valid_count( $known_network ) || '' !== (string) $wpdb->last_error ) { return array( 'action' => 'deny', 'score' => 100, 'reason_code' => 'risk_storage_unavailable' ); }
 		if ( 0 === (int) $known_network ) { $score += 20; $reasons[] = 'new_network'; }
 		$recent_failures = $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . self::attempt_table() . " WHERE user_id=%d AND result IN ('failure','denied') AND created_at >= %s", $user_id, gmdate( 'Y-m-d H:i:s', time() - HOUR_IN_SECONDS ) ) );
-		if ( null === $recent_failures && '' !== (string) $wpdb->last_error ) { return array( 'action' => 'deny', 'score' => 100, 'reason_code' => 'risk_storage_unavailable' ); }
+		if ( ! self::valid_count( $recent_failures ) || '' !== (string) $wpdb->last_error ) { return array( 'action' => 'deny', 'score' => 100, 'reason_code' => 'risk_storage_unavailable' ); }
 		if ( (int) $recent_failures >= 5 ) { $score += 35; $reasons[] = 'recent_failures'; }
 		if ( ! SAUTH_Provider_Health::available_for_ui( 'membership' ) ) { $score += 30; $reasons[] = 'membership_provider_degraded'; }
 		if ( class_exists( 'SAUTH_Security_Orchestrator' ) ) {
@@ -167,10 +167,16 @@ final class SAUTH_Login_Risk {
 		exit;
 	}
 
+	/** A COUNT query must return a nonnegative integer, never an absent or
+	 * malformed value that could be mistaken for no risk or no passkey. */
+	private static function valid_count( $count ) {
+		return ( is_int( $count ) && $count >= 0 ) || ( is_string( $count ) && 1 === preg_match( '/^[0-9]+$/D', $count ) );
+	}
+
 	private static function has_active_passkey( $user_id ) {
 		global $wpdb;
 		$count = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}sauth_passkeys WHERE user_id=%d AND status='active'", absint( $user_id ) ) );
-		if ( null === $count && '' !== (string) $wpdb->last_error ) { return null; }
+		if ( ! self::valid_count( $count ) || '' !== (string) $wpdb->last_error ) { return null; }
 		return 0 < (int) $count;
 	}
 
