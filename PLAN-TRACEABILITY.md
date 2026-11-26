@@ -1,3 +1,52 @@
+# 26 November 2026 — canonical recovery handoff and native three-owner activation
+
+**Authority and exact scope.** Master Plan V12.3 lines 6285–6293 F02-X24-009 (protected lockdown recovery), 011 (1h–7d owner-mediated cooling-off), 012 (fingerprint-bound one-time case, no silent merge). Existing File02 P09 owner handoff report is a proposal requiring independently reviewed File00 identity evidence and durable reconciliation. File00 exact native product pin 7b4b92e9639fdcfa1ecfa9f3ae7d1b2622d7ca48, File01-B 93e14e6e4062097e3c96386b76a43ad96885a575. File00 2026-08-10 MFA retirement expressly leaves password/login/account/lost-factor recovery with File02; File00 retains canonical identity, eligibility, guardian approval. Do not silently give File00 ownership of File02 private authentication mutations.
+
+## Product changes and verified results
+- Initial File02 098de836b48c2ec89b491e5ea1f1ca3553db673b (prior completion loop persistence fix) 12/12 workflow success.
+- 9f589ec81dbc5040a0dad7893ae77b579883a117: deny unknown generic recovery kind and invalid user ID before owner invocation; collision owner success now strictly positive integer user_id (not coerced by absint). Invalid owner results remain processing for supervised reconciliation; no unauthorized mutation or automatic replay. 14/14 workflows green.
+- ed5d84146e846a9897d2fec782539c071fe7c8cc: require exact valid stored UUID request reference, add backward-compatible fifth hook argument owner_context {request_id,contract_version} to generic recovery consumer. It supports independent owner-side idempotency but is not authorization or identity evidence. R355 logs 16 specific mock checks; run 45832392460/job 139952245357. 14/14 workflows success. Both native File00 1.2.44 / 1.2.47 compatibility jobs 139952246428 / 139952245818 in run 45832392069 verified schema and routes, +1 cookie-less projection audit event, and **three owner hooks still missing** with acceptance not_verified.
+
+## Three canonical owner contracts — 0/3 positive providers accepted
+| Hook | Safe completion boundary and outstanding work |
+|---|---|
+| sauth_apply_recovery_change_v1 | File00 independently adjudicates identity/current contact/guardian; File02 owns provider/passkey/auth mutations. Durable exact subject/kind/payload digest and request ID, independently verified transition, correct owner's committed effect + audit/readback before strict true. Current contact OTP checks existing contact only, not new-contact proof. |
+| sauth_resolve_collision_case_v1 | Existing one-time claim and fingerprint not identity proof; File00 must establish independent non-email-only identity, no silent merge, correct subject and guardian status, durable decision bound to case. Strict allow/positive int output now enforced. |
+| sauth_lockdown_recovery_authorize_v1 | Separate protected lost-account recovery ceremony, independent evidence, exact subject and lockdown generation, single-use approval, audit and current policy; File02 owns actual unlock. No generic role/email/token/empty evidence authorizes this. |
+
+The current File00 APIs (`SMC_Contracts::assertions/contact_verified`, `SMC_Workflow::handle_request_contact_otp/handle_verify_contact_otp`, `SMC_Authentication_Contract::mark_email_verified`) are not a complete new-contact, lost-account, or collision adjudication ceremony. Define the owner-approved evidence and request/decision/reconciliation lifecycle before a positive callback. The existing P09 proposal requires this. No placeholder handlers, invented evidence, unauthorized roles or hook bypass. File00 governance report updated on PR66; current doc-only head 3f4ab359d9c6bc79c8654fed33641e565e9dd3e1, tested runtime pin distinct.
+
+## Real three-owner native activation and decisions — disposable only
+First native QA 49c532f1456598fe92a395cb1bc698c9907b7668 failed preflight. Diagnostic 1ed4ecd930d217ee5446cb322f2168ffcae29501, run 45832947296/job 139954190506: Founder identity, role, native activate_plugins, loopback, staging, Safe Mode clear all true; siteurl_exact and schema_current false. File00 exact activation entrypoint defers protected migration to admin_init with manage_options. This is a test-environment sequencing issue, not a missing Founder permission or live defect.
+
+Corrected disposable-only workflow f53c1f18d0e9e3612f9a53445ddb9c872a076247: set exact stored loopback home/siteurl in guarded synthetic DB; native WordPress core login before File02 activates; normal authenticated admin_init finishes File00 deferred migration. Native File02 password form establishes browser cookie; authorized native WP plugin activation page activates File01-B; independent WP-CLI verifies runtime/schema postconditions for all three. Run 45833293844/job 139955406683 SUCCESS, all 15/15 workflows green. No session fabrication, policy exceptions, role grant, or production write. This establishes a legitimate native operational path beyond previous cookie-less WP-CLI blocker.
+
+Latest QA-only head 1175e7724474f8934f8b1c3976ea99ab2f90fb5f, run 45833749822/job 139957015707 SUCCESS: actual Founder session retained after File01 activation; six exact scoped actions register_manifest/register_contract/acknowledge_contract/map_route/repair_owned_mapping/set_flag and system_check allowed; unknown action denied. Fresh guest all eight decisions denied. 16 actual read-only decision checks, not business mutation acceptance, not other administrator/member/blocked Founder positive/negative browser tests, no real account/medical record. Guarded loopback test-only endpoint excluded from plugin package and removed at teardown. Product code remains ed5d84146e846a9897d2fec782539c071fe7c8cc.
+
+Exact latest QA-head workflow observation: {"success":15}. Unfinished statuses not counted as success. New documentation commit has distinct HEAD.
+| Workflow | Run | observed |
+|---|---|---|
+| File 02 Canonical Storage and Documentation | 45833749622 | success |
+| File 02 v12 — Breach and DPoP fail-first security gates | 45833749707 | success |
+| File 02 FedCM one-time RP nonce and replay | 45833749559 | success |
+| File 02 collision proof fail-first evidence | 45833749786 | success |
+| File 02 Generic Recovery Collision Isolation | 45833749615 | success |
+| File02 — Native three-owner authenticated activation | 45833749822 | success |
+| File 02 v12 — File24 assurance and File26 non-index native source contracts | 45833749655 | success |
+| File 02 Review Branch Integrity | 45833749789 | success |
+| File02 v12 — Session 3 fail-first boundary regressions | 45833749671 | success |
+| File 02 recovery one-time claim regression | 45833749648 | success |
+| File 02 v12 DPoP proof and replay hardening | 45833749551 | success |
+| File 02 V12.3 — Current File 00 main and candidate compatibility | 45833749774 | success |
+| File 02 Release Integrity | 45833749811 | success |
+| File 02 Current File 00 1.2.44 Integration | 45833749713 | success |
+| File 02 v12 — File 00 PR55 / WordPress 7.0.1 Real Integration | 45833749730 | success |
+
+## Live reality and release hold
+Fresh authenticated read-only WPVibe: File00 and File02 absent from plugin inventory; selected smc_db_version, sauth_db_version, sauth_passkey_schema_version absent; File01-B active 2.0.1, schema 1.2.0, contract 2.0.0, migration aggregate 0 rows. Complete deployed artifact parity, actual backup/restore and staging remain unverified. Live verification inventory/DB markers only; no write, merge, activation, deployment or release approval. File02 1.4.0 / target DB1.4.0 / passkey1.1.0. 3 source contract gaps corrected with tests (scope, strict result, stable operation ref); 2 disposable setup prerequisites diagnosed and corrected; native activation and 16 fixed decision checks successful; 3 owner-side positive contracts still absent. Historical 28 candidate/20 partial-or-acceptance gates not inflated, 48 independent production acceptances unverified. Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔
+
+---
+
 # 26 Nov 2026 — Second twenty scoped review passes (21–40), File02 V12.3
 
 Scope: twenty additional focused source/contract review domains, NOT twenty independent exhaustive whole-repository audits. Initial exact draft PR28 HEAD 04ed27b4740afdbb8747eeec0c5de12c8a86a88e had 12/12 CI success. Main remains distinct; no merge or live write. Master Plan V12.3 File02 pp.129–132, lines 6190–6327: all 48 IDs re-extracted. Historical 28 candidate / 20 partial or acceptance gates remain unchanged; individual production acceptance unverified.
