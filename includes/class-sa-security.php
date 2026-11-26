@@ -68,7 +68,28 @@ final class SA_Security {
 
 	public static function safe_redirect( $url, $fallback = null ) {
 		$fallback = func_num_args() < 2 ? home_url( '/' ) : (string) $fallback;
-		return wp_validate_redirect( (string) $url, $fallback );
+		$validated = self::local_redirect( $url );
+		return '' !== $validated ? $validated : self::local_redirect( $fallback );
+	}
+
+	/** Authentication destinations are local even when another plugin widens
+	 * WordPress' global allowed_redirect_hosts filter. Match scheme/host/port. */
+	private static function local_redirect( $url ) {
+		if ( ! is_string( $url ) || '' === $url || preg_match( '/[\x00-\x20\x7f\\\\]/', $url ) || 0 === strpos( $url, '//' ) ) { return ''; }
+		$url = wp_validate_redirect( $url, '' );
+		if ( ! is_string( $url ) || '' === $url || preg_match( '/[\x00-\x20\x7f\\\\]/', $url ) || 0 === strpos( $url, '//' ) ) { return ''; }
+		$target = parse_url( $url );
+		$home = parse_url( home_url( '/' ) );
+		if ( ! is_array( $target ) || ! is_array( $home ) || empty( $home['host'] ) || empty( $home['scheme'] ) || isset( $target['user'] ) || isset( $target['pass'] ) ) { return ''; }
+		if ( ! isset( $target['host'], $target['scheme'] ) ) {
+			return ! isset( $target['host'] ) && ! isset( $target['scheme'] ) && ! isset( $target['port'] ) && 0 === strpos( $url, '/' ) ? $url : '';
+		}
+		$scheme = strtolower( $target['scheme'] );
+		$home_scheme = strtolower( $home['scheme'] );
+		if ( ! in_array( $scheme, array( 'http', 'https' ), true ) || $scheme !== $home_scheme || strcasecmp( $target['host'], $home['host'] ) !== 0 ) { return ''; }
+		$port = (int) ( $target['port'] ?? ( 'https' === $scheme ? 443 : 80 ) );
+		$home_port = (int) ( $home['port'] ?? ( 'https' === $home_scheme ? 443 : 80 ) );
+		return $port > 0 && $port === $home_port ? $url : '';
 	}
 
 	public static function master_key_ready() {

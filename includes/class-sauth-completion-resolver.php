@@ -85,7 +85,7 @@ final class SAUTH_Completion_Resolver {
 	}
 
 	private static function canonical_completion_route( $route ) {
-		$route = wp_validate_redirect( trim( (string) $route ), '' );
+		$route = SA_Security::safe_redirect( trim( (string) $route ), '' );
 		if ( '' === $route ) {
 			return '';
 		}

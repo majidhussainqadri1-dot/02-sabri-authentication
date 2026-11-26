@@ -94,7 +94,7 @@ final class SAUTH_Account_Contract {
 			return self::completion_unknown( 'provider_contract_invalid' );
 		}
 		$missing = array_values( array_unique( array_filter( array_map( 'sanitize_key', $result['missing_steps'] ) ) ) );
-		$route   = wp_validate_redirect( (string) $result['next_route'], '' );
+		$route   = SA_Security::safe_redirect( (string) $result['next_route'], '' );
 		if ( ! empty( $missing ) && '' === $route ) {
 			return self::completion_unknown( 'provider_route_invalid' );
 		}
