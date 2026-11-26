@@ -37,20 +37,12 @@ final class SA_Security {
 			$now
 		);
 		$result = $wpdb->query( $sql );
-		if ( false === $result ) {
-			$key = 'sauth_fallback_' . substr( $bucket, 0, 32 );
-			$state = get_transient( $key );
-			$now_ts = time();
-			if ( ! is_array( $state ) || empty( $state['expires'] ) || (int) $state['expires'] <= $now_ts ) { $state = array( 'hits' => 0, 'expires' => $now_ts + $window ); }
-			$state['hits']++;
-			$ttl = max( 1, (int) $state['expires'] - $now_ts );
-			$stored = set_transient( $key, $state, $ttl );
-			$verified = get_transient( $key );
-			if ( false === $stored || ! is_array( $verified ) || (int) ( $verified['hits'] ?? -1 ) !== (int) $state['hits'] || (int) ( $verified['expires'] ?? 0 ) !== (int) $state['expires'] ) { return true; }
-			return $state['hits'] > $limit;
-		}
+		// A transient read/modify/write is not an atomic security counter.
+		// If the canonical write fails, refuse the protected attempt until
+		// storage is repaired rather than admitting an uncounted request.
+		if ( false === $result || '' !== (string) $wpdb->last_error ) { return true; }
 		$hits_raw = $wpdb->get_var( $wpdb->prepare( "SELECT hits FROM {$table} WHERE bucket_hash = %s", $bucket ) );
-		if ( null === $hits_raw || '' !== (string) $wpdb->last_error ) { return true; }
+		if ( '' !== (string) $wpdb->last_error || ! ( ( is_int( $hits_raw ) && $hits_raw >= 1 ) || ( is_string( $hits_raw ) && 1 === preg_match( '/^[1-9][0-9]*$/D', $hits_raw ) ) ) ) { return true; }
 		$hits = (int) $hits_raw;
 		if ( 1 === wp_rand( 1, 100 ) ) {
 			$wpdb->query( $wpdb->prepare( "DELETE FROM {$table} WHERE expires_at < %s", gmdate( 'Y-m-d H:i:s', time() - DAY_IN_SECONDS ) ) );
