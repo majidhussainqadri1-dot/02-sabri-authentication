@@ -1,3 +1,62 @@
+# 26 Nov 2026 — Second twenty scoped review passes (21–40), File02 V12.3
+
+Scope: twenty additional focused source/contract review domains, NOT twenty independent exhaustive whole-repository audits. Initial exact draft PR28 HEAD 04ed27b4740afdbb8747eeec0c5de12c8a86a88e had 12/12 CI success. Main remains distinct; no merge or live write. Master Plan V12.3 File02 pp.129–132, lines 6190–6327: all 48 IDs re-extracted. Historical 28 candidate / 20 partial or acceptance gates remain unchanged; individual production acceptance unverified.
+
+| Pass | Actual source/contract scope | Finding or remaining gate |
+|---|---|---|
+| 21 | Master Plan FR004/005, NFR002/007/009, CEN02, STATUS exact HEAD | 48 IDs rechecked; no fabricated acceptance |
+| 22 | class-sauth-storage-router.php and storage-migration-unit.php | Prefix/literal/comment corruption fixed; R348 12 checks |
+| 23 | class-sauth-passkey-index-reconciler.php, canonical migration tests | Known stale index shape only; actual production migration and SQL modes remain unverified |
+| 24 | class-sauth-privacy-jobs.php purge and finish | Failed deletion and foreign key must retain evidence/barrier; R349 |
+| 25 | privacy register_job capacity; class-sa-registration.php recovery key and class-sauth-email-verification.php resend key | No silent eviction; reject full/malformed index; actual concurrency acceptance remains open |
+| 26 | class-sa-privacy.php:117–160,235–269 | Barrier before destructive erasure, postcondition status; legal hold and downstream reconciliation open |
+| 27 | class-sauth-email-verification-reconciler.php and R341 | Durable signed-link evidence and owner reread; no live email acceptance |
+| 28 | class-sauth-provider-health.php:40–100, claim/release helpers | Circuit state observed; unknown UI projection, probe/lock generation concurrency require independent review |
+| 29 | class-sauth-provider-http-guard.php | HTTPS and bounded request arguments; no-network mock confirms explicit zero redirects preserved |
+| 30 | Both Google OAuth callbacks (class-sa-google-oauth.php:126–198, class-sauth-google-registration.php:91–160) | Explicit zero redirects on all four sensitive requests; R350 |
+| 31 | class-sauth-password-safety.php | Prefix-only lookup, bounded response; actual approved provider acceptance pending |
+| 32 | class-sauth-fido-trust.php | No hardware-backed inference for attestation=none; actual metadata/attestation verification open |
+| 33 | class-sa-security.php:7–74 | Rate/storage and redirect boundary reviewed; atomic fallback and strict origin policy require further evidence, not silently changed |
+| 34 | class-sauth-account-safety.php | Exact policy version and acceptance fields; full user journey open |
+| 35 | class-sauth-completion-resolver.php:90–145 | Host and loop detection present; strict scheme/port and write failure tests remain |
+| 36 | class-sauth-modern-auth.php:233–290 and class-sauth-passkey-runtime.php:389–435 | Prior FedCM postcondition, current actor/epoch safeguards retained; native IdP and completion policy open |
+| 37 | class-sauth-shared-signals.php:40–140, security orchestrator:464–544 | Existing claim and containment rules; three canonical File00 hooks and signed issuer open |
+| 38 | class-sauth-dpop.php:17–98 | Prior full-window retention preserved; real JOSE verifier open |
+| 39 | class-sauth-event-outbox.php:48–96 | Previous generation/terminal lease fixes retained; real cross-owner delivery/erasure race acceptance remains |
+| 40 | class-sa-access-control.php:12–52; build-package.sh:15–61; three cumulative workflows; exact owner pins | WP application passwords restriction remains; R350 QA inclusion fixed; no deployment approval |
+
+## Four newly identified source issues and one QA issue
+1. Storage router matched prefixes of unrelated table identifiers and SQL-like content inside literals/comments. RED 17fe92738296b3e540ef000bc80b9b03832c05d5 run 45774965119/job 139756303784: FAIL foreign/literal/comment case 1. Fix 6d6c7e7b7150403e8b3d191dd1624fe61f610475 restricts complete legacy identifiers, preserves protected quoted/comment tokens, retains suspension. R348 12 isolated checks. WordPress/MySQL escaping assumption; not a full SQL parser, alternate SQL modes and qualified/complex legacy syntax require further validation.
+2. Privacy job deletion did not verify transient absence before erasing index; finish could clear active barrier before epoch deletion was verified. Same fix commit retains failed/foreign index evidence, restricts job namespaces, checks cleanup before clearing barrier. R349 initially 11 mock checks; prior source defect identified, no separate observed RED because R348 failed first. Native cache/storage outage and concurrent privacy acceptance still pending.
+3. Both Google OAuth callbacks lacked explicit zero redirect limit on the credential-bearing token exchange and token verification calls. Fix 5d5ded00524557d01248194e526e2e83193567a8 adds redirection=0 at all four call sites, preserves existing TLS verification and unaffected unrelated calls. R350 eight source/mock checks; no actual credential, provider call or demonstrated live disclosure.
+4. Privacy job index silently evicted oldest entries at capacity. Fix ed2608398c4c41b0a7db18e5a1d04bbdf042510c refuses new entries rather than drop old, retains existing idempotent registration and rejects unexpected index. R349 expanded to 16 mock checks. Concurrent index mutation and object-cache failure are still separate acceptance gates.
+5. QA gap: R350 was initially excluded by three inherited r34* cumulative glob entrypoints. Fix f03aad28f48cd0a82eb4de8be296caa2ffe8ea47 adds r35* to all three. Earlier green results did NOT establish R350 execution. Latest canonical run 45775382967/job 139757670452 explicitly logs PASS 8 fixed Google checks, PASS 12 storage checks, PASS 16 privacy checks; all 36 scoped assertions green. Latest review run 45775382736 PHP 7.4 and 8.3 both green. Earlier 6d6c7e7 exact HEAD 12/12 workflows green.
+
+## Exact owner pins rechecked
+File00 draft 7b4b92e9639fdcfa1ecfa9f3ae7d1b2622d7ca48; File01-B draft 93e14e6e4062097e3c96386b76a43ad96885a575; File06 PR21 65d7542e7b14410b73d3c20d52650a84f6a92c15 and PR22 d419a8def42c312feddb4588eec7bbf14e2df8b9 distinct; File19 main 3cd8f01a4614e96c0104d0ff82faa4ad3f02f4e4; File20 draft 5f5513402e6d2d82dc5decaf51f515be05fb2a82; File24 draft c8864c2052117051ae7877d678f1a98773df5298; File25 main 347a4ff4d4c233c5ea6cd82c7786ee5398ea9d1e; File26 main 1b064c6ea9f81195611ed001d5457e8ced65460a. Same owner pins as previous report; no other repository mutation; no new independent native eight-owner acceptance inferred.
+
+## Exact code head and observed CI
+Code/QA head f03aad28f48cd0a82eb4de8be296caa2ffe8ea47, observed {"success":12}. This document commit will have a different SHA. No unfinished job is counted as success.
+| Workflow | Run | observed |
+|---|---|---|
+| File 02 FedCM one-time RP nonce and replay | 45775382935 | success |
+| File 02 Canonical Storage and Documentation | 45775382967 | success |
+| File 02 v12 — File24 assurance and File26 non-index native source contracts | 45775382635 | success |
+| File 02 recovery one-time claim regression | 45775382827 | success |
+| File 02 v12 DPoP proof and replay hardening | 45775382677 | success |
+| File 02 v12 — Breach and DPoP fail-first security gates | 45775382652 | success |
+| File02 v12 — Session 3 fail-first boundary regressions | 45775382670 | success |
+| File 02 Review Branch Integrity | 45775382736 | success |
+| File 02 Release Integrity | 45775382692 | success |
+| File 02 v12 — File 00 PR55 / WordPress 7.0.1 Real Integration | 45775382751 | success |
+| File 02 Current File 00 1.2.44 Integration | 45775382669 | success |
+| File 02 V12.3 — Current File 00 main and candidate compatibility | 45775382938 | success |
+
+## Release hold / live truth
+4 new source issues corrected and tested by focused suites; 1 QA discovery corrected. Across the three recent sessions, 11 source corrections (3+4+4) are reported, not 11 verified live defects. No release approval. File02 1.4.0 candidate, DB1.4.0, passkey1.1.0; prior Main 224c39bcb8c28f77504c7348dbad41226753c7e8, 1.3.4. Prior read-only live inventory showed File00 and File02 absent; not freshly queried in this GitHub-only review. Deployed version, DB version and migration state remain unverified in this session. Live Verification: not performed this session. Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔ Staging backup/restore, WPVibe administrative access after app-password restriction, native five-owner flow, 20 remaining plan gates and actual provider acceptance remain outstanding. No live writes. No claim of forty whole-repository reviews.
+
+---
+
 # 26 Nov 2026 — Twenty scoped review passes, File02 V12.3
 
 **Scope and truth:** this session performed 20 distinct targeted source/contract review domains against initial exact draft PR28 HEAD e3be6e75dbe42781a0d9f9d5944b8440ac0e737a (11/11 prior workflows independently rechecked), followed by targeted patches and regression runs. These are NOT twenty independent whole-repository exhaustive reviews or a claim that every source line or every one of the 48 requirements was accepted. Governing Master Plan V12.3 File02 pages 129–132, lines 6190–6327: all 48 IDs re-extracted and compared to the trace register (12 FR, 10 NFR, 2 CEN, 24 X24). Retain 28 implemented-candidate / 20 partial, owner-dependent or acceptance controls; independent production acceptance 0/48. No coding percentage inferred.
