@@ -6,6 +6,7 @@
  */
 declare(strict_types=1);
 define('ABSPATH', __DIR__ . '/');
+define('DAY_IN_SECONDS',86400);define('HOUR_IN_SECONDS',3600);define('YEAR_IN_SECONDS',31536000);
 class F02Response extends Exception {
     public $ok;
     public $data;
@@ -19,7 +20,16 @@ class SA_Membership_Adapter {
     public static function sign_in_allowed($assertion, $completion) { return true; }
     public static function audit($event, $id) { return true; }
 }
-class SAUTH_Login_Risk { public static function record_successful_login($id, $method, $risk) { return true; } }
+class SAUTH_Login_Risk { public static function record_successful_login($id, $method, $risk) { ++$GLOBALS['risk_writes']; return $GLOBALS['risk_ready']; } }
+class WP_Session_Tokens {
+ public static function get_instance($id){return new self();}
+ public function create($expiry){return 'synthetic-session-id';}
+}
+class SAUTH_Session_Manager {
+ public static function session_binding_ready($id,$token){++$GLOBALS['binding_checks'];return $GLOBALS['binding_ready']&&$token==='synthetic-session-id';}
+ public static function revoke_user_sessions($id,$reason){++$GLOBALS['revokes'];return true;}
+}
+$GLOBALS['risk_writes']=0;$GLOBALS['risk_ready']=true;$GLOBALS['binding_checks']=0;$GLOBALS['binding_ready']=true;$GLOBALS['revokes']=0;$GLOBALS['actor']=0;$GLOBALS['clears']=0;
 class SAUTH_Operations { public static function safe_mode() { return !empty($GLOBALS['fedcm_safe_mode']); } }
 $GLOBALS['fedcm_id']='00000000-0000-4000-8000-000000000001';
 $GLOBALS['fedcm_nonce']='nonce-at-test';
@@ -52,8 +62,9 @@ function apply_filters($hook, $default, ...$args) {
 }
 function has_filter($hook) { return $hook==='sauth_fedcm_verify_token_v1' && $GLOBALS['fedcm_verifier_registered'] ? 10 : false; }
 function get_userdata($id) { return $id===17 ? new WP_User() : false; }
-function wp_set_current_user($id) { return true; }
-function wp_set_auth_cookie($id, $remember, $secure) { ++$GLOBALS['fedcm_cookies']; }
+function wp_set_current_user($id) { $GLOBALS['actor']=$id;return true; }
+function wp_set_auth_cookie($id, $remember, $secure, $token) { ++$GLOBALS['fedcm_cookies']; }
+function wp_clear_auth_cookie(){++$GLOBALS['clears'];}
 function is_ssl() { return true; }
 function home_url($path) { return 'https://example.test'.$path; }
 function wp_send_json_error($data, $http=400) { throw new F02Response(false, $data); }
@@ -96,4 +107,16 @@ $GLOBALS['fedcm_claims'][$claim_key] = time() - 361;
 SAUTH_Modern_Auth::expire_fedcm_claim($claim_key);
 f02_assert(!isset($GLOBALS['fedcm_claims'][$claim_key]),'expired nonce claim not removed');
 
-echo "PASS: FedCM invalid-nonce isolation and once-only concurrent claim (mock).\n";
+f02_assert($GLOBALS['binding_checks']===1&&$GLOBALS['risk_writes']===1,'successful callback did not prove both session and risk evidence');
+$GLOBALS['fedcm_id']='00000000-0000-4000-8000-000000000002';
+$GLOBALS['binding_ready']=false;
+$failed=f02_attempt($GLOBALS['fedcm_nonce']);
+f02_assert(!$failed->ok&&($failed->data['code']??'')==='fedcm_session_unverified','unverified session received success');
+f02_assert($GLOBALS['actor']===0&&$GLOBALS['clears']===1&&$GLOBALS['revokes']===1,'session failure was not contained');
+f02_assert($GLOBALS['risk_writes']===1,'failed session was recorded as trusted');
+$GLOBALS['fedcm_id']='00000000-0000-4000-8000-000000000003';
+$GLOBALS['binding_ready']=true;$GLOBALS['risk_ready']=false;
+$failedRisk=f02_attempt($GLOBALS['fedcm_nonce']);
+f02_assert(!$failedRisk->ok&&($failedRisk->data['code']??'')==='fedcm_session_unverified','unverified risk persistence received success');
+f02_assert($GLOBALS['actor']===0&&$GLOBALS['clears']===2&&$GLOBALS['revokes']===2,'risk failure left authenticated actor');
+echo "PASS: FedCM nonce isolation, once-only claim and session/risk postcondition failure containment (mock).\n";
