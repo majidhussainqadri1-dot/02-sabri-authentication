@@ -58,9 +58,16 @@ final class SAUTH_Privacy_Jobs {
 			return false;
 		}
 		$keys = get_user_meta( $user_id, self::JOB_INDEX_META, true );
-		$keys = is_array( $keys ) ? $keys : array();
+		if ( '' === $keys ) { $keys = array(); }
+		if ( ! is_array( $keys ) || count( $keys ) > self::MAX_INDEXED_JOBS ) { return false; }
+		foreach ( $keys as $existing ) {
+			if ( ! self::owned_job_key( $existing ) ) { return false; }
+		}
+		if ( in_array( $job_key, $keys, true ) ) { return true; }
+		// Never evict an older still-indexed job to admit a new one. The caller
+		// deletes the new unindexed transient and stops enqueueing on rejection.
+		if ( count( $keys ) >= self::MAX_INDEXED_JOBS ) { return false; }
 		$keys[] = $job_key;
-		$keys = array_slice( array_values( array_unique( array_filter( array_map( 'sanitize_key', $keys ) ) ) ), -self::MAX_INDEXED_JOBS );
 		update_user_meta( $user_id, self::JOB_INDEX_META, $keys );
 		return $keys === get_user_meta( $user_id, self::JOB_INDEX_META, true );
 	}

@@ -34,4 +34,13 @@ need(!SAUTH_Privacy_Jobs::finish_erasure(17),'epoch deletion failure reported');
 need($GLOBALS['meta'][$active]==='1','barrier retained if epoch deletion fails');
 unset($GLOBALS['fail_meta'][$epoch]);
 need(SAUTH_Privacy_Jobs::finish_erasure(17),'successful final cleanup');
-echo "PASS 11 privacy cleanup postcondition assertions".PHP_EOL;
+$full=[];
+for($i=0;$i<SAUTH_Privacy_Jobs::MAX_INDEXED_JOBS;$i++){$full[]='sauth_password_recovery_job_'.hash('sha256','existing-'.$i);}
+$GLOBALS['meta'][$idx]=$full;
+need(!SAUTH_Privacy_Jobs::register_job(17,$j),'full index refuses new work');
+need($GLOBALS['meta'][$idx]===$full,'full index does not evict existing jobs');
+need(SAUTH_Privacy_Jobs::register_job(17,$full[0]),'existing job registration remains idempotent');
+$GLOBALS['meta'][$idx]=[$foreign];
+need(!SAUTH_Privacy_Jobs::register_job(17,$k),'unexpected index cannot be silently rewritten');
+need($GLOBALS['meta'][$idx]===[$foreign],'unexpected index retained for repair');
+echo "PASS 16 privacy cleanup and capacity postcondition assertions".PHP_EOL;
