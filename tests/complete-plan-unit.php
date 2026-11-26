@@ -62,7 +62,7 @@ function is_wp_error( $value ) { return $value instanceof WP_Error; }
 
 class SA_Security {
 	public static function client_fingerprint() { return str_repeat( 'a', 64 ); }
-	public static function safe_redirect( $url, $fallback = '' ) { return wp_validate_redirect( $url, $fallback ?: home_url( '/' ) ); }
+	public static function safe_redirect( $url, $fallback = null ) { return wp_validate_redirect( $url, func_num_args() < 2 ? home_url( '/' ) : (string) $fallback ); }
 	public static function page_url( $key, $fallback = '' ) { return $GLOBALS['sauth_test_pages'][ $key ] ?? $fallback; }
 	public static function random_token( $bytes = 16 ) { return substr( hash( 'sha256', 'provider-health-test|' . $bytes . '|' . microtime( true ) ), 0, max( 16, min( 64, $bytes * 2 ) ) ); }
 }
