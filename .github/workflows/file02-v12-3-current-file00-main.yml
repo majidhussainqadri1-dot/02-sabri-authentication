@@ -1,6 +1,6 @@
-# V12.3 P09: current File00 main compatibility, independently pinned from PR55.
+# V12.3 P09: separately pinned File00 main and current integrated candidate, independent of PR55.
 # Disposable WordPress/MariaDB only. Never implies staging/live parity or owner signoff.
-name: File 02 V12.3 — Current File 00 main compatibility
+name: File 02 V12.3 — Current File 00 main and candidate compatibility
 
 on:
   pull_request:
@@ -14,16 +14,24 @@ permissions:
   contents: read
 
 env:
-  FILE00_EXACT_MAIN_SHA: '1fad051c86d530d558be3eb1890d3c6e67bce6e8'
-  FILE00_VERSION: '1.2.44'
   FILE02_VERSION: '1.4.0'
   FILE02_DB_VERSION: '1.4.0'
   FILE02_PASSKEY_SCHEMA: '1.1.0'
 
 jobs:
   file00-main-wordpress-integration:
+    name: File00 ${{ matrix.owner.label }} exact compatibility
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        owner:
+          - {label: main-1.2.44, sha: '1fad051c86d530d558be3eb1890d3c6e67bce6e8', version: '1.2.44'}
+          - {label: draft-1.2.47, sha: '7b4b92e9639fdcfa1ecfa9f3ae7d1b2622d7ca48', version: '1.2.47'}
+    env:
+      FILE00_PINNED_SHA: ${{ matrix.owner.sha }}
+      FILE00_VERSION: ${{ matrix.owner.version }}
     services:
       mariadb:
         image: mariadb:11.4
@@ -43,18 +51,18 @@ jobs:
           path: file02
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - name: Checkout exact current File00 repository main
+      - name: Checkout exact File00 matrix source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           repository: majidhussainqadri1-dot/00-sabri-membership-core
           path: file00
           persist-credentials: false
-          ref: ${{ env.FILE00_EXACT_MAIN_SHA }}
+          ref: ${{ env.FILE00_PINNED_SHA }}
       - name: Verify exact inputs before environment creation
         run: |
           set -euo pipefail
           test "$(git -C file02 rev-parse HEAD)" = '${{ github.event.pull_request.head.sha || github.sha }}'
-          test "$(git -C file00 rev-parse HEAD)" = "$FILE00_EXACT_MAIN_SHA"
+          test "$(git -C file00 rev-parse HEAD)" = "$FILE00_PINNED_SHA"
           grep -Fq "Version: ${FILE00_VERSION}" file00/source/sabri-membership-core/sabri-membership-core.php
           grep -Fq "Version: ${FILE02_VERSION}" file02/sabri-authentication.php
           grep -Fq "SAUTH_DB_VERSION', '${FILE02_DB_VERSION}" file02/sabri-authentication.php
@@ -87,12 +95,12 @@ jobs:
         run: |
           set -euo pipefail
           /tmp/wp plugin activate sabri-membership-core --path=/tmp/wordpress
-          /tmp/wp eval 'wp_set_current_user(1); do_action("admin_init"); if((string)get_option("smc_db_version","")!==SMC_DB_VERSION){fwrite(STDERR,"FAIL canonical File00 migration\n");exit(1);} if(SMC_Completion::safe_mode()){fwrite(STDERR,"FAIL File00 remains in Safe Mode\n");exit(1);} if(!class_exists("SMC_Authentication_Contract_V11")){fwrite(STDERR,"FAIL File00 account provider\n");exit(1);} echo "PASS exact current File00 main canonical DB and account provider\n";' --path=/tmp/wordpress
+          /tmp/wp eval 'wp_set_current_user(1); do_action("admin_init"); if((string)get_option("smc_db_version","")!==SMC_DB_VERSION){fwrite(STDERR,"FAIL canonical File00 migration\n");exit(1);} if(SMC_Completion::safe_mode()){fwrite(STDERR,"FAIL File00 remains in Safe Mode\n");exit(1);} if(!class_exists("SMC_Authentication_Contract_V11")){fwrite(STDERR,"FAIL File00 account provider\n");exit(1);} echo "PASS exact pinned File00 canonical DB and account provider\n";' --path=/tmp/wordpress
       - name: Activate File02 and verify cross-file version and route contracts
         run: |
           set -euo pipefail
           /tmp/wp plugin activate sabri-authentication --path=/tmp/wordpress
-          /tmp/wp eval 'if(!SAUTH_Account_Contract::provider_available()){fwrite(STDERR,"FAIL File00/02 account provider unavailable\n");exit(1);} if((string)get_option("sauth_db_version","")!==SAUTH_DB_VERSION || (string)get_option("sauth_passkey_schema_version","")!==SAUTH_Passkeys::SCHEMA_VERSION){fwrite(STDERR,"FAIL File02 schema contract\n");exit(1);} if(!SAUTH_Activator::storage_ready() || !SAUTH_Passkeys::installation_ready()){fwrite(STDERR,"FAIL File02 storage readiness\n");exit(1);} foreach(array("application"=>"profile_url","status"=>"verification_url","security"=>"security_url") as $owner=>$method){$expected=smc_page_url($owner,"/");$got=SA_Membership_Adapter::$method();if(!is_string($expected)||$expected!==$got){fwrite(STDERR,"FAIL File00/02 route ".$owner."\n");exit(1);}} echo "PASS File02 pinned to CURRENT File00 main, schema and canonical member routes\n";' --path=/tmp/wordpress
+          /tmp/wp eval 'if(!SAUTH_Account_Contract::provider_available()){fwrite(STDERR,"FAIL File00/02 account provider unavailable\n");exit(1);} if((string)get_option("sauth_db_version","")!==SAUTH_DB_VERSION || (string)get_option("sauth_passkey_schema_version","")!==SAUTH_Passkeys::SCHEMA_VERSION){fwrite(STDERR,"FAIL File02 schema contract\n");exit(1);} if(!SAUTH_Activator::storage_ready() || !SAUTH_Passkeys::installation_ready()){fwrite(STDERR,"FAIL File02 storage readiness\n");exit(1);} foreach(array("application"=>"profile_url","status"=>"verification_url","security"=>"security_url") as $owner=>$method){$expected=smc_page_url($owner,"/");$got=SA_Membership_Adapter::$method();if(!is_string($expected)||$expected!==$got){fwrite(STDERR,"FAIL File00/02 route ".$owner."\n");exit(1);}} echo "PASS File02 pinned to File00 matrix source, schema and canonical member routes\n";' --path=/tmp/wordpress
       - name: Establish pretty-permalink prerequisite for canonical route test
         run: |
           set -euo pipefail
@@ -113,7 +121,7 @@ jobs:
           fi
           SAUTH_FREEZE_READONLY=AUTHORIZED /tmp/wp eval-file file02/tools/file02-live-reality-freeze-readonly.php --path=/tmp/wordpress > "$RUNNER_TEMP/file02-freeze-disposable.json"
           python3 - "$RUNNER_TEMP/file02-freeze-disposable.json" <<'PY'
-          import json, sys
+          import json, os, sys
           evidence=json.load(open(sys.argv[1],encoding='utf-8'))
           assert evidence['schema']=='sauth.live-reality-freeze.readonly.v1'
           assert evidence['runtime']['wordpress']=='7.0.1'
@@ -121,7 +129,7 @@ jobs:
           assert evidence['plugins']['File00']['active_site'] is True
           assert evidence['plugins']['File02-standard']['source']['main_php_sha256']
           assert evidence['plugins']['File02-standard']['source']['plugin_header_version']=='1.4.0'
-          assert evidence['plugins']['File00']['source']['plugin_header_version']=='1.2.44'
+          assert evidence['plugins']['File00']['source']['plugin_header_version']==os.environ['FILE00_VERSION']
           assert evidence['allowlisted_options']['sauth_db_version']=='1.4.0'
           assert evidence['tables']['sauth_passkeys']['exists'] is True
           assert evidence['redacted_or_unavailable']['deployed_vs_repository_parity']=='not_verified'
