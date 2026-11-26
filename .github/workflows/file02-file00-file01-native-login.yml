@@ -76,7 +76,25 @@ jobs:
         run: |
           set -euo pipefail
           /tmp/wp plugin activate sabri-membership-core --path=/tmp/wordpress
-          /tmp/wp eval 'if(wp_get_environment_type()!=="staging" || get_option("siteurl")!=="http://127.0.0.1:8765" || !smc_is_founder(1) || !user_can(1,"activate_plugins")){fwrite(STDERR,"Disposable canonical Founder provisioning unavailable\n");exit(1);} echo "PASS existing fixture has native capability; no security changes\n";' --path=/tmp/wordpress
+          /tmp/wp eval '
+            $fixture=get_user_by("login","founder");
+            $status=array(
+              "environment_staging"=>wp_get_environment_type()==="staging",
+              "siteurl_exact"=>get_option("siteurl")==="http://127.0.0.1:8765",
+              "loopback_origin"=>wp_parse_url((string)get_option("siteurl"),PHP_URL_HOST)==="127.0.0.1",
+              "fixture_exists"=>$fixture instanceof WP_User,
+              "fixture_id_one"=>$fixture instanceof WP_User && (int)$fixture->ID===1,
+              "founder_constant_one"=>defined("SMC_FOUNDER_USER_ID") && (int)SMC_FOUNDER_USER_ID===1,
+              "canonical_founder"=>smc_is_founder(1),
+              "native_admin_role"=>$fixture instanceof WP_User && in_array("administrator",(array)$fixture->roles,true),
+              "native_activation_cap"=>user_can(1,"activate_plugins"),
+              "schema_current"=>(string)get_option("smc_db_version","")===SMC_DB_VERSION,
+              "safe_mode_clear"=>!SMC_Completion::safe_mode()
+            );
+            echo "READ-ONLY native Founder preflight: ".wp_json_encode($status)."\n";
+            if(!$status["environment_staging"] || !$status["siteurl_exact"] || !$status["canonical_founder"] || !$status["native_activation_cap"]){fwrite(STDERR,"Disposable canonical Founder provisioning unavailable\n");exit(1);}
+            echo "PASS existing fixture has native capability; no security changes\n";
+          ' --path=/tmp/wordpress
           /tmp/wp plugin activate sabri-authentication --path=/tmp/wordpress
           /tmp/wp eval 'if(!SAUTH_Account_Contract::provider_available() || !SAUTH_Passkeys::authentication_ready() || is_plugin_active("sabri-platform-foundation/sabri-platform-foundation.php")){fwrite(STDERR,"Three-owner native admission prerequisites not met\n");exit(1);} echo "PASS native File00/02 prerequisites and File01 inactive\n";' --path=/tmp/wordpress
       - name: Native password form and authenticated WordPress plugin activation (loopback only)
