@@ -11,7 +11,12 @@ function is_wp_error($value){return $value instanceof WP_Error;}
 function absint($v){return abs((int)$v);}
 function sanitize_key($v){return preg_replace('/[^a-z0-9_\\-]/','',strtolower((string)$v));}
 function get_current_user_id(){return $GLOBALS['actor'];}
-function get_user_meta($uid,$key,$single=true){return $GLOBALS['meta'][$uid][$key]??false;}
+function get_user_meta($uid,$key,$single=true){
+ $exists=isset($GLOBALS['meta'][$uid])&&array_key_exists($key,$GLOBALS['meta'][$uid]);
+ if(!$exists){return $single?'':[];}
+ $value=$GLOBALS['meta'][$uid][$key];
+ return $single?$value:[$value];
+}
 function wp_get_session_token(){return 'mock-session-token-not-exported';}
 function wp_salt($context){return 'never-real-local-salt';}
 class SA_Security {static function client_fingerprint(){return 'mock-fingerprint';}}
