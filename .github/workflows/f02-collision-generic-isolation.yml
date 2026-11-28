@@ -8,17 +8,18 @@ on:
       - 'tests/security/security-safe-mode-owner-denial.php'
       - '.github/workflows/f02-collision-generic-isolation.yml'
   pull_request:
-    paths:
-      - 'includes/class-sauth-security-orchestrator.php'
-      - 'tests/security/collision-generic-recovery-isolation-regression.php'
-      - 'tests/security/collision-generic-schedule-denial-regression.php'
-      - 'tests/security/security-safe-mode-owner-denial.php'
-      - '.github/workflows/f02-collision-generic-isolation.yml'
+permissions:
+  contents: read
 jobs:
   source-gate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Prove exact candidate checkout
+        run: test "$(git rev-parse HEAD)" = '${{ github.event.pull_request.head.sha || github.sha }}'
       - name: PHP syntax
         run: php -l includes/class-sauth-security-orchestrator.php && php -l tests/security/collision-generic-recovery-isolation-regression.php && php -l tests/security/collision-generic-schedule-denial-regression.php && php -l tests/security/security-safe-mode-owner-denial.php
       - name: Generic recovery collision isolation
