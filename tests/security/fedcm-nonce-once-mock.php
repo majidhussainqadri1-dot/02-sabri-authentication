@@ -164,7 +164,7 @@ foreach($invalidResults as $i=>[$label,$response]){
  try{$denied=f02_attempt($GLOBALS['fedcm_nonce']);}catch(Throwable $e){}
  f02_assert($denied instanceof F02Response&&!$denied->ok&&($denied->data['code']??'')==='fedcm_server_verification_unavailable','invalid provider result not safely rejected: '.$label);
  f02_assert($GLOBALS['fedcm_cookies']===$cookies&&$GLOBALS['risk_writes']===$writes,'invalid identity issued local trust: '.$label);
- f02_assert(!isset($_POST['token'],$_POST['nonce']),'provider evidence retained: '.$label);
+ f02_assert(!isset($_POST['token'])&&!isset($_POST['nonce']),'provider evidence retained: '.$label);
  $again=f02_attempt($GLOBALS['fedcm_nonce']);
  f02_assert(!$again->ok&&$GLOBALS['fedcm_verified']===$calls+1,'uncertain provider result replayed: '.$label);
 }
