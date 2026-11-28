@@ -27,7 +27,12 @@ final class SAUTH_Shared_Signals {
 	public static function rest_authorize( $request ) {
 		/* External verification is provider-specific. Absence of an approved
 		 * verifier is an intentional fail-closed state. */
-		return true === apply_filters( 'sauth_shared_signal_authorize_v1', false, $request );
+		try {
+			return true === apply_filters( 'sauth_shared_signal_authorize_v1', false, $request );
+		} catch ( Throwable $error ) {
+			// Unknown issuer-verification outcomes must not authorize ingestion.
+			return false;
+		}
 	}
 
 	public static function rest_ingest( $request ) {
@@ -38,7 +43,7 @@ final class SAUTH_Shared_Signals {
 	}
 
 	public static function ingest( array $envelope, array $context = array() ) {
-		if ( empty( $context['verified'] ) ) { return new WP_Error( 'sauth_signal_unverified', 'Security signal verification is required.' ); }
+		if ( true !== ( $context['verified'] ?? null ) ) { return new WP_Error( 'sauth_signal_unverified', 'Security signal verification is required.' ); }
 		$family   = sanitize_key( (string) ( $envelope['family'] ?? '' ) );
 		$type     = sanitize_key( (string) ( $envelope['type'] ?? '' ) );
 		$event_id = strtolower( sanitize_text_field( (string) ( $envelope['event_id'] ?? '' ) ) );
