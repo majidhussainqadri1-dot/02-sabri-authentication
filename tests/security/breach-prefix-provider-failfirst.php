@@ -17,6 +17,7 @@ $GLOBALS['prefixCalls']=array();
 function apply_filters($hook,$initial,$prefix){
  if($hook!=='sauth_breached_password_prefix_lookup_v1'){fwrite(STDERR, "wrong provider hook\n");exit(1);}
  $GLOBALS['prefixCalls'][]=$prefix;
+ if($GLOBALS['prefixResponse'] instanceof Throwable){throw $GLOBALS['prefixResponse'];}
  return $GLOBALS['prefixResponse'];
 }
 require_once __DIR__.'/../../includes/class-sauth-password-safety.php';
@@ -35,6 +36,15 @@ expect(is_wp_error($result)&&$result->get_error_code()==='sauth_password_breache
 $GLOBALS['prefixResponse']=str_repeat('A',35).":0\r\n";
 $result=SAUTH_Password_Safety::check($pass);
 expect(true===$result,'valid no-match suffix was denied');
+// Conflicting records must never turn a known breach into a clean result.
+foreach ([$s.":9\r\n".$s.":0\r\n",[$s=>9,strtolower($s)=>0],$s.":0\r\n".$s.":9\r\n"] as $duplicate) {
+ $GLOBALS['prefixResponse']=$duplicate;
+ $result=SAUTH_Password_Safety::check($pass);
+ expect(is_wp_error($result),'duplicate suffix accepted as a trustworthy range result');
+}
+$GLOBALS['prefixResponse']=new RuntimeException('synthetic provider outage');
+try{$result=SAUTH_Password_Safety::check($pass);}catch(Throwable $e){$result=null;}
+expect(is_wp_error($result)&&$result->get_error_code()==='sauth_password_breach_lookup_unavailable','provider exception was not contained');
 $GLOBALS['prefixResponse']=null;
 expect(true===SAUTH_Password_Safety::check($pass),'unconfigured optional provider disabled local-only fallback');
 foreach($GLOBALS['prefixCalls'] as $sent)expect($sent===$p&&strlen($sent)===5,'unapproved credential material crossed adapter');
