@@ -64,7 +64,12 @@ function sanitize_text_field($x) { return (string)$x; }
 function wp_unslash($x) { return (string)$x; }
 function absint($x) { return abs((int)$x); }
 function apply_filters($hook, $default, ...$args) {
-    if ($hook==='sauth_fedcm_verify_token_v1') { ++$GLOBALS['fedcm_verified']; return array('verified'=>true,'user_id'=>17); }
+    if ($hook==='sauth_fedcm_verify_token_v1') {
+        ++$GLOBALS['fedcm_verified'];
+        $result=$GLOBALS['fedcm_verifier_result']??array('verified'=>true,'user_id'=>17);
+        if($result instanceof Throwable){throw $result;}
+        return $result;
+    }
     return $default;
 }
 function has_filter($hook) { return $hook==='sauth_fedcm_verify_token_v1' && $GLOBALS['fedcm_verifier_registered'] ? 10 : false; }
@@ -140,4 +145,29 @@ $GLOBALS['completion_resolution']=['result'=>'unknown','destination'=>''];
 $unknown=f02_attempt($GLOBALS['fedcm_nonce']);
 f02_assert(!$unknown->ok&&($unknown->data['code']??'')==='fedcm_completion_unverified','unverified completion accepted');
 f02_assert($GLOBALS['fedcm_cookies']===$cookies,'unknown completion issued session');
+// The provider must assert strict verified=true and a positive integer
+// local subject. Never convert a negative or noninteger identity into a user.
+$GLOBALS['completion_resolution']=['result'=>'allow','destination'=>'https://example.test/complete/'];
+$invalidResults=[
+ ['negative subject',['verified'=>true,'user_id'=>-17]],
+ ['string subject',['verified'=>true,'user_id'=>'17']],
+ ['fractional subject',['verified'=>true,'user_id'=>17.5]],
+ ['truthy false string',['verified'=>'false','user_id'=>17]],
+ ['integer verification flag',['verified'=>1,'user_id'=>17]],
+ ['provider exception',new RuntimeException('synthetic provider exception')],
+];
+foreach($invalidResults as $i=>[$label,$response]){
+ $GLOBALS['fedcm_id']=sprintf('00000000-0000-4000-8000-%012d',100+$i);
+ $GLOBALS['fedcm_verifier_result']=$response;
+ $cookies=$GLOBALS['fedcm_cookies'];$writes=$GLOBALS['risk_writes'];$calls=$GLOBALS['fedcm_verified'];
+ $denied=null;
+ try{$denied=f02_attempt($GLOBALS['fedcm_nonce']);}catch(Throwable $e){}
+ f02_assert($denied instanceof F02Response&&!$denied->ok&&($denied->data['code']??'')==='fedcm_server_verification_unavailable','invalid provider result not safely rejected: '.$label);
+ f02_assert($GLOBALS['fedcm_cookies']===$cookies&&$GLOBALS['risk_writes']===$writes,'invalid identity issued local trust: '.$label);
+ f02_assert(!isset($_POST['token'],$_POST['nonce']),'provider evidence retained: '.$label);
+ $again=f02_attempt($GLOBALS['fedcm_nonce']);
+ f02_assert(!$again->ok&&$GLOBALS['fedcm_verified']===$calls+1,'uncertain provider result replayed: '.$label);
+}
+unset($GLOBALS['fedcm_verifier_result']);
+echo "PASS: FedCM strict provider result, exception and one-time claim boundaries (six negative cases, mock).\n";
 echo "PASS: FedCM nonce isolation, once-only claim, local risk, completion and session postconditions (mock).\n";
