@@ -25,7 +25,12 @@ final class SAUTH_Password_Safety {
 		/* Only the 5-hex prefix is exposed to an approved adapter. The raw
 		 * password and full SHA-1 are never passed to the provider boundary. */
 		$custom_lookup_registered = function_exists( 'has_filter' ) && false !== has_filter( 'sauth_breached_password_prefix_lookup_v1' );
-		$response = apply_filters( 'sauth_breached_password_prefix_lookup_v1', null, $prefix );
+		try {
+			$response = apply_filters( 'sauth_breached_password_prefix_lookup_v1', null, $prefix );
+		} catch ( Throwable $error ) {
+			// Provider exceptions are an unavailable verification, never a clean result.
+			return new WP_Error( 'sauth_password_breach_lookup_unavailable', 'Password exposure verification is temporarily unavailable.' );
+		}
 		/* A registered callback returning null means unavailable/uncertain,
 		 * not an operator decision to disable breach protection. Never fall
 		 * through to local-only or a different provider on a failed lookup. */
@@ -35,7 +40,11 @@ final class SAUTH_Password_Safety {
 		/* An operator may explicitly opt into the public HIBP range service.
 		 * No HTTP request is made unless this separate policy is configured. */
 		if ( null === $response && defined( 'SAUTH_HIBP_PASSWORD_CHECK_ENABLED' ) && true === SAUTH_HIBP_PASSWORD_CHECK_ENABLED ) {
-			$response = self::lookup_hibp_prefix( $prefix );
+			try {
+				$response = self::lookup_hibp_prefix( $prefix );
+			} catch ( Throwable $error ) {
+				return new WP_Error( 'sauth_password_breach_lookup_unavailable', 'Password exposure verification is temporarily unavailable.' );
+			}
 		}
 		$password = ''; $normalized = ''; $sha1 = '';
 		if ( null === $response ) { return true; } // Explicitly unconfigured: local-only policy.
@@ -94,7 +103,11 @@ final class SAUTH_Password_Safety {
 				if ( ! preg_match( '/^([0-9A-F]{35}):([0-9]+)$/iD', $line, $m ) ) {
 					return new WP_Error( 'sauth_password_breach_lookup_unavailable', 'Password range data malformed.' );
 				}
-				$out[ strtoupper( $m[1] ) ] = absint( $m[2] );
+				$suffix = strtoupper( $m[1] );
+				if ( array_key_exists( $suffix, $out ) ) {
+					return new WP_Error( 'sauth_password_breach_lookup_unavailable', 'Password range data contains duplicate records.' );
+				}
+				$out[ $suffix ] = absint( $m[2] );
 			}
 		} elseif ( is_array( $response ) ) {
 			if ( count( $response ) > 30000 ) {
@@ -104,6 +117,9 @@ final class SAUTH_Password_Safety {
 				$suffix = strtoupper( (string) $suffix );
 				if ( ! preg_match( '/^[0-9A-F]{35}$/D', $suffix ) || ! is_numeric( $count ) || (string)$count !== (string)absint( $count ) ) {
 					return new WP_Error( 'sauth_password_breach_lookup_unavailable', 'Password range data malformed.' );
+				}
+				if ( array_key_exists( $suffix, $out ) ) {
+					return new WP_Error( 'sauth_password_breach_lookup_unavailable', 'Password range data contains duplicate records.' );
 				}
 				$out[$suffix] = absint( $count );
 			}
