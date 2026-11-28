@@ -15,7 +15,12 @@ $GLOBALS['store_ok']=true;$GLOBALS['meta']=[];
 function absint($v){return abs((int)$v);}function sanitize_key($v){return strtolower((string)$v);}
 function sanitize_text_field($v){return (string)$v;}
 function update_user_meta($uid,$key,$value){if(!$GLOBALS['store_ok'])return false;$GLOBALS['meta'][$uid][$key]=$value;return true;}
-function get_user_meta($uid,$key,$single=true){return $GLOBALS['meta'][$uid][$key]??false;}
+function get_user_meta($uid,$key,$single=true){
+ $exists=isset($GLOBALS['meta'][$uid])&&array_key_exists($key,$GLOBALS['meta'][$uid]);
+ if(!$exists){return $single?'':[];}
+ $value=$GLOBALS['meta'][$uid][$key];
+ return $single?$value:[$value];
+}
 function current_time($s,$gmt=false){return gmdate('Y-m-d H:i:s');}
 function wp_generate_uuid4(){return '33333333-3333-4333-8333-333333333333';}
 function wp_json_encode($x){return json_encode($x);}
