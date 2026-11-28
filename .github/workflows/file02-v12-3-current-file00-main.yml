@@ -29,6 +29,7 @@ jobs:
         owner:
           - {label: main-1.2.44, sha: '1fad051c86d530d558be3eb1890d3c6e67bce6e8', version: '1.2.44'}
           - {label: draft-1.2.47, sha: '5a8fea59e660f35f9a36c3c5a9956253825a824f', version: '1.2.47'}
+          - {label: current-pr66-1.2.47, sha: '42c95b957de5cee28152763bb00074e23c3da6db', version: '1.2.47'}
     env:
       FILE00_PINNED_SHA: ${{ matrix.owner.sha }}
       FILE00_VERSION: ${{ matrix.owner.version }}
