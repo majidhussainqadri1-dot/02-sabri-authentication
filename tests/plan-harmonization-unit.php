@@ -66,6 +66,7 @@ final class SMC_Authentication_Contract_V11 {
 			'contract_version' => '1.1.0',
 			'result' => 'allow',
 			'reason_code' => 'completion_required',
+			'user_id' => $user_id,
 			'missing_steps' => array( 'guardian', 'profile_photo', 'ethical_conduct', 'guardian' ),
 			'next_route' => self::$unsafe_completion_route ? 'https://attacker.test/continue' : 'https://example.test/profile/edit/',
 		);
