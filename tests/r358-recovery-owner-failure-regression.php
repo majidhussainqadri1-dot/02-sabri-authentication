@@ -9,7 +9,10 @@ function absint($v){return abs((int)$v);}
 function sanitize_text_field($v){return (string)$v;}
 function current_time($t,$g=false){return gmdate('Y-m-d H:i:s');}
 function has_filter($k){return 10;}
-function get_user_meta($u,$k,$s=true){return ['active'=>true,'generation'=>'11111111-1111-4111-8111-111111111111'];}
+function get_user_meta($u,$k,$s=true){
+ $rows=$GLOBALS['lockdown_fixture_rows']??[['active'=>true,'generation'=>'11111111-1111-4111-8111-111111111111']];
+ return $s?($rows[0]??''):$rows;
+}
 $GLOBALS['calls']=0;
 function apply_filters($hook,...$args){++$GLOBALS['calls'];throw new RuntimeException('synthetic unavailable owner');}
 class MockDB{
@@ -45,4 +48,20 @@ $wpdb->row['owner_token_ciphertext']='';
 need(!SAUTH_Security_Orchestrator::cancel_recovery_change(17,$id,'proof')&&$wpdb->updates===0,'failed decryption cannot cancel');
 $GLOBALS['calls']=0;
 need(!SAUTH_Security_Orchestrator::clear_lockdown_by_canonical_recovery(17)&&$GLOBALS['calls']===1,'lockdown owner outage leaves containment');
-echo "PASS ".$n." recovery proof and owner exception assertions (isolated mocks)".PHP_EOL;
+// WP multi-row metadata must not be classified by the first row.
+foreach ([
+ ['absent',[],false],
+ ['released',[['active'=>false]],false],
+ ['active',[['active'=>true]],true],
+ ['released then active',[['active'=>false],['active'=>true]],true],
+ ['active then released',[['active'=>true],['active'=>false]],true],
+ ['two released',[['active'=>false],['active'=>false]],true],
+ ['malformed',['invalid'],true],
+ ['missing active field',[[]],true],
+ ['invalid active type',[['active'=>'0']],true],
+] as [$label,$rows,$expected]) {
+ $GLOBALS['lockdown_fixture_rows']=$rows;
+ need(SAUTH_Security_Orchestrator::authentication_blocked(17)===$expected,'lockdown metadata: '.$label);
+}
+unset($GLOBALS['lockdown_fixture_rows']);
+echo "PASS ".$n." recovery proof, owner exception and lockdown metadata assertions (isolated mocks)".PHP_EOL;

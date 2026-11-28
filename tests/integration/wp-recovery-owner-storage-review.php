@@ -22,7 +22,28 @@ $new=['active'=>true,'generation'=>wp_generate_uuid4(),'started_at'=>time()];
 $method=new ReflectionMethod('SAUTH_Security_Orchestrator','release_lockdown_generation');
 $method->setAccessible(true);
 try{
+ // Exercise actual WordPress multi-value metadata, never an existing account.
+ delete_user_meta($uid,$key);
+ recovery_need(!SAUTH_Security_Orchestrator::authentication_blocked($uid),'no native lockdown row does not block');
+ $released=['active'=>false,'generation'=>wp_generate_uuid4(),'released_at'=>time()];
+ add_user_meta($uid,$key,$released);
+ recovery_need(!SAUTH_Security_Orchestrator::authentication_blocked($uid),'sole explicit native release does not block');
+ add_user_meta($uid,$key,$old);
+ recovery_need(count(get_user_meta($uid,$key,false))===2&&get_user_meta($uid,$key,true)===$released,'native first-row fixture reproduces released-first ordering');
+ recovery_need(SAUTH_Security_Orchestrator::authentication_blocked($uid),'released-first duplicate with active native row denies authentication');
+ delete_user_meta($uid,$key);
+ add_user_meta($uid,$key,$released);
+ add_user_meta($uid,$key,$released);
+ recovery_need(SAUTH_Security_Orchestrator::authentication_blocked($uid),'duplicate released native rows deny authentication');
+ delete_user_meta($uid,$key);
+ add_user_meta($uid,$key,'malformed');
+ recovery_need(SAUTH_Security_Orchestrator::authentication_blocked($uid),'malformed native record denies authentication');
+ delete_user_meta($uid,$key);
+ add_user_meta($uid,$key,['active'=>'0']);
+ recovery_need(SAUTH_Security_Orchestrator::authentication_blocked($uid),'nonboolean native state denies authentication');
+ delete_user_meta($uid,$key);
  update_user_meta($uid,$key,$old);
+ recovery_need(SAUTH_Security_Orchestrator::authentication_blocked($uid),'single active native row denies authentication');
  recovery_need(!SAUTH_Security_Orchestrator::clear_lockdown_by_canonical_recovery($uid),'no native owner approval denies lockdown release');
  update_user_meta($uid,$key,$new);
  recovery_need(!$method->invoke(null,$uid,$old)&&get_user_meta($uid,$key,true)===$new,'stale generation cannot release newer native record');
@@ -37,4 +58,4 @@ try{
 }finally{
  wp_delete_user($uid);
 }
-echo "PASS 7 native recovery storage and guest-denial checks (no positive owner identity ceremony)".PHP_EOL;
+echo "PASS 15 native recovery storage, lockdown classification and guest-denial checks (no positive owner identity ceremony)".PHP_EOL;

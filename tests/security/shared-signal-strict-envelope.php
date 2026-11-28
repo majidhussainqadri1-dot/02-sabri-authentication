@@ -28,6 +28,11 @@ function sanitize_key($s){return preg_replace('/[^a-z0-9_-]/','',strtolower((str
 function sanitize_text_field($s){return trim((string)$s);}
 function wp_json_encode($s){return json_encode($s);}
 function current_time($type,$gmt=false){return gmdate('Y-m-d H:i:s');}
+function apply_filters($hook,$default,$request){
+    $value=$GLOBALS['signal_authorizer_result']??false;
+    if($value instanceof Throwable){throw $value;}
+    return $value;
+}
 function assert_denied($data,$case) {
     $db=$GLOBALS['wpdb'];
     $before=$db->read_count+$db->write_count;
@@ -51,6 +56,23 @@ $bad=$valid;$bad['issued_at']=-time();
 assert_denied($bad,'negative issued-at');
 $bad=$valid;$bad['issued_at']=time()+0.7;
 assert_denied($bad,'fractional issued-at');
+// A verified context must be an actual Boolean assertion, not a truthy value.
+foreach (['false','true',1,'1',[],[true],null,false] as $flag) {
+    $before=$GLOBALS['wpdb']->read_count+$GLOBALS['wpdb']->write_count;
+    $result=SAUTH_Shared_Signals::ingest($valid,['verified'=>$flag,'source'=>'ci']);
+    if(!($result instanceof WP_Error)||$result->get_error_code()!=='sauth_signal_unverified'
+        ||$GLOBALS['wpdb']->read_count+$GLOBALS['wpdb']->write_count!==$before){
+        fwrite(STDERR,"RED: non-Boolean security signal verification reached protected storage\n");exit(1);
+    }
+}
+$GLOBALS['signal_authorizer_result']=new RuntimeException('synthetic issuer verification outage');
+$authorized=null;
+try{$authorized=SAUTH_Shared_Signals::rest_authorize(new stdClass());}catch(Throwable $e){}
+if(false!==$authorized){fwrite(STDERR,"RED: issuer exception not contained at REST permission boundary\n");exit(1);}
+$GLOBALS['signal_authorizer_result']='true';
+if(false!==SAUTH_Shared_Signals::rest_authorize(new stdClass())){fwrite(STDERR,"FAIL: string provider approval accepted\n");exit(1);}
+$GLOBALS['signal_authorizer_result']=true;
+if(true!==SAUTH_Shared_Signals::rest_authorize(new stdClass())){fwrite(STDERR,"FAIL: explicit positive provider approval denied\n");exit(1);}
 $good=SAUTH_Shared_Signals::ingest($valid,array('verified'=>true,'source'=>'ci'));
 if(!($good instanceof WP_Error)||$good->get_error_code()!=='sauth_signal_store_failed'||$GLOBALS['wpdb']->read_count!==2||$GLOBALS['wpdb']->write_count!==1){
     fwrite(STDERR,"FAIL: canonical valid envelope did not reach protected store\n");exit(1);

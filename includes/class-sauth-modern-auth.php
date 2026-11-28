@@ -227,14 +227,23 @@ final class SAUTH_Modern_Auth {
 			wp_schedule_single_event( time() + self::FEDCM_NONCE_TTL + 60, self::FEDCM_CLAIM_EXPIRE_HOOK, array( $claim_key ) );
 		}
 		delete_transient( $key );
-		$verified = apply_filters( 'sauth_fedcm_verify_token_v1', null, $token, $nonce, $record );
-		$token = ''; $nonce = ''; unset( $_POST['token'], $_POST['nonce'] );
-		if ( ! is_array( $verified ) || empty( $verified['verified'] ) || empty( $verified['user_id'] ) ) {
+		$verified = null;
+		try {
+			$verified = apply_filters( 'sauth_fedcm_verify_token_v1', null, $token, $nonce, $record );
+		} catch ( Throwable $error ) {
+			// The nonce has already been claimed. Never replay an uncertain provider outcome.
+			$verified = null;
+		} finally {
+			$token = ''; $nonce = ''; unset( $_POST['token'], $_POST['nonce'] );
+		}
+		if ( ! is_array( $verified ) || true !== ( $verified['verified'] ?? null )
+			|| ! is_int( $verified['user_id'] ?? null ) || $verified['user_id'] <= 0 ) {
 			wp_send_json_error( array( 'code'=>'fedcm_server_verification_unavailable' ), 503 );
 		}
 		/* FedCM browser mediation is never sufficient by itself: the verifier
-		 * must return a server-validated local user subject. */
-		$user_id = absint( $verified['user_id'] );
+		 * must return a server-validated positive integer local user subject.
+		 * Never coerce negative, fractional or string identities. */
+		$user_id = $verified['user_id'];
 		if ( class_exists( 'SAUTH_Security_Orchestrator' ) && SAUTH_Security_Orchestrator::authentication_blocked( $user_id ) ) {
 			wp_send_json_error( array( 'code'=>'emergency_lockdown_active' ), 403 );
 		}

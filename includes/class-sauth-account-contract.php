@@ -71,6 +71,8 @@ final class SAUTH_Account_Contract {
 	}
 
 	public static function mark_email_verified( $user_id, $email, array $context = array() ) {
+		$user_id = self::canonical_request_subject( $user_id );
+		if ( ! $user_id ) { return self::unknown( 'provider_subject_invalid' ); }
 		$provider = self::provider_class();
 		if ( '' === $provider || ! self::provider_available() ) {
 			return self::unknown( 'provider_unavailable' );
@@ -78,17 +80,19 @@ final class SAUTH_Account_Contract {
 		try {
 			$result = call_user_func(
 				array( $provider, 'mark_email_verified' ),
-				absint( $user_id ),
+				$user_id,
 				sanitize_email( (string) $email ),
 				self::context( $context )
 			);
 		} catch ( Throwable $error ) {
 			return self::unknown( 'provider_exception' );
 		}
-		return self::normalize_result( $result, 'email_verification' );
+		return self::normalize_result( $result, 'email_verification', $user_id );
 	}
 
 	public static function completion_state( $user_id, array $context = array() ) {
+		$user_id = self::canonical_request_subject( $user_id );
+		if ( ! $user_id ) { return self::completion_unknown( 'provider_subject_invalid' ); }
 		$provider = self::provider_class();
 		if ( '' === $provider || ! self::provider_available() ) {
 			return self::completion_unknown( 'provider_unavailable' );
@@ -96,7 +100,7 @@ final class SAUTH_Account_Contract {
 		try {
 			$result = call_user_func(
 				array( $provider, 'get_completion_state' ),
-				absint( $user_id ),
+				$user_id,
 				self::context( $context )
 			);
 		} catch ( Throwable $error ) {
@@ -107,6 +111,9 @@ final class SAUTH_Account_Contract {
 			|| ! isset( $result['missing_steps'], $result['next_route'] )
 			|| ! is_array( $result['missing_steps'] ) ) {
 			return self::completion_unknown( 'provider_contract_invalid' );
+		}
+		if ( 'allow' === $result['result'] && $user_id !== ( $result['user_id'] ?? null ) ) {
+			return self::completion_unknown( 'provider_subject_invalid' );
 		}
 		$missing = array_values( array_unique( array_filter( array_map( 'sanitize_key', $result['missing_steps'] ) ) ) );
 		$route   = SA_Security::safe_redirect( (string) $result['next_route'], '' );
@@ -161,14 +168,14 @@ final class SAUTH_Account_Contract {
 		);
 	}
 
-	private static function normalize_result( $result, $operation ) {
+	private static function normalize_result( $result, $operation, $expected_user_id = null ) {
 		if ( ! is_array( $result ) || ! self::valid_provider_header( $result ) ) {
 			return self::unknown( 'provider_contract_invalid' );
 		}
 		$operation = sanitize_key( (string) $operation );
 		if ( 'allow' === (string) $result['result'] ) {
-			$user_id = absint( $result['user_id'] ?? 0 );
-			if ( $user_id < 1 ) {
+			$user_id = $result['user_id'] ?? null;
+			if ( ! is_int( $user_id ) || $user_id < 1 || ( null !== $expected_user_id && $user_id !== $expected_user_id ) ) {
 				return self::unknown( 'provider_subject_invalid' );
 			}
 			if ( 'registration' === $operation && ! self::valid_uuid( $result['subject_uuid'] ?? '' ) ) {
@@ -184,13 +191,22 @@ final class SAUTH_Account_Contract {
 			'result'            => (string) $result['result'],
 			'reason_code'       => sanitize_key( (string) $result['reason_code'] ),
 		);
-		if ( isset( $result['user_id'] ) ) {
-			$output['user_id'] = absint( $result['user_id'] );
+		if ( is_int( $result['user_id'] ?? null ) && $result['user_id'] > 0 ) {
+			$output['user_id'] = $result['user_id'];
 		}
 		if ( isset( $result['subject_uuid'] ) && self::valid_uuid( $result['subject_uuid'] ) ) {
 			$output['subject_uuid'] = strtolower( (string) $result['subject_uuid'] );
 		}
 		return $output;
+	}
+
+	/** Accept native IDs and lossless positive DB decimal strings, never abs(-id). */
+	private static function canonical_request_subject( $value ) {
+		if ( is_int( $value ) ) { return $value > 0 ? $value : 0; }
+		if ( is_string( $value ) && preg_match( '/^[1-9][0-9]*$/D', $value ) && (string) (int) $value === $value ) {
+			return (int) $value;
+		}
+		return 0;
 	}
 
 	private static function valid_provider_header( array $result ) {

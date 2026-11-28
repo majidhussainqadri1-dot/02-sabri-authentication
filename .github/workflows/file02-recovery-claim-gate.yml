@@ -1,32 +1,6 @@
 name: File 02 recovery one-time claim regression
 on:
   pull_request:
-    paths:
-      - 'includes/class-sauth-security-orchestrator.php'
-      - 'includes/class-sauth-operations.php'
-      - 'tests/security/reconciliation-summary-bounded.php'
-      - 'tests/recovery-once-claim-gate.php'
-      - 'tests/recovery-claim-reentrancy.php'
-      - 'tests/recovery-claim-owner-failure.php'
-      - 'tests/recovery-owner-unavailable.php'
-      - 'tests/security/fedcm-finish-guard-source.php'
-      - 'tests/security/v12-i18n-source.php'
-      - 'tests/security/v12-extended-views-i18n.php'
-      - 'tests/security/v12-48-release-register.php'
-      - 'review-evidence/F02-V12-2026-11-10-48-ACCEPTANCE-REGISTER.json'
-      - 'tests/security/v12-timeline-local-time-source.php'
-      - 'languages/**'
-      - 'templates/login.php'
-      - 'templates/signup.php'
-      - 'tools/build-package.sh'
-      - 'tests/security/collision-owner-handoff-preservation-source.php'
-      - 'tests/security/not-me-stepup-failfirst.php'
-      - 'tests/security/lockdown-postcondition-failfirst.php'
-      - 'tests/security/recovery-finalization-failfirst.php'
-      - 'includes/class-sauth-modern-auth.php'
-      - 'tests/recovery-claim-fingerprint-denial.php'
-      - 'tests/recovery-claim-invalid-payload.php'
-      - '.github/workflows/file02-recovery-claim-gate.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -34,7 +8,12 @@ jobs:
   structural-claim-gate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Prove exact candidate checkout
+        run: test "$(git rev-parse HEAD)" = '${{ github.event.pull_request.head.sha || github.sha }}'
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'

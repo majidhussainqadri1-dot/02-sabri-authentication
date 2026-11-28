@@ -1,15 +1,6 @@
 name: File 02 v12 — Breach and DPoP fail-first security gates
 on:
   pull_request:
-    paths:
-      - 'includes/class-sauth-password-safety.php'
-      - 'includes/class-sauth-dpop.php'
-      - 'tests/security/breach-prefix-provider-failfirst.php'
-      - 'tests/security/dpop-crypto-claim-failfirst.php'
-      - 'tests/security/breach-hibp-optin-no-network.php'
-      - 'includes/class-sauth-operations.php'
-      - 'tests/security/external-provider-operability-truth.php'
-      - '.github/workflows/file02-v12-breach-dpop.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -22,6 +13,11 @@ jobs:
         php: ['7.4','8.3']
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Prove exact candidate checkout
+        run: test "$(git rev-parse HEAD)" = '${{ github.event.pull_request.head.sha || github.sha }}'
       - uses: shivammathur/setup-php@2.37.2
         with:
           php-version: ${{ matrix.php }}

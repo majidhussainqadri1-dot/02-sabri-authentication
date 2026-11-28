@@ -45,7 +45,12 @@ function current_time($s,$gmt=false){return gmdate('Y-m-d H:i:s');}
 function apply_filters($name,$value,...$args){return $value;}
 $GLOBALS['meta']=[];$GLOBALS['store_available']=true;
 function update_user_meta($uid,$key,$value){if(!$GLOBALS['store_available'])return false;$GLOBALS['meta'][$uid][$key]=$value;return true;}
-function get_user_meta($uid,$key,$single=true){return $GLOBALS['meta'][$uid][$key]??false;}
+function get_user_meta($uid,$key,$single=true){
+ $exists=isset($GLOBALS['meta'][$uid])&&array_key_exists($key,$GLOBALS['meta'][$uid]);
+ if(!$exists){return $single?'':[];}
+ $value=$GLOBALS['meta'][$uid][$key];
+ return $single?$value:[$value];
+}
 function delete_user_meta($uid,$key){unset($GLOBALS['meta'][$uid][$key]);return true;}
 $wpdb=new MockSecurityDB();
 require __DIR__.'/../../includes/class-sauth-security-orchestrator.php';

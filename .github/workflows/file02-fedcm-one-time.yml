@@ -6,10 +6,6 @@ on:
       - 'tests/security/fedcm-nonce-once-mock.php'
       - '.github/workflows/file02-fedcm-one-time.yml'
   pull_request:
-    paths:
-      - 'includes/class-sauth-modern-auth.php'
-      - 'tests/security/fedcm-nonce-once-mock.php'
-      - '.github/workflows/file02-fedcm-one-time.yml'
 permissions:
   contents: read
 jobs:
@@ -24,6 +20,8 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Prove exact candidate checkout
+        run: test "$(git rev-parse HEAD)" = '${{ github.event.pull_request.head.sha || github.sha }}'
       - uses: shivammathur/setup-php@2.37.2
         with:
           php-version: ${{ matrix.php }}
