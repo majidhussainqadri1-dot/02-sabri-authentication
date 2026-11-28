@@ -152,7 +152,10 @@ sauth_x24_has_all( $routes, array( "'^\\\\.well-known/webauthn/?$'", '/.well-kno
 sauth_x24_has_all( $modern, array(
 	'sauth_fedcm_verify_token_v1',
 	"'fedcm_server_verification_unavailable'",
-	'empty( $verified[\'verified\'] )',
+	'true !== ( $verified[\'verified\'] ?? null )',
+	'! is_int( $verified[\'user_id\'] ?? null )',
+	'$verified[\'user_id\'] <= 0',
+	'catch ( Throwable $error )',
 ), 'X-QA-24-14 FedCM verifier' );
 sauth_x24_assert( false !== strpos( $js, 'identity: { providers: [provider] }' ), 'X-QA-24-14 progressive FedCM browser path' );
 
