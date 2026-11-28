@@ -113,8 +113,15 @@ final class SAUTH_Security_Orchestrator {
 	}
 
 	public static function authentication_blocked( $user_id ) {
-		$state = get_user_meta( absint($user_id), self::LOCKDOWN_META, true );
-		return is_array($state) && ! empty($state['active']);
+		$user_id = absint($user_id);
+		if ( ! $user_id ) { return false; }
+		// The generation-release boundary requires a sole, unambiguous row.
+		// Never let the first of conflicting rows hide an active lockdown.
+		$states = get_user_meta( $user_id, self::LOCKDOWN_META, false );
+		if ( ! is_array($states) || count($states) > 1 ) { return true; }
+		if ( array() === $states ) { return false; }
+		$state = reset($states);
+		return ! is_array($state) || false !== ($state['active'] ?? null);
 	}
 
 	public static function compromise_watch( $user_id ) {
